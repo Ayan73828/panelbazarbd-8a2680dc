@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
@@ -42,6 +43,10 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -53,14 +58,14 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/_authenticated/admin',
+  id: '/admin',
   path: '/admin',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/_authenticated/dashboard',
+  id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const PaymentCancelRoute = PaymentCancelRouteImport.update({
   id: '/payment/cancel',
@@ -246,6 +251,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
@@ -333,6 +339,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
     | '/auth'
     | '/reset-password'
     | '/_authenticated/admin'
@@ -363,10 +370,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
-  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
   PaymentCancelRoute: typeof PaymentCancelRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   ProductsSlugRoute: typeof ProductsSlugRoute
@@ -380,6 +386,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -401,14 +414,14 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/payment/cancel': {
       id: '/payment/cancel'
@@ -624,12 +637,24 @@ const AuthenticatedDashboardRouteWithChildren =
     AuthenticatedDashboardRouteChildren,
   )
 
-const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AuthRoute: AuthRoute,
-  ResetPasswordRoute: ResetPasswordRoute,
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRouteWithChildren
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRouteWithChildren,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   PaymentCancelRoute: PaymentCancelRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   ProductsSlugRoute: ProductsSlugRoute,
