@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BadgeCheck, ChevronLeft, ChevronRight, Cpu, Gamepad2, Grid2X2, Headphones, Menu, Monitor, Package, Play, Search, ShieldCheck, ShoppingBag, Smartphone, Tag, UserRound, X, Zap } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Cpu, Gamepad2, Grid2X2, Headphones, Menu, Monitor, Package, Play, Search, ShieldCheck, ShoppingBag, Smartphone, Tag, UserRound, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { categories, products, type Product } from "@/lib/catalog";
 import banner from "@/assets/store-banner.jpg";
@@ -25,7 +25,7 @@ const slides = [
   { eyebrow: "PREMIUM DIGITAL EXPERIENCE", title: "PANEL BAZAR", accent: "BD", description: "Gaming panels. Digital products. All in one place.", button: "Explore Products" },
   { eyebrow: "ANDROID · iOS · PC", title: "YOUR NEXT", accent: "LEVEL", description: "Explore a collection made for your gaming setup.", button: "Browse Categories" },
   { eyebrow: "THE DIGITAL GAMING STORE", title: "PANEL BAZAR", accent: "COLLECTION", description: "Discover Android, iPhone and PC products.", button: "View Collection" },
-];
+] as const;
 type ModalState = { kind: "product" | "buy" | "demo"; product: Product } | { kind: "account" | "support" | "guide" };
 
 function Storefront() {
