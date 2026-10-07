@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ErrorComponentProps } from "@tanstack/react-router";
 import {
   Outlet,
   Link,
@@ -6,9 +7,11 @@ import {
   useRouter,
   HeadContent,
   Scripts,
-  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/hooks/useAuth";
+import { useSettings } from "@/hooks/useSite";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -78,21 +81,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Panel Bazar BD — Digital Store" },
-      { name: "description", content: "Panel Bazar BD digital gaming storefront." },
-      { name: "author", content: "Panel Bazar BD" },
-      { property: "og:title", content: "Panel Bazar BD" },
-      { property: "og:description", content: "Explore the Panel Bazar BD digital gaming storefront." },
+      { title: "PANEL BAZAR BD" },
+      {
+        name: "description",
+        content: "Premium digital products and reseller panel services at reseller prices.",
+      },
+      { property: "og:site_name", content: "PANEL BAZAR BD" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: appCss,
+        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap",
       },
-      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600&display=swap" },
+      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
   shellComponent: RootShell,
@@ -115,13 +121,38 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/** Applies admin-editable brand colors and favicon at runtime. */
+function BrandTheme() {
+  const { settings } = useSettings();
+  useEffect(() => {
+    const root = document.documentElement;
+    if (settings.primary_color) root.style.setProperty("--primary", settings.primary_color);
+    if (settings.secondary_color) root.style.setProperty("--accent", settings.secondary_color);
+    if (settings.site_name) document.title = settings.site_name;
+    if (settings.favicon_url) {
+      let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = "icon";
+        document.head.appendChild(link);
+      }
+      link.href = settings.favicon_url;
+    }
+  }, [settings]);
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AuthProvider>
+        <BrandTheme />
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+        <Toaster position="top-center" />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
