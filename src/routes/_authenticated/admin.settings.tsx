@@ -6,12 +6,7 @@ export const Route = createFileRoute("/_authenticated/admin/settings")({ compone
 function AdminSettings() {
   return (
     <div className="space-y-6">
-      <AdminHeader title="Settings" description="Branding, contact and payment numbers shown on the website." />
-      <h2 className="font-semibold">Payment numbers</h2>
-      <SettingsForm fields={[
-        { key: "bkash_number", label: "bKash number" },
-        { key: "nagad_number", label: "Nagad number" },
-      ]} />
+      <AdminHeader title="Settings" description="Branding and contact shown on the website." />
       <h2 className="font-semibold">General</h2>
       <SettingsForm fields={[
         { key: "site_name", label: "Site name" },

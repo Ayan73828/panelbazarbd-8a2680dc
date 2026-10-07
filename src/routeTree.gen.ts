@@ -28,7 +28,6 @@ import { Route as AuthenticatedAdminOrdersRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminPaymentsRouteImport } from './routes/_authenticated/admin.payments'
 import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authenticated/admin.products'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
-import { Route as AuthenticatedAdminTrxRouteImport } from './routes/_authenticated/admin.trx'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminWalletRouteImport } from './routes/_authenticated/admin.wallet'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
@@ -139,11 +138,6 @@ const AuthenticatedAdminSettingsRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminTrxRoute = AuthenticatedAdminTrxRouteImport.update({
-  id: '/trx',
-  path: '/trx',
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -210,7 +204,6 @@ export interface FileRoutesByFullPath {
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
-  '/admin/trx': typeof AuthenticatedAdminTrxRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/wallet': typeof AuthenticatedAdminWalletRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
@@ -237,7 +230,6 @@ export interface FileRoutesByTo {
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
-  '/admin/trx': typeof AuthenticatedAdminTrxRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/wallet': typeof AuthenticatedAdminWalletRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
@@ -268,7 +260,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
-  '/_authenticated/admin/trx': typeof AuthenticatedAdminTrxRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/wallet': typeof AuthenticatedAdminWalletRoute
   '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
@@ -299,7 +290,6 @@ export interface FileRouteTypes {
     | '/admin/payments'
     | '/admin/products'
     | '/admin/settings'
-    | '/admin/trx'
     | '/admin/users'
     | '/admin/wallet'
     | '/dashboard/orders'
@@ -326,7 +316,6 @@ export interface FileRouteTypes {
     | '/admin/payments'
     | '/admin/products'
     | '/admin/settings'
-    | '/admin/trx'
     | '/admin/users'
     | '/admin/wallet'
     | '/dashboard/orders'
@@ -356,7 +345,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/payments'
     | '/_authenticated/admin/products'
     | '/_authenticated/admin/settings'
-    | '/_authenticated/admin/trx'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/wallet'
     | '/_authenticated/dashboard/orders'
@@ -514,13 +502,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/admin/trx': {
-      id: '/_authenticated/admin/trx'
-      path: '/trx'
-      fullPath: '/admin/trx'
-      preLoaderRoute: typeof AuthenticatedAdminTrxRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
     '/_authenticated/admin/users': {
       id: '/_authenticated/admin/users'
       path: '/users'
@@ -589,7 +570,6 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminPaymentsRoute: typeof AuthenticatedAdminPaymentsRoute
   AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
-  AuthenticatedAdminTrxRoute: typeof AuthenticatedAdminTrxRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminWalletRoute: typeof AuthenticatedAdminWalletRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -604,7 +584,6 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminPaymentsRoute: AuthenticatedAdminPaymentsRoute,
   AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
-  AuthenticatedAdminTrxRoute: AuthenticatedAdminTrxRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminWalletRoute: AuthenticatedAdminWalletRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
