@@ -13,7 +13,7 @@ export const uddoktapayCreateCharge = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { UDDOKTAPAY_BASE_URL } = await import("./uddoktapay.server");
+    const { paymentBaseUrl } = await import("./uddoktapay.server");
     const apiKey = process.env["UDDOKTAPAY_API_KEY"];
     if (!apiKey) throw new Error("UddoktaPay is not configured yet");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -36,7 +36,7 @@ export const uddoktapayCreateCharge = createServerFn({ method: "POST" })
     });
     if (insErr) throw new Error(insErr.message);
 
-    const res = await fetch(`${UDDOKTAPAY_BASE_URL}/checkout-v2`, {
+    const res = await fetch(`${paymentBaseUrl()}/checkout-v2`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

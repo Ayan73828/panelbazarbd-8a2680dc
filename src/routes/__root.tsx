@@ -128,7 +128,7 @@ function BrandTheme() {
     const root = document.documentElement;
     if (settings.primary_color) root.style.setProperty("--primary", settings.primary_color);
     if (settings.secondary_color) root.style.setProperty("--accent", settings.secondary_color);
-    if (settings.site_name) document.title = settings.site_name;
+
     if (settings.favicon_url) {
       let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
       if (!link) {

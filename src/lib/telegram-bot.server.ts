@@ -1,7 +1,7 @@
 // Server-only Telegram bot logic. Uses the same database as the website.
 import { notifyOwner } from "@/lib/uddoktapay.server";
 
-export const SITE_URL = "https://khandaker-ffpanel.lovable.app";
+export const SITE_URL = "https://project--eb71fb08-cdee-48c5-a0aa-ba46dda837c2.lovable.app";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 async function tg(method: string, body: Record<string, unknown>) {
@@ -63,7 +63,7 @@ async function welcome(chatId: number, user: any) {
   if (user) {
     await send(chatId, `👋 স্বাগতম <b>${esc(user.name || user.username)}</b>!\n💰 ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nনিচের মেনু থেকে বেছে নিন।`, MENU);
   } else {
-    await send(chatId, "👋 <b>KHANDAKER RESELLER</b> এ স্বাগতম!\n\nআপনার ওয়েবসাইট অ্যাকাউন্ট দিয়ে 🔐 LOGIN করুন, অথবা 🆕 CREATE ACCOUNT করুন।", GUEST);
+    await send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nআপনার ওয়েবসাইট অ্যাকাউন্ট দিয়ে 🔐 LOGIN করুন, অথবা 🆕 CREATE ACCOUNT করুন।", GUEST);
   }
 }
 

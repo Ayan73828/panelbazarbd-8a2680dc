@@ -69,8 +69,8 @@
   --card-foreground: oklch(0.975 0.004 250);
   --popover: oklch(0.195 0.014 264);
   --popover-foreground: oklch(0.975 0.004 250);
-  --primary: oklch(0.75 0.19 150);
-  --primary-foreground: oklch(0.16 0.02 160);
+  --primary: oklch(0.88 0.16 180);
+  --primary-foreground: oklch(0.16 0.02 180);
   --secondary: oklch(0.24 0.018 264);
   --secondary-foreground: oklch(0.96 0.004 250);
   --muted: oklch(0.24 0.018 264);
@@ -122,7 +122,7 @@
   h3,
   h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
   }
 }
 

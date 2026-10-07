@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "@tanstack/react-router";
 import type { Session, User } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,11 +32,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       setLoading(false);
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        void router.invalidate();
+        if(event !== "SIGNED_OUT") void queryClient.invalidateQueries();
+      }
       if (!nextSession) queryClient.removeQueries({ queryKey: ["me"] });
     });
     supabase.auth.getSession().then(({ data }) => {
@@ -43,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
     return () => sub.subscription.unsubscribe();
-  }, [queryClient]);
+  }, [queryClient, router]);
 
   const userId = session?.user?.id ?? null;
 
@@ -51,11 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["me", userId],
     enabled: !!userId,
     queryFn: async () => {
-      // Creates the profile row on first sign-in (and grants admin to the first account).
-      await supabase.rpc("ensure_profile");
+      if (!userId) return { profile: null, isAdmin: false };
+      const {error: bootstrapError} = await supabase.rpc("ensure_profile");
+      if (bootstrapError) throw bootstrapError;
       const [{ data: profile }, { data: roles }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", userId!).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", userId!),
+        supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", userId),
       ]);
       return {
         profile: (profile as Profile | null) ?? null,
@@ -73,14 +80,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       profileLoading: !!userId && meQuery.isLoading,
       signOut: async () => {
-        await supabase.auth.signOut();
+        await queryClient.cancelQueries();
         queryClient.clear();
+        await supabase.auth.signOut();
+        await router.navigate({to:"/auth",replace:true});
       },
       refresh: () => {
         queryClient.invalidateQueries({ queryKey: ["me"] });
       },
     }),
-    [session, meQuery.data, meQuery.isLoading, loading, userId, queryClient],
+    [session, meQuery.data, meQuery.isLoading, loading, userId, queryClient, router],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,12 +1,17 @@
 // Server-only helpers for UddoktaPay (Paymently) auto deposits.
-export const UDDOKTAPAY_BASE_URL = "https://khandakerishak.paymently.io/api";
-const OWNER_CHAT_ID = "7262501275";
+export function paymentBaseUrl() {
+  const url = process.env["UDDOKTAPAY_BASE_URL"];
+  if (!url) throw new Error("Payment gateway is not configured yet");
+  return url;
+}
+
 
 export async function notifyOwner(text: string) {
   try {
     const lovKey = process.env["LOVABLE_API_KEY"];
     const tgKey = process.env["TELEGRAM_API_KEY"];
-    if (!lovKey || !tgKey) return;
+    const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"];
+    if (!lovKey || !tgKey || !ownerChatId) return;
     const res = await fetch("https://connector-gateway.lovable.dev/telegram/sendMessage", {
       method: "POST",
       headers: {
@@ -14,7 +19,7 @@ export async function notifyOwner(text: string) {
         "X-Connection-Api-Key": tgKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ chat_id: OWNER_CHAT_ID, text, parse_mode: "HTML" }),
+      body: JSON.stringify({ chat_id: ownerChatId, text, parse_mode: "HTML" }),
     });
     if (!res.ok) console.error("telegram notify failed", res.status, await res.text());
   } catch (e) {
@@ -42,7 +47,7 @@ export async function verifyAndCredit(invoiceId: string, onlyUserId?: string): P
   if (row && onlyUserId && row.user_id !== onlyUserId) throw new Error("Forbidden");
   if (row?.status === "completed") return { status: "completed", amount: Number(row.amount) };
 
-  const res = await fetch(`${UDDOKTAPAY_BASE_URL}/verify-payment`, {
+  const res = await fetch(`${paymentBaseUrl()}/verify-payment`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json", "RT-UDDOKTAPAY-API-KEY": apiKey },
     body: JSON.stringify({ invoice_id: invoiceId }),

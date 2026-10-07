@@ -13,6 +13,7 @@ export const Route = createFileRoute("/_authenticated/dashboard/password")({
 });
 
 function PasswordPage() {
+  const [current, setCurrent] = useState("");
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [saving, setSaving] = useState(false);
@@ -21,7 +22,7 @@ function PasswordPage() {
     if (pw.length < 6) { toast.error("Password must be at least 6 characters"); return; }
     if (pw !== pw2) { toast.error("Passwords do not match"); return; }
     setSaving(true);
-    const { error } = await supabase.auth.updateUser({ password: pw });
+    const { error } = await supabase.auth.updateUser({ password: pw, current_password: current });
     setSaving(false);
     if (error) { toast.error(errMsg(error)); return; }
     setPw(""); setPw2("");
@@ -31,6 +32,7 @@ function PasswordPage() {
     <div className="max-w-lg">
       <PageHeader title="Change Password" />
       <form onSubmit={save} className="panel space-y-4 p-5">
+        <div className="space-y-1.5"><Label htmlFor="current-password">Current password</Label><Input id="current-password" type="password" required value={current} onChange={e=>setCurrent(e.target.value)} autoComplete="current-password" /></div>
         <div className="space-y-1.5"><Label htmlFor="a">New password</Label><Input id="a" type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" /></div>
         <div className="space-y-1.5"><Label htmlFor="b">Confirm new password</Label><Input id="b" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} autoComplete="new-password" /></div>
         <Button type="submit" disabled={saving} className="rounded-full">{saving ? "Saving…" : "Update password"}</Button>

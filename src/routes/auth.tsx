@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
 
 type Mode = "login" | "register" | "forgot";
@@ -66,12 +67,7 @@ function LoginForm() {
     e.preventDefault();
     setBusy(true);
     try {
-      let email = id.trim();
-      if (!email.includes("@")) {
-        const { data } = await supabase.rpc("resolve_login_email", { p_username: email });
-        if (!data) throw new Error("Invalid username/email or password");
-        email = data;
-      }
+      const email = id.trim();
       const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
       if (error) throw new Error(error.message === "Invalid login credentials" ? "Invalid username/email or password" : error.message);
       localStorage.setItem("kr_remember", remember ? "1" : "0");
@@ -88,7 +84,12 @@ function LoginForm() {
   return (
     <form onSubmit={submit} className="space-y-4">
       <h1 className="text-xl font-bold">Login to your account</h1>
-      <div className="space-y-1.5"><Label htmlFor="id">Username or email</Label><Input id="id" required value={id} onChange={(e) => setId(e.target.value)} autoComplete="username" /></div>
+      <Button type="button" variant="secondary" className="w-full rounded-full" onClick={async () => {
+        const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+        if(result.error) toast.error(String(result.error.message));
+        else if(!result.redirected) navigate({to:"/dashboard"});
+      }}>Continue with Google</Button>
+      <div className="space-y-1.5"><Label htmlFor="id">Email</Label><Input id="id" type="email" required value={id} onChange={(e) => setId(e.target.value)} autoComplete="username" /></div>
       <div className="space-y-1.5"><Label htmlFor="pw">Password</Label><Input id="pw" type="password" required value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" /></div>
       <div className="flex items-center justify-between text-sm">
         <label className="flex items-center gap-2"><Checkbox checked={remember} onCheckedChange={(v) => setRemember(!!v)} /> Remember me</label>
@@ -116,13 +117,11 @@ function RegisterForm() {
     if (f.password !== f.confirm) return void toast.error("Passwords do not match");
     setBusy(true);
     try {
-      const { data: taken } = await supabase.rpc("resolve_login_email", { p_username: username });
-      if (taken) throw new Error("That username is already taken");
       const { data, error } = await supabase.auth.signUp({
         email: f.email.trim(),
         password: f.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: window.location.origin,
           data: { name: f.name.trim(), username, phone: f.phone.trim() },
         },
       });
