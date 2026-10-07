@@ -8,6 +8,13 @@
       "when": 1791337820831,
       "tag": "0000_restore_panel_bazar_core",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791337870130,
+      "tag": "0001_restore_secure_wallet_and_delivery",
+      "breakpoints": true
     }
   ]
 }

@@ -758,6 +758,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_balance: {
+        Args: {
+          p_amount: number
+          p_description: string
+          p_type?: string
+          p_user_id: string
+        }
+        Returns: number
+      }
+      admin_refund_order: { Args: { p_order_id: string }; Returns: undefined }
+      admin_stats: { Args: never; Returns: Json }
+      credit_uddoktapay_payment: {
+        Args: { p_invoice_id: string }
+        Returns: string
+      }
       ensure_profile: { Args: never; Returns: undefined }
       has_role: {
         Args: {
@@ -767,6 +782,23 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      package_stock: {
+        Args: { p_product_id: string }
+        Returns: {
+          available: number
+          package_id: string
+          sold: number
+        }[]
+      }
+      purchase_package: { Args: { p_package_id: string }; Returns: string }
+      purchase_product: {
+        Args: { p_product_id: string; p_quantity: number }
+        Returns: string
+      }
+      verify_payment: {
+        Args: { p_amount: number; p_method: string; p_trx: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "user" | "admin"
