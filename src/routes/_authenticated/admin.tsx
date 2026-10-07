@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { CreditCard, FolderTree, KeyRound, ListChecks, Home, LayoutDashboard, LogOut, Megaphone, Package, ReceiptText, Settings, ShieldAlert, Users, Wallet } from "lucide-react";
+import { CreditCard, FolderTree, KeyRound, Home, LayoutDashboard, LogOut, Megaphone, Package, ReceiptText, Settings, ShieldAlert, Users, Wallet } from "lucide-react";
 import { Brand } from "@/components/site/Brand";
 import { EmptyState, RowSkeleton } from "@/components/site/States";
 import { Button } from "@/components/ui/button";
