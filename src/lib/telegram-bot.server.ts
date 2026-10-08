@@ -1,7 +1,7 @@
 // Server-only Telegram bot logic. Uses the same database as the website.
 import { notifyOwner } from "@/lib/uddoktapay.server";
 
-export const SITE_URL = "https://project--eb71fb08-cdee-48c5-a0aa-ba46dda837c2.lovable.app";
+export const SITE_URL = "https://panelbazarbd.lovable.app";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 async function tg(method: string, body: Record<string, unknown>) {
