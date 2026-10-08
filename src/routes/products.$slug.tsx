@@ -108,7 +108,6 @@ function ProductDetail() {
       return (data ?? []).map((x) => ({ ...x, price: Number(x.price), available: st.get(x.id) ?? 0 }));
     },
   });
-  const [pkgId, setPkgId] = useState<string | null>(null);
 
   const related = useQuery({
     queryKey: ["related", p?.category_id, p?.id],
@@ -131,7 +130,6 @@ function ProductDetail() {
   const cat = p.categories as { name: string; slug: string } | null;
   const packages = pkgs.data ?? [];
   const hasPackages = packages.length > 0;
-  const selected = packages.find((x) => x.id === pkgId) ?? null;
 
   return (
     <SiteLayout>
