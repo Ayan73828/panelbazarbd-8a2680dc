@@ -36,6 +36,8 @@ import { Route as AuthenticatedDashboardPasswordRouteImport } from './routes/_au
 import { Route as AuthenticatedDashboardProfileRouteImport } from './routes/_authenticated/dashboard.profile'
 import { Route as AuthenticatedDashboardPurchasesRouteImport } from './routes/_authenticated/dashboard.purchases'
 import { Route as AuthenticatedDashboardWalletRouteImport } from './routes/_authenticated/dashboard.wallet'
+import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
+import { Route as ApiPublicUddoktapayWebhookRouteImport } from './routes/api/public/uddoktapay/webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -185,6 +187,18 @@ const AuthenticatedDashboardWalletRoute =
     path: '/wallet',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const ApiPublicTelegramWebhookRoute =
+  ApiPublicTelegramWebhookRouteImport.update({
+    id: '/api/public/telegram/webhook',
+    path: '/api/public/telegram/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicUddoktapayWebhookRoute =
+  ApiPublicUddoktapayWebhookRouteImport.update({
+    id: '/api/public/uddoktapay/webhook',
+    path: '/api/public/uddoktapay/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -213,6 +227,8 @@ export interface FileRoutesByFullPath {
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
+  '/api/public/uddoktapay/webhook': typeof ApiPublicUddoktapayWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -239,6 +255,8 @@ export interface FileRoutesByTo {
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
+  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
+  '/api/public/uddoktapay/webhook': typeof ApiPublicUddoktapayWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -269,6 +287,8 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
+  '/api/public/uddoktapay/webhook': typeof ApiPublicUddoktapayWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -299,6 +319,8 @@ export interface FileRouteTypes {
     | '/dashboard/wallet'
     | '/admin/'
     | '/dashboard/'
+    | '/api/public/telegram/webhook'
+    | '/api/public/uddoktapay/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -325,6 +347,8 @@ export interface FileRouteTypes {
     | '/dashboard/wallet'
     | '/admin'
     | '/dashboard'
+    | '/api/public/telegram/webhook'
+    | '/api/public/uddoktapay/webhook'
   id:
     | '__root__'
     | '/'
@@ -354,6 +378,8 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/wallet'
     | '/_authenticated/admin/'
     | '/_authenticated/dashboard/'
+    | '/api/public/telegram/webhook'
+    | '/api/public/uddoktapay/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -365,6 +391,8 @@ export interface RootRouteChildren {
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   ProductsSlugRoute: typeof ProductsSlugRoute
   ProductsIndexRoute: typeof ProductsIndexRoute
+  ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
+  ApiPublicUddoktapayWebhookRoute: typeof ApiPublicUddoktapayWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -558,6 +586,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardWalletRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
+    '/api/public/telegram/webhook': {
+      id: '/api/public/telegram/webhook'
+      path: '/api/public/telegram/webhook'
+      fullPath: '/api/public/telegram/webhook'
+      preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/uddoktapay/webhook': {
+      id: '/api/public/uddoktapay/webhook'
+      path: '/api/public/uddoktapay/webhook'
+      fullPath: '/api/public/uddoktapay/webhook'
+      preLoaderRoute: typeof ApiPublicUddoktapayWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -638,6 +680,8 @@ const rootRouteChildren: RootRouteChildren = {
   PaymentSuccessRoute: PaymentSuccessRoute,
   ProductsSlugRoute: ProductsSlugRoute,
   ProductsIndexRoute: ProductsIndexRoute,
+  ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
+  ApiPublicUddoktapayWebhookRoute: ApiPublicUddoktapayWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
