@@ -108,7 +108,6 @@ function ProductDetail() {
       return (data ?? []).map((x) => ({ ...x, price: Number(x.price), available: st.get(x.id) ?? 0 }));
     },
   });
-  const [pkgId, setPkgId] = useState<string | null>(null);
 
   const related = useQuery({
     queryKey: ["related", p?.category_id, p?.id],
@@ -131,7 +130,6 @@ function ProductDetail() {
   const cat = p.categories as { name: string; slug: string } | null;
   const packages = pkgs.data ?? [];
   const hasPackages = packages.length > 0;
-  const selected = packages.find((x) => x.id === pkgId) ?? null;
 
   return (
     <SiteLayout>
@@ -169,37 +167,13 @@ function ProductDetail() {
             {p.short_description && <p className="text-muted-foreground">{p.short_description}</p>}
             {hasPackages ? (
               <div className="space-y-3">
-                <h2 className="font-semibold">Select package</h2>
-                <div className="grid grid-cols-2 gap-2">
-                  {packages.map((pk) => {
-                    const off = pk.price <= 0 || pk.available <= 0;
-                    const on = pk.id === pkgId;
-                    return (
-                      <button
-                        key={pk.id}
-                        type="button"
-                        onClick={() => setPkgId(pk.id)}
-                        className={`min-w-0 rounded-xl border p-3 text-left transition-colors ${on ? "border-primary bg-primary/10" : "border-border bg-surface-2"}`}
-                      >
-                        <p className="truncate text-sm font-bold uppercase">{pk.name}</p>
-                        <p className="font-display text-lg font-bold text-primary">{pk.price > 0 ? money(pk.price, cur) : "—"}</p>
-                        <p className={`text-xs ${off ? "text-destructive" : "text-success"}`}>
-                          {pk.price <= 0 ? "Price not set" : pk.available > 0 ? `${pk.available} in stock` : "Stock out"}
-                        </p>
-                      </button>
-                    );
-                  })}
+                <div className="flex items-end gap-2">
+                  <span className="text-sm text-muted-foreground">From</span>
+                  <span className="font-display text-3xl font-bold text-primary">{money(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price)), cur)}</span>
                 </div>
-                {selected && selected.available <= 0 && selected.price > 0 && (
-                  <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">এই প্যাকেজের Key বর্তমানে শেষ।</p>
-                )}
-                <Button
-                  size="lg"
-                  className="h-12 w-full rounded-full"
-                  disabled={!selected || selected.available <= 0 || selected.price <= 0}
-                  onClick={() => setOpen(true)}
-                >
-                  <ShoppingCart className="mr-2 h-4 w-4" /> {selected ? `Buy Now — ${money(selected.price, cur)}` : "Select a package"}
+                <p className="text-sm text-muted-foreground">{packages.length} variant available</p>
+                <Button size="lg" className="h-12 w-full rounded-full" disabled={!packages.some((x) => x.available > 0 && x.price > 0)} onClick={() => setOpen(true)}>
+                  <ShoppingCart className="mr-2 h-4 w-4" /> {packages.some((x) => x.available > 0 && x.price > 0) ? "Buy Now" : "Stock out"}
                 </Button>
               </div>
             ) : (
@@ -251,34 +225,42 @@ function ProductDetail() {
       <BuyDialog
         open={open}
         onOpenChange={setOpen}
-        product={{
-          id: p.id,
-          name: selected ? `${p.name} — ${selected.name}` : p.name,
-          unit: selected ? selected.price : effectivePrice(p),
-          slug: p.slug,
-          packageId: selected?.id ?? null,
-        }}
+        product={{ id: p.id, name: p.name, slug: p.slug, unit: effectivePrice(p), stock: p.stock }}
+        packages={packages}
       />
     </SiteLayout>
   );
 }
 
-function BuyDialog({ open, onOpenChange, product }: { open: boolean; onOpenChange: (v: boolean) => void; product: { id: string; name: string; unit: number; slug: string; packageId: string | null } }) {
+type Pkg = { id: string; name: string; duration: string; price: number; available: number };
+
+function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; onOpenChange: (v: boolean) => void; product: { id: string; name: string; unit: number; slug: string; stock: number }; packages: Pkg[] }) {
   const { user, profile, refresh } = useAuth();
   const { settings } = useSettings();
   const cur = settings.currency_symbol;
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const [step, setStep] = useState(1);
+  const [pkgId, setPkgId] = useState("");
+  const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const total = product.unit;
+  const hasPk = packages.length > 0;
+  const sel = packages.find((x) => x.id === pkgId) ?? null;
+  const unit = hasPk ? (sel?.price ?? 0) : product.unit;
+  const maxQty = Math.max(1, Math.min(20, hasPk ? (sel?.available ?? 1) : product.stock));
+  const total = unit * qty;
   const balance = Number(profile?.balance ?? 0);
   const insufficient = balance < total;
 
+  function close(v: boolean) {
+    onOpenChange(v);
+    if (!v) { setStep(1); setError(""); setQty(1); }
+  }
   function goAddMoney() {
     sessionStorage.setItem("kr_return_to", `/products/${product.slug}`);
-    onOpenChange(false);
-    navigate({ to: "/dashboard/wallet", search: { amount: total, auto: true } });
+    close(false);
+    navigate({ to: "/dashboard/wallet", search: { amount: Math.ceil(total - balance), auto: true } });
   }
 
   async function buy() {
@@ -286,50 +268,99 @@ function BuyDialog({ open, onOpenChange, product }: { open: boolean; onOpenChang
     if (insufficient) { goAddMoney(); return; }
     setBusy(true);
     setError("");
-    const { error } = product.packageId
-      ? await supabase.rpc("purchase_package", { p_package_id: product.packageId })
-      : await supabase.rpc("purchase_product", { p_product_id: product.id, p_quantity: 1 });
-    setBusy(false);
-    if (error) {
-      if (error.message.includes("INSUFFICIENT_BALANCE")) { goAddMoney(); return; }
-      setError(error.message.includes("NO_KEYS") ? "এই প্যাকেজের Key বর্তমানে শেষ।" : errMsg(error));
-      return;
+    let done = 0;
+    for (let i = 0; i < qty; i++) {
+      const { error } = sel
+        ? await supabase.rpc("purchase_package", { p_package_id: sel.id })
+        : await supabase.rpc("purchase_product", { p_product_id: product.id, p_quantity: 1 });
+      if (error) {
+        setError(error.message.includes("NO_KEYS") ? `স্টক শেষ — ${done}টি কেনা হয়েছে।` : error.message.includes("INSUFFICIENT_BALANCE") ? `ব্যালেন্স কম — ${done}টি কেনা হয়েছে।` : errMsg(error));
+        break;
+      }
+      done++;
     }
-    playMoneyDeduct();
-    toast.success("Purchase successful! Your key is in My Orders.");
+    setBusy(false);
     refresh();
     qc.invalidateQueries({ queryKey: ["product", product.slug] });
     qc.invalidateQueries({ queryKey: ["packages"] });
     qc.invalidateQueries({ queryKey: ["products"] });
     qc.invalidateQueries({ queryKey: ["my"] });
-    onOpenChange(false);
-    navigate({ to: "/dashboard/orders" });
+    if (done === qty) {
+      playMoneyDeduct();
+      toast.success(`${done}টি কেনা সফল! Key পাবেন My Orders-এ।`);
+      close(false);
+      navigate({ to: "/dashboard/orders" });
+    }
   }
 
+  const steps = ["Variant", "Account", "Payment"];
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
-        <DialogHeader><DialogTitle>Confirm purchase</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="truncate">{product.name}</DialogTitle></DialogHeader>
         {!user ? (
           <div className="space-y-4 text-sm">
-            <p className="text-muted-foreground">Please log in to buy this product.</p>
+            <p className="text-muted-foreground">কিনতে আগে লগইন করুন।</p>
             <Button asChild className="w-full"><Link to="/auth" search={{ mode: "login" }}>Login</Link></Button>
           </div>
         ) : (
           <div className="space-y-4 text-sm">
-            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Product</span><span className="min-w-0 break-words text-right font-medium">{product.name}</span></div>
-            <div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Price</span><span className="text-primary">{money(total, cur)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Your balance</span><span className={insufficient ? "text-destructive" : "text-success"}>{money(balance, cur)}</span></div>
-            {insufficient && !error && (
-              <p className="rounded-lg bg-primary/10 p-3 text-primary">ব্যালেন্স কম। "Add money" চাপলে ৳{Math.max(10, Math.ceil(total))} এর পেমেন্ট পেজ খুলবে — বিকাশ/নগদে পে করে ফিরে এসে আবার Buy Now চাপুন।</p>
+            <div className="flex gap-2">
+              {steps.map((s, i) => (
+                <div key={s} className={`flex-1 rounded-full py-1 text-center text-xs font-semibold ${step >= i + 1 ? "bg-primary text-primary-foreground" : "bg-surface-2 text-muted-foreground"}`}>{i + 1}. {s}</div>
+              ))}
+            </div>
+            {step === 1 && (
+              <div className="space-y-4">
+                {hasPk && (
+                  <label className="block space-y-1.5">
+                    <span className="font-medium">Choose Variant</span>
+                    <select className="h-11 w-full rounded-lg border border-input bg-background px-3" value={pkgId} onChange={(e) => { setPkgId(e.target.value); setQty(1); }}>
+                      <option value="">Select an option</option>
+                      {packages.map((pk) => (
+                        <option key={pk.id} value={pk.id} disabled={pk.available <= 0 || pk.price <= 0}>
+                          {pk.name} — {money(pk.price, cur)}{pk.available <= 0 ? " (Stock out)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <div className="space-y-1.5">
+                  <span className="font-medium">Quantity</span>
+                  <div className="flex items-center gap-3">
+                    <Button type="button" size="icon" variant="secondary" onClick={() => setQty((q) => Math.max(1, q - 1))}>−</Button>
+                    <span className="w-8 text-center text-lg font-bold">{qty}</span>
+                    <Button type="button" size="icon" variant="secondary" onClick={() => setQty((q) => Math.min(maxQty, q + 1))}>+</Button>
+                  </div>
+                </div>
+                <div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Total</span><span className="text-primary">{money(total, cur)}</span></div>
+              </div>
+            )}
+            {step === 2 && (
+              <div className="space-y-2 rounded-lg bg-surface-2 p-3">
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Name</span><span className="font-medium">{profile?.name || "—"}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Email</span><span className="min-w-0 break-all text-right font-medium">{profile?.email ?? user.email}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance</span><span className={insufficient ? "text-destructive" : "text-success"}>{money(balance, cur)}</span></div>
+              </div>
+            )}
+            {step === 3 && (
+              <div className="space-y-2">
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Item</span><span className="text-right font-medium">{sel ? sel.name : product.name} × {qty}</span></div>
+                <div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Total</span><span className="text-primary">{money(total, cur)}</span></div>
+                {insufficient && <p className="rounded-lg bg-primary/10 p-3 text-primary">ব্যালেন্স কম। "Add money" চাপলে পেমেন্ট পেজ খুলবে।</p>}
+              </div>
             )}
             {error && <p className="rounded-lg bg-destructive/10 p-3 text-destructive">{error}</p>}
           </div>
         )}
         {user && (
           <DialogFooter className="gap-2">
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={buy} disabled={busy}>{busy ? "Processing…" : insufficient ? `Add money ৳${Math.max(10, Math.ceil(total))}` : `Pay ${money(total, cur)}`}</Button>
+            <Button variant="secondary" onClick={() => (step === 1 ? close(false) : setStep(step - 1))}>{step === 1 ? "Cancel" : "Back"}</Button>
+            {step < 3 ? (
+              <Button disabled={(hasPk && !sel) || unit <= 0} onClick={() => setStep(step + 1)}>Next</Button>
+            ) : (
+              <Button onClick={buy} disabled={busy}>{busy ? "Processing…" : insufficient ? "Add money" : `Pay Now ${money(total, cur)}`}</Button>
+            )}
           </DialogFooter>
         )}
       </DialogContent>
