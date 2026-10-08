@@ -31,7 +31,6 @@ function WalletPage() {
       <div className="panel w-full min-w-0 overflow-hidden p-4">
         <p className="text-sm text-muted-foreground">Current balance</p>
         <p className="font-display break-all text-3xl font-bold text-primary">{money(profile?.balance, settings.currency_symbol)}</p>
-        <p className="mt-3 text-sm text-muted-foreground">To add balance, contact the admin.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {wa && <Button asChild size="sm" className="rounded-full"><a href={wa} target="_blank" rel="noreferrer"><MessageCircle className="mr-1 h-4 w-4" /> WhatsApp</a></Button>}
           {tg && <Button asChild size="sm" variant="secondary" className="rounded-full"><a href={tg} target="_blank" rel="noreferrer"><Send className="mr-1 h-4 w-4" /> Telegram</a></Button>}

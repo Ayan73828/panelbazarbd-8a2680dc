@@ -769,6 +769,10 @@ export type Database = {
       }
       admin_refund_order: { Args: { p_order_id: string }; Returns: undefined }
       admin_stats: { Args: never; Returns: Json }
+      bot_purchase_package: {
+        Args: { p_package_id: string; p_user_id: string }
+        Returns: string
+      }
       credit_uddoktapay_payment: {
         Args: { p_invoice_id: string }
         Returns: string
@@ -795,6 +799,7 @@ export type Database = {
         Args: { p_product_id: string; p_quantity: number }
         Returns: string
       }
+      resolve_login_email: { Args: { p_username: string }; Returns: string }
       verify_payment: {
         Args: { p_amount: number; p_method: string; p_trx: string }
         Returns: string

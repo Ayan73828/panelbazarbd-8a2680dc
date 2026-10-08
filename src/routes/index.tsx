@@ -7,6 +7,7 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { ProductCard, ProductCardSkeleton, type ProductRow } from "@/components/site/ProductCard";
 import { EmptyState, ErrorState } from "@/components/site/States";
 import { useActiveAnnouncements, useCategories, useSections, useSettings } from "@/hooks/useSite";
+import { useAuth } from "@/hooks/useAuth";
 import { tgLink, telLink, waLink } from "@/lib/site";
 
 export const Route = createFileRoute("/")({
@@ -61,6 +62,7 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle?: string | 
 
 function HomePage() {
   const { settings } = useSettings();
+  const { user } = useAuth();
   const sections = useSections();
   const categories = useCategories();
   const announcements = useActiveAnnouncements();
@@ -101,11 +103,13 @@ function HomePage() {
                     <ArrowRight className="ml-1 h-4 w-4" />
                   </Link>
                 </Button>
-                <Button asChild size="lg" variant="secondary" className="rounded-full">
-                  <Link to="/auth" search={{ mode: "register" }}>
-                    Create account
-                  </Link>
-                </Button>
+                {!user && (
+                  <Button asChild size="lg" variant="secondary" className="rounded-full">
+                    <Link to="/auth" search={{ mode: "register" }}>
+                      Create account
+                    </Link>
+                  </Button>
+                )}
               </div>
               <div className="flex flex-wrap gap-4 pt-2 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
@@ -116,22 +120,11 @@ function HomePage() {
                 </span>
               </div>
             </div>
-            <div className="panel overflow-hidden">
-              {settings.hero_image_url ? (
-                <img
-                  src={settings.hero_image_url}
-                  alt={settings.hero_title}
-                  className="aspect-[16/11] w-full object-cover"
-                />
-              ) : (
-                <div className="flex aspect-[16/11] w-full flex-col items-center justify-center gap-3 bg-surface-2 p-8 text-center">
-                  <Zap className="h-10 w-10 text-primary" />
-                  <p className="text-sm text-muted-foreground">
-                    Add a hero image from Admin → Homepage
-                  </p>
-                </div>
-              )}
-            </div>
+            {settings.hero_image_url && (
+              <div className="panel overflow-hidden">
+                <img src={settings.hero_image_url} alt={settings.hero_title} className="aspect-[16/11] w-full object-cover" />
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -219,6 +212,24 @@ function HomePage() {
           )}
         </section>
       )}
+
+      {(categories.data ?? []).map((c) => {
+        const list = (products.data ?? []).filter((p) => p.category_id === c.id);
+        if (list.length === 0) return null;
+        return (
+          <section key={c.id} className="mx-auto w-full max-w-6xl px-4 pb-10">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold uppercase tracking-wide sm:text-2xl">{c.name}</h2>
+              <Link to="/products" search={{ category: c.slug }} className="text-sm text-primary">See all</Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {list.slice(0, 6).map((p) => (
+                <ProductCard key={p.id} product={p} categoryName={c.name} currency={currency} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
 
       {enabled("latest") && (
         <section className="mx-auto w-full max-w-6xl px-4 pb-10">

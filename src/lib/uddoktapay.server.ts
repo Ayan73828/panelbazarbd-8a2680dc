@@ -8,17 +8,12 @@ export function paymentBaseUrl() {
 
 export async function notifyOwner(text: string) {
   try {
-    const lovKey = process.env["LOVABLE_API_KEY"];
-    const tgKey = process.env["TELEGRAM_API_KEY"];
+    const token = process.env["TELEGRAM_BOT_TOKEN"];
     const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"];
-    if (!lovKey || !tgKey || !ownerChatId) return;
-    const res = await fetch("https://connector-gateway.lovable.dev/telegram/sendMessage", {
+    if (!token || !ownerChatId) return;
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovKey}`,
-        "X-Connection-Api-Key": tgKey,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: ownerChatId, text, parse_mode: "HTML" }),
     });
     if (!res.ok) console.error("telegram notify failed", res.status, await res.text());
