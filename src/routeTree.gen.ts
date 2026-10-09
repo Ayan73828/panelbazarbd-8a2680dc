@@ -28,6 +28,7 @@ import { Route as AuthenticatedAdminOrdersRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminPaymentsRouteImport } from './routes/_authenticated/admin.payments'
 import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authenticated/admin.products'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
+import { Route as AuthenticatedAdminSupportRouteImport } from './routes/_authenticated/admin.support'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminWalletRouteImport } from './routes/_authenticated/admin.wallet'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
@@ -35,6 +36,7 @@ import { Route as AuthenticatedDashboardOrdersRouteImport } from './routes/_auth
 import { Route as AuthenticatedDashboardPasswordRouteImport } from './routes/_authenticated/dashboard.password'
 import { Route as AuthenticatedDashboardProfileRouteImport } from './routes/_authenticated/dashboard.profile'
 import { Route as AuthenticatedDashboardPurchasesRouteImport } from './routes/_authenticated/dashboard.purchases'
+import { Route as AuthenticatedDashboardSupportRouteImport } from './routes/_authenticated/dashboard.support'
 import { Route as AuthenticatedDashboardWalletRouteImport } from './routes/_authenticated/dashboard.wallet'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicUddoktapayWebhookRouteImport } from './routes/api/public/uddoktapay/webhook'
@@ -140,6 +142,12 @@ const AuthenticatedAdminSettingsRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminSupportRoute =
+  AuthenticatedAdminSupportRouteImport.update({
+    id: '/support',
+    path: '/support',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -181,6 +189,12 @@ const AuthenticatedDashboardPurchasesRoute =
     path: '/purchases',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const AuthenticatedDashboardSupportRoute =
+  AuthenticatedDashboardSupportRouteImport.update({
+    id: '/support',
+    path: '/support',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
 const AuthenticatedDashboardWalletRoute =
   AuthenticatedDashboardWalletRouteImport.update({
     id: '/wallet',
@@ -218,12 +232,14 @@ export interface FileRoutesByFullPath {
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/admin/support': typeof AuthenticatedAdminSupportRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/wallet': typeof AuthenticatedAdminWalletRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/password': typeof AuthenticatedDashboardPasswordRoute
   '/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
   '/dashboard/purchases': typeof AuthenticatedDashboardPurchasesRoute
+  '/dashboard/support': typeof AuthenticatedDashboardSupportRoute
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -246,12 +262,14 @@ export interface FileRoutesByTo {
   '/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/admin/products': typeof AuthenticatedAdminProductsRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/admin/support': typeof AuthenticatedAdminSupportRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/wallet': typeof AuthenticatedAdminWalletRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/password': typeof AuthenticatedDashboardPasswordRoute
   '/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
   '/dashboard/purchases': typeof AuthenticatedDashboardPurchasesRoute
+  '/dashboard/support': typeof AuthenticatedDashboardSupportRoute
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
@@ -278,12 +296,14 @@ export interface FileRoutesById {
   '/_authenticated/admin/payments': typeof AuthenticatedAdminPaymentsRoute
   '/_authenticated/admin/products': typeof AuthenticatedAdminProductsRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/_authenticated/admin/support': typeof AuthenticatedAdminSupportRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/wallet': typeof AuthenticatedAdminWalletRoute
   '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/_authenticated/dashboard/password': typeof AuthenticatedDashboardPasswordRoute
   '/_authenticated/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
   '/_authenticated/dashboard/purchases': typeof AuthenticatedDashboardPurchasesRoute
+  '/_authenticated/dashboard/support': typeof AuthenticatedDashboardSupportRoute
   '/_authenticated/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
@@ -310,12 +330,14 @@ export interface FileRouteTypes {
     | '/admin/payments'
     | '/admin/products'
     | '/admin/settings'
+    | '/admin/support'
     | '/admin/users'
     | '/admin/wallet'
     | '/dashboard/orders'
     | '/dashboard/password'
     | '/dashboard/profile'
     | '/dashboard/purchases'
+    | '/dashboard/support'
     | '/dashboard/wallet'
     | '/admin/'
     | '/dashboard/'
@@ -338,12 +360,14 @@ export interface FileRouteTypes {
     | '/admin/payments'
     | '/admin/products'
     | '/admin/settings'
+    | '/admin/support'
     | '/admin/users'
     | '/admin/wallet'
     | '/dashboard/orders'
     | '/dashboard/password'
     | '/dashboard/profile'
     | '/dashboard/purchases'
+    | '/dashboard/support'
     | '/dashboard/wallet'
     | '/admin'
     | '/dashboard'
@@ -369,12 +393,14 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/payments'
     | '/_authenticated/admin/products'
     | '/_authenticated/admin/settings'
+    | '/_authenticated/admin/support'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/wallet'
     | '/_authenticated/dashboard/orders'
     | '/_authenticated/dashboard/password'
     | '/_authenticated/dashboard/profile'
     | '/_authenticated/dashboard/purchases'
+    | '/_authenticated/dashboard/support'
     | '/_authenticated/dashboard/wallet'
     | '/_authenticated/admin/'
     | '/_authenticated/dashboard/'
@@ -530,6 +556,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/support': {
+      id: '/_authenticated/admin/support'
+      path: '/support'
+      fullPath: '/admin/support'
+      preLoaderRoute: typeof AuthenticatedAdminSupportRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/users': {
       id: '/_authenticated/admin/users'
       path: '/users'
@@ -579,6 +612,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardPurchasesRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
+    '/_authenticated/dashboard/support': {
+      id: '/_authenticated/dashboard/support'
+      path: '/support'
+      fullPath: '/dashboard/support'
+      preLoaderRoute: typeof AuthenticatedDashboardSupportRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
     '/_authenticated/dashboard/wallet': {
       id: '/_authenticated/dashboard/wallet'
       path: '/wallet'
@@ -612,6 +652,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminPaymentsRoute: typeof AuthenticatedAdminPaymentsRoute
   AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
+  AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminWalletRoute: typeof AuthenticatedAdminWalletRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -626,6 +667,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminPaymentsRoute: AuthenticatedAdminPaymentsRoute,
   AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
+  AuthenticatedAdminSupportRoute: AuthenticatedAdminSupportRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminWalletRoute: AuthenticatedAdminWalletRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
@@ -639,6 +681,7 @@ interface AuthenticatedDashboardRouteChildren {
   AuthenticatedDashboardPasswordRoute: typeof AuthenticatedDashboardPasswordRoute
   AuthenticatedDashboardProfileRoute: typeof AuthenticatedDashboardProfileRoute
   AuthenticatedDashboardPurchasesRoute: typeof AuthenticatedDashboardPurchasesRoute
+  AuthenticatedDashboardSupportRoute: typeof AuthenticatedDashboardSupportRoute
   AuthenticatedDashboardWalletRoute: typeof AuthenticatedDashboardWalletRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
 }
@@ -649,6 +692,7 @@ const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
     AuthenticatedDashboardPasswordRoute: AuthenticatedDashboardPasswordRoute,
     AuthenticatedDashboardProfileRoute: AuthenticatedDashboardProfileRoute,
     AuthenticatedDashboardPurchasesRoute: AuthenticatedDashboardPurchasesRoute,
+    AuthenticatedDashboardSupportRoute: AuthenticatedDashboardSupportRoute,
     AuthenticatedDashboardWalletRoute: AuthenticatedDashboardWalletRoute,
     AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   }
