@@ -58,6 +58,16 @@ function PaymentSuccess() {
     };
   }, [invoice_id, user, refresh]);
 
+  useEffect(() => {
+    if (state !== "completed") return;
+    const t = setTimeout(() => {
+      const back = sessionStorage.getItem("kr_return_to");
+      sessionStorage.removeItem("kr_return_to");
+      window.location.href = back || "/dashboard/wallet";
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [state]);
+
   return (
     <SiteLayout>
       <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-4 px-4 py-16 text-center">
@@ -72,6 +82,7 @@ function PaymentSuccess() {
             <CheckCircle2 className="h-12 w-12 text-primary" />
             <h1 className="font-display text-2xl font-bold">Payment successful!</h1>
             <p className="text-muted-foreground">৳{amount} has been added to your wallet.</p>
+            <p className="text-xs text-muted-foreground">৩ সেকেন্ডের মধ্যে ফিরিয়ে নেওয়া হচ্ছে…</p>
             {returnTo ? (
               <Button className="h-12 w-full" onClick={() => { sessionStorage.removeItem("kr_return_to"); window.location.href = returnTo; }}>Back to product — Buy now</Button>
             ) : null}
