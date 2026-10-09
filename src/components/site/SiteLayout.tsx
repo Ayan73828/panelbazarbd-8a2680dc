@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import {
   Home,
   KeyRound,
+  LifeBuoy,
   LogOut,
   ShoppingBag,
   LayoutDashboard,
@@ -211,6 +212,7 @@ function ProfileMenu({ name, email }: { name: string; email: string }) {
     { to: "/dashboard/wallet", label: "Wallet", icon: Wallet },
     { to: "/dashboard/profile", label: "Profile", icon: User },
     { to: "/dashboard/password", label: "Password", icon: KeyRound },
+    { to: "/dashboard/support", label: "Support", icon: LifeBuoy },
   ] as const;
   return (
     <DropdownMenu>

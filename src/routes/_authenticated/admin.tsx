@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { CreditCard, FolderTree, KeyRound, Home, LayoutDashboard, LogOut, Megaphone, Package, ReceiptText, Settings, ShieldAlert, Users, Wallet } from "lucide-react";
+import { CreditCard, FolderTree, KeyRound, Home, LayoutDashboard, LifeBuoy, LogOut, Megaphone, Package, ReceiptText, Settings, ShieldAlert, Users, Wallet } from "lucide-react";
 import { Brand } from "@/components/site/Brand";
 import { EmptyState, RowSkeleton } from "@/components/site/States";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ const items = [
   { to: "/admin/users", label: "Users", icon: Users, exact: false },
   { to: "/admin/payments", label: "Payments", icon: CreditCard, exact: false },
   { to: "/admin/wallet", label: "Wallet", icon: Wallet, exact: false },
+  { to: "/admin/support", label: "Support", icon: LifeBuoy, exact: false },
   { to: "/admin/announcements", label: "Announcements", icon: Megaphone, exact: false },
   { to: "/admin/homepage", label: "Homepage", icon: Home, exact: false },
   { to: "/admin/settings", label: "Settings", icon: Settings, exact: false },
