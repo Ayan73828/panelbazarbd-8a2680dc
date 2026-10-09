@@ -2,6 +2,9 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Home,
+  KeyRound,
+  LogOut,
+  ShoppingBag,
   LayoutDashboard,
   LogIn,
   Package,
@@ -11,6 +14,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Brand } from "@/components/site/Brand";
 import { FloatingContact } from "@/components/site/ContactButtons";
 import { useAuth } from "@/hooks/useAuth";
@@ -49,11 +53,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
                 <span className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
                   {money(profile?.balance, settings.currency_symbol)}
                 </span>
-                <Button asChild size="sm" className="rounded-full">
-                  <Link to="/dashboard">
-                    <LayoutDashboard className="h-4 w-4" /><span className="sr-only sm:not-sr-only">Dashboard</span>
-                  </Link>
-                </Button>
+                <ProfileMenu name={profile?.name || profile?.username || profile?.email || "Account"} email={profile?.email ?? ""} />
               </>
             ) : (
               <>
@@ -198,5 +198,43 @@ export function PageHeader({
       </div>
       {right}
     </div>
+  );
+}
+
+function ProfileMenu({ name, email }: { name: string; email: string }) {
+  const { signOut } = useAuth();
+  const items = [
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/products", label: "Products", icon: Package },
+    { to: "/dashboard/orders", label: "My Orders", icon: ReceiptText },
+    { to: "/dashboard/purchases", label: "Purchased", icon: ShoppingBag },
+    { to: "/dashboard/wallet", label: "Wallet", icon: Wallet },
+    { to: "/dashboard/profile", label: "Profile", icon: User },
+    { to: "/dashboard/password", label: "Password", icon: KeyRound },
+  ] as const;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" className="rounded-full" aria-label="Account menu">
+          <User className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          <p className="truncate text-sm font-semibold">{name}</p>
+          <p className="truncate text-xs font-normal text-muted-foreground">{email}</p>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {items.map(({ to, label, icon: Icon }) => (
+          <DropdownMenuItem key={to} asChild>
+            <Link to={to}><Icon className="mr-2 h-4 w-4" /> {label}</Link>
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive" onSelect={() => { void signOut(); }}>
+          <LogOut className="mr-2 h-4 w-4" /> Logout
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
