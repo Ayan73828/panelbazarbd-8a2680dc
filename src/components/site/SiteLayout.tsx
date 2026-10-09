@@ -49,11 +49,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
                 <span className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
                   {money(profile?.balance, settings.currency_symbol)}
                 </span>
-                <Button asChild size="sm" className="rounded-full">
-                  <Link to="/dashboard">
-                    <LayoutDashboard className="h-4 w-4" /><span className="sr-only sm:not-sr-only">Dashboard</span>
-                  </Link>
-                </Button>
+                <ProfileMenu name={profile?.name || profile?.username || profile?.email || "Account"} email={profile?.email ?? ""} />
               </>
             ) : (
               <>

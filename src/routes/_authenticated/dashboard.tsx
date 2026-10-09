@@ -32,29 +32,6 @@ function DashboardLayout() {
   return (
     <SiteLayout>
       <div className="mx-auto grid w-full min-w-0 max-w-lg grid-cols-[minmax(0,1fr)] gap-6 px-4 py-6">
-        <aside className="min-w-0">
-          <nav className="flex gap-1 overflow-x-auto pb-1">
-            {items.map(({ to, label, icon: Icon, exact }) => (
-              <Link
-                key={to}
-                to={to}
-                activeOptions={{ exact }}
-                className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground data-[status=active]:bg-primary/10 data-[status=active]:text-primary"
-              >
-                <Icon className="h-4 w-4" /> {label}
-              </Link>
-            ))}
-            <button
-              onClick={async () => {
-                await signOut();
-                navigate({ to: "/auth", search: { mode: "login" }, replace: true });
-              }}
-              className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            >
-              <LogOut className="h-4 w-4" /> Logout
-            </button>
-          </nav>
-        </aside>
         <section className="min-w-0">
           <Outlet />
         </section>
