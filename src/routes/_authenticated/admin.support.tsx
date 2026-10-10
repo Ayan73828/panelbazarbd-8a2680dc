@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/admin/support")({
 });
 
 function AdminSupport() {
-  const [filter, setFilter] = useState<"open" | "closed" | "all">("open");
+  const [filter, setFilter] = useState<"open" | "resolved" | "all">("open");
   const [openId, setOpenId] = useState<string | null>(null);
   const tickets = useQuery({
     queryKey: ["tickets", "admin", filter],
@@ -27,7 +27,7 @@ function AdminSupport() {
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Support Tickets</h1>
       <div className="flex gap-2">
-        {(["open", "closed", "all"] as const).map((f) => (
+        {(["open", "resolved", "all"] as const).map((f) => (
           <button key={f} onClick={() => setFilter(f)} className={`rounded-full px-3 py-1 text-sm capitalize ${filter === f ? "bg-primary text-primary-foreground" : "bg-surface-2 text-muted-foreground"}`}>{f}</button>
         ))}
       </div>
