@@ -107,7 +107,7 @@ function OtpAuthForm({ mode }: { mode: Mode }) {
       const { error } = await supabase.auth.verifyOtp({
         email: pending.email,
         token: code.trim(),
-        type: pending.mode === "register" ? "signup" : "email",
+        type: "email",
       });
       if (error) throw error;
       sessionStorage.setItem("kr_alive", "1");
