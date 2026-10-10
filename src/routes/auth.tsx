@@ -143,7 +143,7 @@ function OtpAuthForm({ mode }: { mode: Mode }) {
           <h1 className="text-xl font-bold">Verify your email</h1>
           <p className="text-sm text-muted-foreground">Enter the code sent to <span className="font-medium">{pending.email}</span>.</p>
           <div className="space-y-1.5"><Label htmlFor="auth-code">Enter your code</Label><Input id="auth-code" inputMode="numeric" autoComplete="one-time-code" type="text" required minLength={6} maxLength={8} pattern="(?:[0-9]{6}|[0-9]{8})" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))} /></div>
-          <Button type="submit" className="w-full rounded-full" disabled={busy || !/^(?:\\d{6}|\\d{8})$/.test(code)}>{busy ? "Verifying…" : "Verify code and continue"}</Button>
+          <Button type="submit" className="w-full rounded-full" disabled={busy || !/^(?:\d{6}|\d{8})$/.test(code)}>{busy ? "Verifying…" : "Verify code and continue"}</Button>
           <Button type="button" variant="outline" className="w-full rounded-full" disabled={busy} onClick={() => { setPending(null); setCode(""); }}>Use a different email</Button>
           <p className="text-xs text-muted-foreground">If no email arrives, check spam. You can request another code after the email provider's cooldown.</p>
         </form>
