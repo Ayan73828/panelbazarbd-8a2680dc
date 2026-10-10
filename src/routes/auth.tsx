@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 
 type Mode = "login" | "register";
 
@@ -158,6 +159,7 @@ function RegisterForm() {
       if (error) throw error;
       if (!data.session) throw new Error("Email verified, but no login session was created. Please return to login and request a new code.");
       sessionStorage.setItem("kr_alive", "1");
+      void telegramNotifyEvent({ data: { event: "signup" } }).catch((notifyError) => console.error("Telegram signup notification failed", notifyError));
       toast.success("Email verified. Your account is ready!");
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
