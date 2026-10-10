@@ -29,6 +29,7 @@ export function SupportChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTicketRef = useRef<{ subject: string; message: string } | null>(null);
   const wa = waLink(settings.whatsapp_number, `Hello ${settings.site_name}, I need support.`);
   const tg = tgLink(settings.telegram_username);
 
@@ -38,15 +39,30 @@ export function SupportChat() {
 
   useEffect(() => {
     if (flow !== "pending") return;
-    timeoutRef.current = setTimeout(() => {
-      setMessages((current) => [...current, { from: "bot", text: "৫ মিনিটের মধ্যে সমাধান নিশ্চিত না হওয়ায় চ্যাটটি বন্ধ করা হয়েছে। আপনার Support Request অ্যাডমিনের কাছে জমা আছে।" }]);
+    timeoutRef.current = setTimeout(async () => {
+      const ticket = pendingTicketRef.current;
+      if (user?.id && ticket) {
+        const { error } = await supabase.from("support_tickets").insert({
+          user_id: user.id,
+          subject: ticket.subject,
+          message: ticket.message,
+          source: "website_ai_timeout",
+          status: "open",
+        });
+        setMessages((current) => [...current, { from: "bot", text: error
+          ? "৫ মিনিট পার হওয়ায় চ্যাটটি বন্ধ করা হয়েছে, তবে Support Request জমা হয়নি। অনুগ্রহ করে Normal Support-এ যোগাযোগ করুন।"
+          : "৫ মিনিটের মধ্যে সমাধান না হওয়ায় চ্যাটটি বন্ধ করা হয়েছে এবং আপনার ID দিয়ে Support Request অ্যাডমিনের কাছে তৈরি করা হয়েছে।" }]);
+      } else {
+        setMessages((current) => [...current, { from: "bot", text: "৫ মিনিটের মধ্যে সমাধান না হওয়ায় চ্যাটটি বন্ধ করা হয়েছে। Support Request তৈরি করতে অনুগ্রহ করে Login করুন, অথবা Normal Support-এ যোগাযোগ করুন।" }]);
+      }
+      pendingTicketRef.current = null;
       setFlow("done");
       setOpen(false);
     }, 5 * 60 * 1000);
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [flow]);
+  }, [flow, user?.id]);
 
   const startAI = () => {
     setMode("ai");
@@ -101,22 +117,10 @@ export function SupportChat() {
       return;
     }
 
-    const { error } = await supabase.from("support_tickets").insert({
-      user_id: user.id,
-      subject,
-      message: fullMessage,
-      source: "website_ai",
-      status: "open",
-    });
+    pendingTicketRef.current = { subject, message: fullMessage };
     setBusy(false);
-    if (error) {
-      setFlow("done");
-      console.error("AI support ticket creation failed", error);
-      setMessages((current) => [...current, { from: "bot", text: "দুঃখিত, এই মুহূর্তে টিকিট জমা হয়নি। কিছুক্ষণ পর আবার চেষ্টা করুন অথবা Normal Support থেকে WhatsApp/Telegram-এ যোগাযোগ করুন।" }]);
-    } else {
-      setFlow("pending");
-      setMessages((current) => [...current, { from: "bot", text: "ধন্যবাদ, আপনার তথ্য পেয়েছি। কিছু সময় দিয়ে সহযোগিতা করুন—আমাদের অ্যাডমিন আপনার সমস্যার সমাধানের চেষ্টা করছেন। ৫ মিনিটের মধ্যে সমাধান না হলে এই চ্যাটটি স্বয়ংক্রিয়ভাবে বন্ধ হবে; আপনার Support Request অ্যাডমিনের কাছে জমা থাকবে।" }]);
-    }
+    setFlow("pending");
+    setMessages((current) => [...current, { from: "bot", text: "ধন্যবাদ, আপনার তথ্য পেয়েছি। কিছু সময় দিয়ে সহযোগিতা করুন—আমাদের অ্যাডমিন আপনার সমস্যার সমাধানের চেষ্টা করছেন। ৫ মিনিটের মধ্যে সমাধান না হলে এই চ্যাটটি স্বয়ংক্রিয়ভাবে বন্ধ হবে এবং আপনার ID দিয়ে Support Request তৈরি হবে।" }]);
   };
 
   return (
