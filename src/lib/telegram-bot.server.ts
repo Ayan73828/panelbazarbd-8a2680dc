@@ -234,13 +234,17 @@ async function startTelegramPayment(chatId: number, user: any, amount: number, m
   });
 }
 
-async function showProducts(chatId: number) {
+async function showProducts(chatId: number, messageId?: number) {
   const db = await admin();
   const { data } = await db.from("products").select("id,name").eq("is_active", true).order("sort_order").limit(60);
-  if (!data?.length) return send(chatId, "এখন কোনো প্রোডাক্ট নেই।");
-  return send(chatId, "🛍 <b>Products</b> — একটি বেছে নিন:", {
-    inline_keyboard: data.map((p: any) => [{ text: p.name, callback_data: `p:${p.id}` }]),
-  });
+  const rows = (data ?? []).map((p: any) => [{ text: p.name, callback_data: `p:${p.id}` }]);
+  rows.push([{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]);
+  const body = { chat_id: chatId, text: data?.length ? "🛍 <b>Products</b> — একটি বেছে নিন:" : "এখন কোনো প্রোডাক্ট নেই।", parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: rows } };
+  if (messageId) {
+    const edited = await tg("editMessageText", { ...body, message_id: messageId });
+    if (edited?.ok) return edited;
+  }
+  return send(chatId, body.text, body.reply_markup);
 }
 
 async function showWallet(chatId: number, user: any) {
@@ -295,7 +299,7 @@ async function handleCallback(cq: any) {
   if (!user) return welcome(chatId, null);
   const db = await admin();
   if (kind === "menu") {
-    if (id === "products") return showProducts(chatId);
+    if (id === "products") return showProducts(chatId, cq.message?.message_id);
     if (id === "wallet") return showWallet(chatId, user);
     if (id === "fund") return showFundAmounts(chatId, user);
     if (id.startsWith("fundmethod-")) return showFundAmounts(chatId, user, id.endsWith("bkash") ? "bKash / UddoktaPay" : id.endsWith("nagad") ? "Nagad / UddoktaPay" : "UddoktaPay");
@@ -303,7 +307,7 @@ async function handleCallback(cq: any) {
     if (id === "keys") return showOrders(chatId, user, true);
     if (id === "support") return showSupport(chatId);
     if (id === "profile") return send(chatId, `👤 <b>Profile</b>\nনাম: ${esc(user.name)}\nUsername: ${esc(user.username)}\nEmail: ${esc(user.email)}\nPhone: ${esc(user.phone)}\nব্যালেন্স: <b>${tk(user.balance)}</b>`, { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:home" }]] });
-    if (id === "home") return welcome(chatId, user);
+    if (id === "home") return send(chatId, `🏪 <b>Panel Bazar BD</b> — Main Menu`, MENU);
   }
   if (kind === "fundshort" && id) {
     const amount = Number(id);
