@@ -206,19 +206,19 @@ async function doLogin(chatId: number, from: any, id: string, password: string) 
 }
 
 async function showFundAmounts(chatId: number, user: any, method = "", messageId?: number) {
-  if (!method) return screen(chatId, messageId, `💰 <b>ADD FUND</b>\nবর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nPayment method বেছে নিন:`, {
+  const balanceLine = `💳 Current Balance: ${tk(user.balance)}\n\n━━━━━━━━━━━━━━━━━━━━━━\n💳 Available Payment Methods:\n🇧🇩 bKash / Nagad (Bangladeshi payment)\n\n✅ Use balance for purchases!\n━━━━━━━━━━━━━━━━━━━━━━`;
+  if (!method) return screen(chatId, messageId, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\n\n${balanceLine}\n\nSelect amount to deposit.\nChoose your payment method next:`, {
     inline_keyboard: [
-      [{ text: "📱 bKash", callback_data: "menu:fundmethod-bkash" }, { text: "📱 Nagad", callback_data: "menu:fundmethod-nagad" }],
-      [{ text: "💳 UddoktaPay", callback_data: "menu:fundmethod-uddokta" }],
-      [{ text: "⬅️ Back", callback_data: "menu:home" }],
+      [{ text: "৳100", callback_data: "fundshort:100" }, { text: "৳200", callback_data: "fundshort:200" }, { text: "৳500", callback_data: "fundshort:500" }],
+      [{ text: "৳1000", callback_data: "fundshort:1000" }, { text: "৳2000", callback_data: "fundshort:2000" }],
+      [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }],
     ],
   });
-  const methodId = method.startsWith("bKash") ? "bkash" : method.startsWith("Nagad") ? "nagad" : "uddokta";
-  return screen(chatId, messageId, `💰 <b>ADD FUND</b>\nPayment: <b>${esc(method)}</b>\nবর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nAmount বেছে নিন:`, {
+  const amount = Number((method.match(/\d+/) ?? ["100"])[0]);
+  return screen(chatId, messageId, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\n\n${balanceLine}\n\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
     inline_keyboard: [
-      [{ text: "৳100", callback_data: `fundpay:${methodId}:100` }, { text: "৳500", callback_data: `fundpay:${methodId}:500` }, { text: "৳1000", callback_data: `fundpay:${methodId}:1000` }],
-      [{ text: "৳2000", callback_data: `fundpay:${methodId}:2000` }, { text: "✍️ Custom amount", url: `${SITE_URL}/dashboard/wallet` }],
-      [{ text: "⬅️ Back", callback_data: "menu:fund" }],
+      [{ text: "📱 bKash", callback_data: `fundpay:bkash:${amount}` }, { text: "📱 Nagad", callback_data: `fundpay:nagad:${amount}` }],
+      [{ text: "⬅️ Back to amounts", callback_data: "menu:fund" }],
     ],
   });
 }
@@ -287,13 +287,15 @@ async function showOrders(chatId: number, user: any, keysOnly: boolean, messageI
 
 async function showSupport(chatId: number, messageId?: number) {
   const db = await admin();
-  const { data } = await db.from("site_settings").select("key,value").in("key", ["telegram_username", "whatsapp_number", "contact_phone"]);
+  const { data } = await db.from("site_settings").select("key,value").in("key", ["telegram_username"]);
   const s: Record<string, string> = {};
   for (const r of data ?? []) s[r.key] = r.value;
-  const btns: any[] = [[{ text: "🌐 OPEN WEBSITE — panelbazarbd.shop", url: "https://panelbazarbd.shop" }]];
-  if (s["telegram_username"]) btns.push([{ text: "👤 Admin on Telegram", url: `https://t.me/${s["telegram_username"].replace(/^@/, "")}` }]);
-  if (s["whatsapp_number"]) btns.push([{ text: "💬 WhatsApp Support", url: `https://wa.me/${s["whatsapp_number"].replace(/\\D/g, "").replace(/^0/, "880")}` }]);
-  return screen(chatId, messageId, "💬 <b>SUPPORT CENTER</b>\\n\\nনিচের Website বাটনে চাপ দিয়ে Panel Bazar BD খুলুন, অথবা Admin-এর সাথে যোগাযোগ করুন।", { inline_keyboard: [...btns, [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
+  const buttons: any[] = [];
+  if (s["telegram_username"]) buttons.push([{ text: "👤 Telegram Admin", url: `https://t.me/${s["telegram_username"].replace(/^@/, "")}` }]);
+  buttons.push([{ text: "🎫 Open Support Ticket — Quick Reply", callback_data: "menu:supportticket" }]);
+  buttons.push([{ text: "🌐 OPEN WEBSITE — panelbazarbd.shop", url: "https://panelbazarbd.shop" }]);
+  buttons.push([{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]);
+  return screen(chatId, messageId, "💬 <b>SUPPORT CENTER</b>\\n\\nAdmin-এর সাথে যোগাযোগ করুন অথবা Quick Reply Support Ticket খুলুন। সমস্যার বিবরণ এবং সম্ভব হলে screenshot/photo পাঠান।", { inline_keyboard: buttons });
 }
 
 async function handleCallback(cq: any) {
@@ -324,14 +326,29 @@ async function handleCallback(cq: any) {
     if (id === "keys") return showOrders(chatId, user, true, cq.message?.message_id);
     if (id === "support") return showSupport(chatId, cq.message?.message_id);
     if (id === "referral") {
-      const { data: rows, error } = await db.from("referrals").select("id,reward_amount").eq("referrer_id", user.id);
+      const { data: rows, error } = await db.from("referrals").select("id").eq("referrer_id", user.id);
       const referralCount = error ? 0 : (rows ?? []).length;
-      const totalReward = error ? 0 : (rows ?? []).reduce((sum: number, row: any) => sum + Number(row.reward_amount ?? 0), 0);
-      const referralLink = `https://panelbazarbd.shop/auth?mode=register&ref=${encodeURIComponent(user.id)}`;
-      const text = `🤝 <b>REFERRAL PROGRAM</b>\\n\\n🎁 প্রতি সফল নতুন referral-এ পুরস্কার: <b>৳2</b>\\n👥 সফল referral: <b>${referralCount}</b>\\n💰 মোট referral reward: <b>${tk(totalReward)}</b>\\n\\n🔗 <b>আপনার Referral Link:</b>\\n${esc(referralLink)}\\n\\nএই link বন্ধুদের পাঠান। নতুন user link দিয়ে register করে email verify করলে reward একবার যোগ হবে।`;
-      return screen(chatId, cq.message?.message_id, text, { inline_keyboard: [[{ text: "📋 Open Referral Page", url: "https://panelbazarbd.shop/dashboard/referral" }], [{ text: "🌐 Open Website", url: "https://panelbazarbd.shop" }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
+      const referralLink = `https://t.me/${process.env["TELEGRAM_BOT_USERNAME"] || "BLACKBUNNY_BOT"}?start=ref_${encodeURIComponent(user.id)}`;
+      const text = `🤝 <b>REFERRAL PROGRAM</b>\n\n👥 Successful referrals: <b>${referralCount}</b>\n\n🔗 <b>Your personal Telegram link:</b>\n${esc(referralLink)}\n\nবন্ধুকে এই link পাঠান। সে link দিয়ে bot-এ Start চাপবে, নিজের নম্বর share করবে এবং website account তৈরি করে email verify করলে referral গণনা হবে।`;
+      return screen(chatId, cq.message?.message_id, text, { inline_keyboard: [[{ text: "📋 Open Website Referral Page", url: "https://panelbazarbd.shop/dashboard/referral" }], [{ text: "🌐 Open Website", url: "https://panelbazarbd.shop" }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
     }
-    if (id === "profile") return screen(chatId, cq.message?.message_id, `👤 <b>Profile</b>\nনাম: ${esc(user.name)}\nUsername: ${esc(user.username)}\nEmail: ${esc(user.email)}\nPhone: ${esc(user.phone)}\nব্যালেন্স: <b>${tk(user.balance)}</b>`, { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:home" }]] });
+    if (id === "supportticket") {
+      await setState(chatId, "support_ticket_details", { support_user_id: user.id, support_message_id: cq.message?.message_id });
+      return screen(chatId, cq.message?.message_id, "🎫 <b>OPEN SUPPORT TICKET</b>\\n\\nআপনার সমস্যার বিস্তারিত লিখে পাঠান। সম্ভব হলে একই মেসেজে photo/screenshot যোগ করুন। শুধু text বা photo caption-সহ photo পাঠালেও হবে।\\n\\nCancel করতে /cancel লিখুন।", { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "menu:support" }]] });
+    }
+    if (id === "profile") {
+      const [ordersResult, spentResult, referralResult] = await Promise.all([
+        db.from("orders").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        db.from("orders").select("total").eq("user_id", user.id).in("status", ["completed", "delivered", "success"]),
+        db.from("referrals").select("id", { count: "exact", head: true }).eq("referrer_id", user.id),
+      ]);
+      const orderCount = ordersResult.count ?? 0;
+      const spent = (spentResult.data ?? []).reduce((sum: number, row: any) => sum + Number(row.total ?? 0), 0);
+      const joined = user.created_at ? new Date(user.created_at).toLocaleString("sv-SE", { timeZone: "Asia/Dhaka" }).replace("T", " ") : "—";
+      const account = user.is_admin ? "👑 Admin" : "🧑‍💼 Regular";
+      const profileText = `👤 ━━ <b>YOUR PROFILE</b> ━━ 👤\n\n🆔 User ID: <code>${esc(user.id)}</code>\n📛 Name: ${esc(user.name || user.username || "—")}\n📧 Email: ${esc(user.email || "Not added")}\n📱 Number: ${esc(user.phone || "Not added")}\n👑 Account: ${account}\n\n💰 ━ <b>Balance</b> ━\n   💳 Current: ${tk(user.balance)}\n\n📊 ━ <b>Statistics</b> ━\n   📦 Orders: ${orderCount}\n   💸 Spent: ${tk(spent)}\n   👥 Referrals: ${referralResult.count ?? 0}\n\n📅 Joined: ${joined}`;
+      return screen(chatId, cq.message?.message_id, profileText, { inline_keyboard: [[{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
+    }
     if (id === "home") return welcome(chatId, user, cq.message?.message_id);
   }
   if (kind === "fundshort" && id) {
