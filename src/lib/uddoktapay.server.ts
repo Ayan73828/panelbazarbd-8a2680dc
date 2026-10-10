@@ -6,19 +6,32 @@ export function paymentBaseUrl() {
 }
 
 
-export async function notifyOwner(text: string) {
+export async function notifyOwner(text: string, replyMarkup?: Record<string, unknown>) {
   try {
     const token = process.env["TELEGRAM_BOT_TOKEN"];
     const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"];
-    if (!token || !ownerChatId) return;
+    if (!token || !ownerChatId) {
+      console.error("telegram notify skipped: TELEGRAM_BOT_TOKEN or TELEGRAM_OWNER_CHAT_ID missing");
+      return false;
+    }
+    if (!text.trim()) {
+      console.error("telegram notify skipped: empty message");
+      return false;
+    }
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: ownerChatId, text, parse_mode: "HTML" }),
+      body: JSON.stringify({ chat_id: ownerChatId, text, parse_mode: "HTML", disable_web_page_preview: true, ...(replyMarkup ? { reply_markup: replyMarkup } : {}) }),
     });
-    if (!res.ok) console.error("telegram notify failed", res.status, await res.text());
+    const payload = await res.json().catch(() => null) as { ok?: boolean; description?: string; error_code?: number } | null;
+    if (!res.ok || payload?.ok !== true) {
+      console.error("telegram notify failed", res.status, payload?.error_code, payload?.description ?? "Unknown Telegram API error");
+      return false;
+    }
+    return true;
   } catch (e) {
     console.error("telegram notify failed", e);
+    return false;
   }
 }
 
