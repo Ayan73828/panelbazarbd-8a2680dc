@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 
 type Ticket = { id: string; user_id: string; subject: string; message: string; status: string; created_at: string };
 
@@ -29,6 +30,12 @@ export function SupportThread({ ticket, admin }: { ticket: Ticket; admin?: boole
     if (error) { toast.error(error.message); return; }
     setText("");
     if (admin) {
+      try {
+        await telegramNotifyEvent({ data: { event: "support_reply", recordId: ticket.id, message: text.trim().slice(0, 2000) } });
+      } catch (e) {
+        console.error("Telegram support reply notification failed", e);
+        toast.error("Reply website-এ save হয়েছে, কিন্তু Telegram-এ পাঠানো যায়নি");
+      }
       const { error: closeErr } = await supabase.from("support_tickets").update({ status: "resolved" }).eq("id", ticket.id);
       if (closeErr) toast.error(closeErr.message);
       else toast.success("রিপ্লাই পাঠানো হয়েছে, টিকিট বন্ধ করা হয়েছে");
