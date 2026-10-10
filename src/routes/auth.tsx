@@ -111,7 +111,7 @@ function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string
       const { error } = await supabase.auth.verifyOtp({
         email: pending.email,
         token: code.trim(),
-        type: "email",
+        type: pending.mode === "register" ? "signup" : "email",
       });
       if (error) throw error;
       sessionStorage.setItem("kr_alive", "1");
