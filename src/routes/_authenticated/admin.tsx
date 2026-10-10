@@ -29,6 +29,7 @@ const items = [
   { to: "/admin/wallet", label: "Wallet", icon: Wallet, exact: false },
   { to: "/admin/support", label: "Support", icon: LifeBuoy, exact: false },
   { to: "/admin/announcements", label: "Announcements", icon: Megaphone, exact: false },
+  { to: "/admin/telegram-announcements", label: "Telegram Broadcast", icon: Megaphone, exact: false },
   { to: "/admin/homepage", label: "Homepage", icon: Home, exact: false },
   { to: "/admin/settings", label: "Settings", icon: Settings, exact: false },
 ] as const;
