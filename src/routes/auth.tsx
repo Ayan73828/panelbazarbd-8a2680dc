@@ -55,30 +55,6 @@ function AuthPage() {
   );
 }
 
-function GoogleAuthButton() {
-  const [busy, setBusy] = useState(false);
-
-  async function signInWithGoogle() {
-    setBusy(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/dashboard` },
-      });
-      if (error) throw error;
-    } catch (err) {
-      toast.error(errMsg(err));
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Button type="button" variant="secondary" className="w-full rounded-full" onClick={signInWithGoogle} disabled={busy}>
-      {busy ? "Connecting to Google…" : "Continue with Google"}
-    </Button>
-  );
-}
-
 function LoginForm() {
   const [id, setId] = useState("");
   const [pw, setPw] = useState("");
@@ -107,7 +83,6 @@ function LoginForm() {
   return (
     <form onSubmit={submit} className="space-y-4">
       <h1 className="text-xl font-bold">Login to your account</h1>
-      <GoogleAuthButton />
       <div className="space-y-1.5"><Label htmlFor="id">Email</Label><Input id="id" type="email" required value={id} onChange={(e) => setId(e.target.value)} autoComplete="username" /></div>
       <div className="space-y-1.5"><Label htmlFor="pw">Password</Label><Input id="pw" type="password" required value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" /></div>
       <div className="flex items-center justify-between text-sm">
@@ -167,7 +142,6 @@ function RegisterForm() {
   return (
     <form onSubmit={submit} className="space-y-3">
       <h1 className="text-xl font-bold">Create an account</h1>
-      <GoogleAuthButton />
       <div className="space-y-1.5"><Label htmlFor="name">Full name</Label><Input id="name" required maxLength={80} value={f.name} onChange={up("name")} /></div>
       <div className="space-y-1.5"><Label htmlFor="username">Username</Label><Input id="username" required maxLength={24} value={f.username} onChange={up("username")} /></div>
       <div className="space-y-1.5"><Label htmlFor="email">Email</Label><Input id="email" type="email" required maxLength={255} value={f.email} onChange={up("email")} /></div>
