@@ -28,6 +28,7 @@ const MENU = {
     [{ text: "🧾 My Order", callback_data: "menu:orders" }, { text: "👑 Profile", callback_data: "menu:profile" }],
     [{ text: "💳 Add Balance", callback_data: "menu:fund" }, { text: "🤝 Referral", callback_data: "menu:referral" }],
     [{ text: "💬 Support", callback_data: "menu:support" }],
+    [{ text: "🌐 LOGIN INTO WEBSITE", url: `${SITE_URL}/auth` }],
   ],
 };
 const RESTART_KEYBOARD = {
