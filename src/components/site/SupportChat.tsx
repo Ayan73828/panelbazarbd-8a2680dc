@@ -167,14 +167,14 @@ export function SupportChat() {
 
   return (
     <>
-      <div className="fixed bottom-[8.5rem] left-4 z-50 flex flex-col items-start gap-2 sm:bottom-6">
+      <div className="fixed bottom-[8.5rem] left-4 right-auto z-50 flex flex-col items-start gap-2 sm:bottom-6">
         <button type="button" onClick={() => setOpen((value) => !value)} aria-label="Open support chat" className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background/80 transition-transform hover:scale-105">
           {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
         </button>
         {!open && <span className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold shadow-lg">Support Chat</span>}
       </div>
 
-      {open && <section className="fixed inset-x-3 bottom-[10.5rem] left-0 z-50 flex max-h-[min(70vh,620px)] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl sm:inset-x-auto sm:bottom-24 sm:left-4 sm:w-[min(390px,calc(100vw-2rem))]" aria-label="Support chat">
+      {open && <section className="fixed bottom-[10.5rem] left-4 right-auto z-50 flex max-h-[min(70vh,620px)] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl sm:bottom-24" aria-label="Support chat">
         <header className="flex items-center justify-between gap-3 bg-primary px-4 py-3 text-primary-foreground">
           <div className="flex items-center gap-2"><span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15"><Bot className="h-5 w-5" /></span><div><p className="font-semibold">Support Center</p><p className="text-xs opacity-85">AI assistant & human support</p></div></div>
           <button type="button" onClick={() => setOpen(false)} aria-label="Close support chat" className="rounded-full p-2 hover:bg-white/15"><X className="h-5 w-5" /></button>
