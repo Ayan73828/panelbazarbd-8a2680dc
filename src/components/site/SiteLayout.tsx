@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Brand } from "@/components/site/Brand";
 import { FloatingContact } from "@/components/site/ContactButtons";
+import { SupportChat } from "@/components/site/SupportChat";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSite";
 import { money, tgLink, telLink, waLink } from "@/lib/site";
@@ -161,6 +162,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
       </footer>
 
       <FloatingContact />
+      <SupportChat />
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/70 bg-background/95 backdrop-blur">
         <ul className="mx-auto flex max-w-lg items-stretch justify-between px-2 py-1.5">
