@@ -181,6 +181,52 @@ async function doLogin(chatId: number, from: any, id: string, password: string) 
   return welcome(chatId, user);
 }
 
+async function showFundAmounts(chatId: number, user: any) {
+  return send(chatId, `💰 <b>ADD FUND</b>\nবর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nAmount বেছে নিন:`, {
+    inline_keyboard: [
+      [{ text: "৳100", callback_data: "fundamount:100" }, { text: "৳500", callback_data: "fundamount:500" }, { text: "৳1000", callback_data: "fundamount:1000" }],
+      [{ text: "৳2000", callback_data: "fundamount:2000" }, { text: "✍️ Custom amount", url: `${SITE_URL}/dashboard/wallet` }],
+      [{ text: "⬅️ Back", callback_data: "menu:home" }],
+    ],
+  });
+}
+async function startTelegramPayment(chatId: number, user: any, amount: number, method = "UddoktaPay") {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { paymentBaseUrl } = await import("@/lib/uddoktapay.server");
+  const apiKey = process.env["UDDOKTAPAY_API_KEY"];
+  if (!apiKey) return send(chatId, "⚠️ Payment gateway এখন কনফিগার করা নেই। Admin-এর সাথে যোগাযোগ করুন।", { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:fund" }]] });
+  const ref = crypto.randomUUID();
+  const { error: insErr } = await supabaseAdmin.from("uddoktapay_payments").insert({
+    id: ref, user_id: user.id, invoice_id: `pending-${ref}`, amount, status: "pending",
+  });
+  if (insErr) return send(chatId, "❌ Payment request তৈরি হয়নি। আবার চেষ্টা করুন।");
+  const origin = SITE_URL.replace(/\/$/, "");
+  const res = await fetch(`${paymentBaseUrl()}/checkout-v2`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json", "RT-UDDOKTAPAY-API-KEY": apiKey },
+    body: JSON.stringify({
+      full_name: user.name || user.username || "Customer",
+      email: user.email || "customer@example.com",
+      amount: String(amount),
+      metadata: { user_id: user.id, ref, source: "telegram", method },
+      redirect_url: `${origin}/payment/success`,
+      return_type: "GET",
+      cancel_url: `${origin}/payment/cancel`,
+      webhook_url: `${origin}/api/public/uddoktapay/webhook`,
+    }),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body?.payment_url) {
+    await supabaseAdmin.from("uddoktapay_payments").update({ status: "failed", raw: body }).eq("id", ref);
+    console.error("Telegram UddoktaPay checkout failed", res.status, body);
+    return send(chatId, "❌ Payment link তৈরি হয়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।", { inline_keyboard: [[{ text: "↩️ Try again", callback_data: `fundamount:${amount}` }], [{ text: "⬅️ Back", callback_data: "menu:fund" }]] });
+  }
+  await supabaseAdmin.from("uddoktapay_payments").update({ raw: body }).eq("id", ref);
+  return send(chatId, `🧾 <b>PAYMENT SUMMARY</b>\n\nAmount: <b>${tk(amount)}</b>\nPayment: <b>${esc(method)}</b>\nStatus: Pending\n\nনিচের বাটনে চাপ দিলে UddoktaPay checkout Telegram-এর ভেতরে খুলবে (Telegram client সমর্থন করলে)। Payment successful হলে wallet অটো credit হবে।`, {
+    inline_keyboard: [[{ text: "💳 Pay now", web_app: { url: body.payment_url } }], [{ text: "🔗 Open payment", url: body.payment_url }], [{ text: "⬅️ Back", callback_data: "menu:fund" }]],
+  });
+}
+
 async function showProducts(chatId: number) {
   const db = await admin();
   const { data } = await db.from("products").select("id,name").eq("is_active", true).order("sort_order").limit(60);
@@ -226,6 +272,31 @@ async function handleCallback(cq: any) {
   if (!user) return welcome(chatId, null);
   const db = await admin();
   const [kind, id] = String(cq.data ?? "").split(":");
+  if (kind === "menu") {
+    if (id === "products") return showProducts(chatId);
+    if (id === "wallet") return showWallet(chatId, user);
+    if (id === "fund") return showFundAmounts(chatId, user);
+    if (id === "orders") return showOrders(chatId, user, false);
+    if (id === "keys") return showOrders(chatId, user, true);
+    if (id === "support") return showSupport(chatId);
+    if (id === "profile") return send(chatId, `👤 <b>Profile</b>\nনাম: ${esc(user.name)}\nUsername: ${esc(user.username)}\nEmail: ${esc(user.email)}\nPhone: ${esc(user.phone)}\nব্যালেন্স: <b>${tk(user.balance)}</b>`, { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:home" }]] });
+    if (id === "home") return welcome(chatId, user);
+  }
+  if (kind === "fundshort" && id) {
+    const amount = Number(id);
+    if (!(amount >= 1 && amount <= 100000)) return send(chatId, "সঠিক amount নির্বাচন করুন।");
+    return startTelegramPayment(chatId, user, amount);
+  }
+  if (kind === "fundamount" && id) {
+    const amount = Number(id);
+    if (!(amount >= 100 && amount <= 100000)) return send(chatId, "সঠিক amount নির্বাচন করুন।");
+    return startTelegramPayment(chatId, user, amount);
+  }
+  if (kind === "paymethod" && id) {
+    const amount = Number(String(cq.data).split(":")[2]);
+    if (!(amount >= 100 && amount <= 100000)) return send(chatId, "সঠিক amount নির্বাচন করুন।");
+    return startTelegramPayment(chatId, user, amount, id);
+  }
   if (kind === "p" && id) {
     const { data: p } = await db.from("products").select("name,short_description").eq("id", id).maybeSingle();
     const { data: pk } = await db.from("product_packages").select("id,name,price").eq("product_id", id).eq("is_active", true).order("sort_order");
@@ -249,8 +320,14 @@ async function handleCallback(cq: any) {
   if (kind === "b" && id) {
     const { data: oid, error } = await db.rpc("bot_purchase_package", { p_user_id: user.id, p_package_id: id });
     if (error) {
+      if (error.message.includes("INSUFFICIENT")) {
+        const { data: k } = await db.from("product_packages").select("price").eq("id", id).maybeSingle();
+        const shortfall = Math.max(1, Math.ceil(Number(k?.price ?? 100) - Number(user.balance ?? 0)));
+        return send(chatId, `❌ ব্যালেন্স যথেষ্ট নয়।\nপ্রয়োজন: ${tk(k?.price ?? 0)}\nআপনার ব্যালেন্স: ${tk(user.balance)}\n\nAdd Fund amount: ${tk(shortfall)}`, {
+          inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [{ text: "⬅️ Back", callback_data: "menu:products" }]],
+        });
+      }
       const msg = error.message.includes("NO_KEYS") ? "এই প্যাকেজের Key বর্তমানে শেষ।"
-        : error.message.includes("INSUFFICIENT") ? "❌ ব্যালেন্স যথেষ্ট নয়। ➕ Add Fund করুন।"
         : `❌ ${error.message}`;
       return send(chatId, msg);
     }
