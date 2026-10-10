@@ -181,12 +181,20 @@ async function doLogin(chatId: number, from: any, id: string, password: string) 
   return welcome(chatId, user);
 }
 
-async function showFundAmounts(chatId: number, user: any) {
-  return send(chatId, `💰 <b>ADD FUND</b>\nবর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nAmount বেছে নিন:`, {
+async function showFundAmounts(chatId: number, user: any, method = "") {
+  if (!method) return send(chatId, `💰 <b>ADD FUND</b>\nবর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nPayment method বেছে নিন:`, {
     inline_keyboard: [
-      [{ text: "৳100", callback_data: "fundamount:100" }, { text: "৳500", callback_data: "fundamount:500" }, { text: "৳1000", callback_data: "fundamount:1000" }],
-      [{ text: "৳2000", callback_data: "fundamount:2000" }, { text: "✍️ Custom amount", url: `${SITE_URL}/dashboard/wallet` }],
+      [{ text: "📱 bKash", callback_data: "menu:fundmethod-bkash" }, { text: "📱 Nagad", callback_data: "menu:fundmethod-nagad" }],
+      [{ text: "💳 UddoktaPay", callback_data: "menu:fundmethod-uddokta" }],
       [{ text: "⬅️ Back", callback_data: "menu:home" }],
+    ],
+  });
+  const methodId = method.startsWith("bKash") ? "bkash" : method.startsWith("Nagad") ? "nagad" : "uddokta";
+  return send(chatId, `💰 <b>ADD FUND</b>\nPayment: <b>${esc(method)}</b>\nবর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nAmount বেছে নিন:`, {
+    inline_keyboard: [
+      [{ text: "৳100", callback_data: `fundpay:${methodId}:100` }, { text: "৳500", callback_data: `fundpay:${methodId}:500` }, { text: "৳1000", callback_data: `fundpay:${methodId}:1000` }],
+      [{ text: "৳2000", callback_data: `fundpay:${methodId}:2000` }, { text: "✍️ Custom amount", url: `${SITE_URL}/dashboard/wallet` }],
+      [{ text: "⬅️ Back", callback_data: "menu:fund" }],
     ],
   });
 }
@@ -276,6 +284,7 @@ async function handleCallback(cq: any) {
     if (id === "products") return showProducts(chatId);
     if (id === "wallet") return showWallet(chatId, user);
     if (id === "fund") return showFundAmounts(chatId, user);
+    if (id.startsWith("fundmethod-")) return showFundAmounts(chatId, user, id.endsWith("bkash") ? "bKash / UddoktaPay" : id.endsWith("nagad") ? "Nagad / UddoktaPay" : "UddoktaPay");
     if (id === "orders") return showOrders(chatId, user, false);
     if (id === "keys") return showOrders(chatId, user, true);
     if (id === "support") return showSupport(chatId);
@@ -285,17 +294,20 @@ async function handleCallback(cq: any) {
   if (kind === "fundshort" && id) {
     const amount = Number(id);
     if (!(amount >= 1 && amount <= 100000)) return send(chatId, "সঠিক amount নির্বাচন করুন।");
-    return startTelegramPayment(chatId, user, amount);
+    return send(chatId, `💳 <b>ADD FUND</b>\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
+      inline_keyboard: [[{ text: "📱 bKash", callback_data: `fundpay:bkash:${amount}` }, { text: "📱 Nagad", callback_data: `fundpay:nagad:${amount}` }], [{ text: "💳 UddoktaPay", callback_data: `fundpay:uddokta:${amount}` }], [{ text: "⬅️ Back", callback_data: "menu:fund" }]],
+    });
   }
-  if (kind === "fundamount" && id) {
-    const amount = Number(id);
-    if (!(amount >= 100 && amount <= 100000)) return send(chatId, "সঠিক amount নির্বাচন করুন।");
-    return startTelegramPayment(chatId, user, amount);
+  if (kind === "fundmethod" && id) {
+    const method = id === "bkash" ? "bKash / UddoktaPay" : id === "nagad" ? "Nagad / UddoktaPay" : "UddoktaPay";
+    return showFundAmounts(chatId, user, method);
   }
-  if (kind === "paymethod" && id) {
-    const amount = Number(String(cq.data).split(":")[2]);
-    if (!(amount >= 100 && amount <= 100000)) return send(chatId, "সঠিক amount নির্বাচন করুন।");
-    return startTelegramPayment(chatId, user, amount, id);
+  if (kind === "fundpay" && id) {
+    const [, methodId, rawAmount] = String(cq.data ?? "").split(":");
+    const amount = Number(rawAmount);
+    const method = methodId === "bkash" ? "bKash / UddoktaPay" : methodId === "nagad" ? "Nagad / UddoktaPay" : "UddoktaPay";
+    if (!(amount >= 1 && amount <= 100000)) return send(chatId, "সঠিক amount নির্বাচন করুন।");
+    return startTelegramPayment(chatId, user, amount, method);
   }
   if (kind === "p" && id) {
     const { data: p } = await db.from("products").select("name,short_description").eq("id", id).maybeSingle();
