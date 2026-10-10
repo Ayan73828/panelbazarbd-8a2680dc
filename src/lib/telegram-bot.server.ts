@@ -160,8 +160,8 @@ export async function handleUpdate(u: any) {
       return send(chatId, "Ticket save করা যায়নি। আবার চেষ্টা করুন বা Telegram Admin-কে message দিন।");
     }
     await setState(chatId, "");
-    await notifyOwner("🎫 <b>New Telegram Support Ticket</b>\\nTicket: <code>" + esc(ticket.id) + "</code>\\nUser: <code>" + esc(ownerId) + "</code>\\nTelegram ID: <code>" + m.from.id + "</code>\\nDetails: " + esc(details) + (photo ? "\\nPhoto attached in ticket database." : ""));
-    return send(chatId, "✅ আপনার Support Ticket জমা হয়েছে।\\nTicket ID: <code>" + esc(ticket.id) + "</code>\\nAdmin-কে জানানো হয়েছে।", { inline_keyboard: [[{ text: "⬅️ Main Menu", callback_data: "menu:home" }]] });
+    await notifyOwner("🎫 <b>New Telegram Support Ticket</b>\nTicket: <code>" + esc(ticket.id) + "</code>\nUser: <code>" + esc(ownerId) + "</code>\nTelegram ID: <code>" + m.from.id + "</code>\nDetails: " + esc(details) + (photo ? "\nPhoto attached in ticket database." : ""));
+    return send(chatId, "✅ আপনার Support Ticket জমা হয়েছে।\nTicket ID: <code>" + esc(ticket.id) + "</code>\nAdmin-কে জানানো হয়েছে।", { inline_keyboard: [[{ text: "⬅️ Main Menu", callback_data: "menu:home" }]] });
   }
   if (m.contact) {
     if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
@@ -321,7 +321,7 @@ async function showSupport(chatId: number, messageId?: number) {
   buttons.push([{ text: "🎫 Open Support Ticket — Quick Reply", callback_data: "menu:supportticket" }]);
   buttons.push([{ text: "🌐 OPEN WEBSITE — panelbazarbd.shop", url: "https://panelbazarbd.shop" }]);
   buttons.push([{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]);
-  return screen(chatId, messageId, "💬 <b>SUPPORT CENTER</b>\\n\\nAdmin-এর সাথে যোগাযোগ করুন অথবা Quick Reply Support Ticket খুলুন। সমস্যার বিবরণ এবং সম্ভব হলে screenshot/photo পাঠান।", { inline_keyboard: buttons });
+  return screen(chatId, messageId, "💬 <b>SUPPORT CENTER</b>\n\nAdmin-এর সাথে যোগাযোগ করুন অথবা Quick Reply Support Ticket খুলুন। সমস্যার বিবরণ এবং সম্ভব হলে screenshot/photo পাঠান।", { inline_keyboard: buttons });
 }
 
 async function handleCallback(cq: any) {
@@ -360,7 +360,7 @@ async function handleCallback(cq: any) {
     }
     if (id === "supportticket") {
       await setState(chatId, "support_ticket_details", { support_user_id: user.id, support_message_id: cq.message?.message_id });
-      return screen(chatId, cq.message?.message_id, "🎫 <b>OPEN SUPPORT TICKET</b>\\n\\nআপনার সমস্যার বিস্তারিত লিখে পাঠান। সম্ভব হলে একই মেসেজে photo/screenshot যোগ করুন। শুধু text বা photo caption-সহ photo পাঠালেও হবে।\\n\\nCancel করতে /cancel লিখুন।", { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "menu:support" }]] });
+      return screen(chatId, cq.message?.message_id, "🎫 <b>OPEN SUPPORT TICKET</b>\n\nআপনার সমস্যার বিস্তারিত লিখে পাঠান। সম্ভব হলে একই মেসেজে photo/screenshot যোগ করুন। শুধু text বা photo caption-সহ photo পাঠালেও হবে।\n\nCancel করতে /cancel লিখুন।", { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "menu:support" }]] });
     }
     if (id === "profile") {
       const [ordersResult, spentResult, referralResult] = await Promise.all([
@@ -372,7 +372,7 @@ async function handleCallback(cq: any) {
       const spent = (spentResult.data ?? []).reduce((sum: number, row: any) => sum + Number(row.total ?? 0), 0);
       const joined = user.created_at ? new Date(user.created_at).toLocaleString("sv-SE", { timeZone: "Asia/Dhaka" }).replace("T", " ") : "—";
       const account = user.is_admin ? "👑 Admin" : "🧑‍💼 Regular";
-      const profileText = `👤 ━━ <b>YOUR PROFILE</b> ━━ 👤\n\n🆔 User ID: <code>${esc(user.id)}</code>\n📛 Name: ${esc(user.name || user.username || "—")}\n📧 Email: ${esc(user.email || "Not added")}\n📱 Number: ${esc(user.phone || "Not added")}\n👑 Account: ${account}\n\n💰 ━ <b>Balance</b> ━\n   💳 Current: ${tk(user.balance)}\n\n📊 ━ <b>Statistics</b> ━\n   📦 Orders: ${orderCount}\n   💸 Spent: ${tk(spent)}\n   👥 Referrals: ${referralResult.count ?? 0}\n\n📅 Joined: ${joined}`;
+      const profileText = `👤 ━━ <b>YOUR PROFILE</b> ━━ 👤\n\n🆔 User ID: <code>${cq.from.id}</code>\n📛 Name: ${esc(user.name || user.username || "—")}\n📧 Email: ${esc(user.email || "Not added")}\n📱 Number: ${esc(user.phone || "Not added")}\n👑 Account: ${account}\n\n💰 ━ <b>Balance</b> ━\n   💳 Current: ${tk(user.balance)}\n\n📊 ━ <b>Statistics</b> ━\n   📦 Orders: ${orderCount}\n   💸 Spent: ${tk(spent)}\n   👥 Referrals: ${referralResult.count ?? 0}\n\n📅 Joined: ${joined}`;
       return screen(chatId, cq.message?.message_id, profileText, { inline_keyboard: [[{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
     }
     if (id === "home") return welcome(chatId, user, cq.message?.message_id);
