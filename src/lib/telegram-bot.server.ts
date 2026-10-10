@@ -84,7 +84,7 @@ const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
 
 async function welcome(chatId: number, user: any) {
   if (user) {
-    await send(chatId, `👋 স্বাগতম <b>${esc(user.name || user.username)}</b>!\n💰 ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nনিচের মেনু থেকে বেছে নিন।`, MENU);
+    await send(chatId, `🏪 ━━ <b>Panel Bazar BD</b> ━━ 🏪\n\n👋 Welcome back, <b>${esc(user.name || user.username || "Customer")}</b>\n\n⭐ ━ <b>REGULAR HIGHLIGHTS</b> ━ ⭐\n\n│ 🔑 Wholesale Game Keys &amp; VIP Stocks\n│ ⚡ Priority Auto-Delivery 24/7\n│ 🎁 Tiered Referral\n│ 📞 Dedicated VIP Partner Support\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🚀 <b>Tap Shop Now to Start!</b>`, MENU);
   } else {
     const st = await getState(chatId);
     if (st.data?.phone_shared) {
