@@ -11,11 +11,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 
 type Mode = "login" | "register";
-type PendingOtp = { email: string; mode: Mode; name?: string; phone?: string };
+type PendingOtp = { email: string; mode: Mode; name?: string; phone?: string; referralCode?: string };
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (s: Record<string, unknown>): { mode?: Mode | undefined } => ({
+  validateSearch: (s: Record<string, unknown>): { mode?: Mode | undefined; ref?: string } => ({
     mode: s["mode"] === "register" || s["mode"] === "login" ? s["mode"] : undefined,
+    ref: typeof s["ref"] === "string" ? s["ref"].slice(0, 80) : undefined,
   }),
   head: () => ({
     meta: [
@@ -29,7 +30,7 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  const { mode: routeMode = "login" } = Route.useSearch();
+  const { mode: routeMode = "login", ref: referralCode } = Route.useSearch();
   const [mode, setMode] = useState<Mode>(routeMode);
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -48,7 +49,7 @@ function AuthPage() {
             <button type="button" onClick={() => setMode("login")} className={`rounded-full py-2 text-center font-medium ${mode === "login" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Login</button>
             <button type="button" onClick={() => setMode("register")} className={`rounded-full py-2 text-center font-medium ${mode === "register" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Register</button>
           </div>
-          <OtpAuthForm mode={mode} />
+          <OtpAuthForm mode={mode} referralCode={referralCode} />
           <p className="mt-5 text-center text-xs text-muted-foreground">Never share your email verification code with anyone.</p>
         </div>
       </div>
@@ -56,7 +57,7 @@ function AuthPage() {
   );
 }
 
-function OtpAuthForm({ mode }: { mode: Mode }) {
+function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -91,7 +92,7 @@ function OtpAuthForm({ mode }: { mode: Mode }) {
         });
         if (error) throw error;
       }
-      setPending({ email: normalizedEmail, mode, ...(mode === "register" ? { name: name.trim(), phone: phone.trim() } : {}) });
+      setPending({ email: normalizedEmail, mode, ...(mode === "register" ? { name: name.trim(), phone: phone.trim() } : {}), ...(mode === "register" && referralCode ? { referralCode } : {}) });
       setCode("");
       toast.success("Code sent. Check your inbox and spam folder.");
     } catch (err) {
@@ -115,6 +116,10 @@ function OtpAuthForm({ mode }: { mode: Mode }) {
       if (error) throw error;
       sessionStorage.setItem("kr_alive", "1");
       if (pending.mode === "register") {
+        if (pending.referralCode) {
+          const { error: referralError } = await supabase.rpc("claim_referral_reward", { p_referral_code: pending.referralCode });
+          if (referralError) console.error("Referral reward claim failed", referralError);
+        }
         void telegramNotifyEvent({ data: { event: "signup" } }).catch((notifyError) => console.error("Telegram signup notification failed", notifyError));
         toast.success("Email verified and account created successfully!");
       } else {
