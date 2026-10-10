@@ -45,7 +45,7 @@ export const telegramNotifyEvent = createServerFn({ method: "POST" })
         if (!token) throw new Error("Telegram bot token is not configured");
         const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: ticket.telegram_chat_id, text: `📩 Support থেকে উত্তর এসেছে\\n\\n${data.message.trim().slice(0, 2000)}`, disable_web_page_preview: true }),
+          body: JSON.stringify({ chat_id: ticket.telegram_chat_id, text: `📩 <b>Support থেকে উত্তর এসেছে</b> <b>${esc(data.message.trim().slice(0, 2000))}</b>`, parse_mode: "HTML", disable_web_page_preview: true }),
         });
         const result = await response.json().catch(() => null) as { ok?: boolean; description?: string } | null;
         if (!response.ok || result?.ok !== true) throw new Error(`Telegram reply failed: ${result?.description ?? response.status}`);
@@ -56,7 +56,7 @@ export const telegramNotifyEvent = createServerFn({ method: "POST" })
     const { data: ticket } = await supabaseAdmin.from("support_tickets").select("id, subject, message").eq("id", data.recordId).eq("user_id", context.userId).maybeSingle();
     if (!ticket) throw new Error("Support ticket not found");
     await notifyOwner(
-      `📩 <b>New Support Ticket</b>\\nSource: Website\\nUser: ${esc(who)}\\nSubject: ${esc(ticket.subject)}\\nMessage: ${esc(String(ticket.message).slice(0, 1200))}\\nTicket: <code>${esc(ticket.id)}</code>`,
+      `<b>📩 New Support Ticket | Source: Website | User: ${esc(who)} | Subject: ${esc(ticket.subject)} | Message: ${esc(String(ticket.message).slice(0, 1200))} | Ticket: ${esc(ticket.id)}</b>`,
       { inline_keyboard: [[{ text: "↩️ Reply", callback_data: "supportreply:" + ticket.id }, { text: "✅ Close", callback_data: "supportclose:" + ticket.id }]] },
     );
     return { ok: true };
