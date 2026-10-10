@@ -101,7 +101,7 @@ function OtpAuthForm({ mode }: { mode: Mode }) {
   async function verifyCode(e: FormEvent) {
     e.preventDefault();
     if (!pending) return;
-    if (!/^\d{6}$/.test(code.trim())) return void toast.error("Enter the six-digit code from your email.");
+    if (!/^(?:\d{6}|\d{8})$/.test(code.trim())) return void toast.error("Enter the complete code from your email.");
     setBusy(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
@@ -136,13 +136,13 @@ function OtpAuthForm({ mode }: { mode: Mode }) {
             <div className="space-y-1.5"><Label htmlFor="register-phone">Phone</Label><Input id="register-phone" type="tel" required maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" /></div>
           </>}
           <div className="space-y-1.5"><Label htmlFor="auth-email">Email</Label><Input id="auth-email" type="email" required maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></div>
-          <Button type="submit" className="w-full rounded-full" disabled={busy}>{busy ? "Sending code…" : "{mode === "login" ? "Login" : "Continue"}"}</Button>
+          <Button type="submit" className="w-full rounded-full" disabled={busy}>{busy ? "Please wait…" : mode === "login" ? "Login" : "Continue"}</Button>
         </form>
       ) : (
         <form onSubmit={verifyCode} className="space-y-4">
           <h1 className="text-xl font-bold">Verify your email</h1>
           <p className="text-sm text-muted-foreground">Enter the code sent to <span className="font-medium">{pending.email}</span>.</p>
-          <div className="space-y-1.5"><Label htmlFor="auth-code">6-digit code</Label><Input id="auth-code" inputMode="numeric" autoComplete="one-time-code" type="text" required minLength={6} maxLength={6} pattern="[0-9]{6}" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} /></div>
+          <div className="space-y-1.5"><Label htmlFor="auth-code">Enter your code</Label><Input id="auth-code" inputMode="numeric" autoComplete="one-time-code" type="text" required minLength={6} maxLength={8} pattern="(?:[0-9]{6}|[0-9]{8})" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))} /></div>
           <Button type="submit" className="w-full rounded-full" disabled={busy || !/^(?:\\d{6}|\\d{8})$/.test(code)}>{busy ? "Verifying…" : "Verify code and continue"}</Button>
           <Button type="button" variant="outline" className="w-full rounded-full" disabled={busy} onClick={() => { setPending(null); setCode(""); }}>Use a different email</Button>
           <p className="text-xs text-muted-foreground">If no email arrives, check spam. You can request another code after the email provider's cooldown.</p>
