@@ -135,7 +135,7 @@ export async function handleUpdate(u: any) {
     for (const message_id of oldIds) await tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined);
     const payload = text.split(/\s+/)[1] ?? "";
     const referrerId = payload.startsWith("ref_") ? payload.slice(4) : st.data?.pending_referrer_id;
-    const nextData = { recent_bot_message_ids: [], ...(referrerId ? { pending_referrer_id: referrerId } : {}) };
+    const nextData = { recent_bot_message_ids: [], pending_referrer_id: referrerId || null };
     await setState(chatId, st.data?.phone_shared ? (user ? "" : "guest_auth") : (user ? "" : "guest_share_number"), nextData);
     if (user) return welcome(chatId, user);
     if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
@@ -241,7 +241,7 @@ async function showFundAmounts(chatId: number, user: any, method = "", messageId
       [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }],
     ],
   });
-  const amount = Number((method.match(/\\d+/) ?? ["100"])[0]);
+  const amount = Number((method.match(/\d+/) ?? ["100"])[0]);
   return screen(chatId, messageId, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\n\n${balanceLine}\n\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
     inline_keyboard: [
       [{ text: "📱 bKash", callback_data: `fundpay:bkash:${amount}` }, { text: "📱 Nagad", callback_data: `fundpay:nagad:${amount}` }],
