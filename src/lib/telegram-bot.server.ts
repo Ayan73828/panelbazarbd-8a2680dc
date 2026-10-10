@@ -232,7 +232,7 @@ export async function handleUpdate(u: any) {
     if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Login বাতিল হয়েছে। আবার LOGIN চাপুন।", GUEST_AUTH); }
     const email = String(st.data?.email ?? "");
     const code = text.replace(/\s+/g, "");
-    if (!email || !/^(?:\\d{6}|\\d{8})$/.test(code)) return send(chatId, "❌ ইমেইলে আসা 6 বা 8 সংখ্যার verification code লিখুন।");
+    if (!email || !/^(?:\d{6}|\d{8})$/.test(code)) return send(chatId, "❌ ইমেইলে আসা 6 বা 8 সংখ্যার verification code লিখুন।");
     await tg("deleteMessage", { chat_id: chatId, message_id: m.message_id }).catch(() => undefined);
     const { createClient } = await import("@supabase/supabase-js");
     const key = process.env["SUPABASE_PUBLISHABLE_KEY"] ?? process.env["SUPABASE_ANON_KEY"] ?? "";
@@ -418,6 +418,11 @@ async function handleCallback(cq: any) {
       await setState(chatId, "support_ticket_details", { support_user_id: user.id, support_message_id: cq.message?.message_id });
       return screen(chatId, cq.message?.message_id, "🎫 <b>OPEN SUPPORT TICKET</b>\n\nআপনার সমস্যার বিস্তারিত লিখে পাঠান। সম্ভব হলে একই মেসেজে photo/screenshot যোগ করুন। শুধু text বা photo caption-সহ photo পাঠালেও হবে।\n\nCancel করতে /cancel লিখুন।", { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "menu:support" }]] });
     }
+    if (id === "logout") {
+      await db.from("telegram_links").delete().eq("telegram_user_id", cq.from.id);
+      await setState(chatId, "guest_auth", { phone_shared: true });
+      return screen(chatId, cq.message?.message_id, "✅ আপনার Telegram account থেকে Logout হয়েছে। আবার ব্যবহার করতে LOGIN করুন।", GUEST_AUTH);
+    }
     if (id === "profile") {
       const [ordersResult, spentResult, referralResult] = await Promise.all([
         db.from("orders").select("id", { count: "exact", head: true }).eq("user_id", user.id),
@@ -429,7 +434,7 @@ async function handleCallback(cq: any) {
       const joined = user.created_at ? new Date(user.created_at).toLocaleString("sv-SE", { timeZone: "Asia/Dhaka" }).replace("T", " ") : "—";
       const account = user.is_admin ? "👑 Admin" : "🧑‍💼 Regular";
       const profileText = `👤 ━━ <b>YOUR PROFILE</b> ━━ 👤\n\n🆔 User ID: <code>${cq.from.id}</code>\n📛 Name: ${esc(user.name || user.username || "—")}\n📧 Email: ${esc(user.email || "Not added")}\n📱 Number: ${esc(user.phone || "Not added")}\n👑 Account: ${account}\n\n💰 ━ <b>Balance</b> ━\n   💳 Current: ${dualMoney(user.balance)}\n\n📊 ━ <b>Statistics</b> ━\n   📦 Orders: ${orderCount}\n   💸 Spent: ${dualMoney(spent)}\n   👥 Referrals: ${referralResult.count ?? 0}\n\n📅 Joined: ${joined}`;
-      return screen(chatId, cq.message?.message_id, profileText, { inline_keyboard: [[{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
+      return screen(chatId, cq.message?.message_id, profileText, { inline_keyboard: [[{ text: "🚪 Logout", callback_data: "menu:logout" }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
     }
     if (id === "home") return welcome(chatId, user, cq.message?.message_id);
   }
