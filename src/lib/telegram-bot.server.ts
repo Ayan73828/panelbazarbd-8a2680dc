@@ -128,7 +128,7 @@ export async function handleUpdate(u: any) {
     await setState(chatId, st.data?.phone_shared ? (user ? "" : "guest_auth") : (user ? "" : "guest_share_number"), { recent_bot_message_ids: [] });
     if (user) return welcome(chatId, user);
     if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
-    return send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\\n\\nশুরু করতে নিচের SHARE MY NUMBER বাটনে চাপ দিন।", SHARE_NUMBER);
+    return send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nশুরু করতে নিচের SHARE MY NUMBER বাটনে চাপ দিন।", SHARE_NUMBER);
   }
   if (text.startsWith("/start")) {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
@@ -161,10 +161,10 @@ export async function handleUpdate(u: any) {
       return send(chatId, "Ticket save করা যায়নি। আবার চেষ্টা করুন বা Telegram Admin-কে message দিন।");
     }
     await setState(chatId, "");
-    const ticketNotice = "🎫 <b>New Telegram Support Ticket</b>\\nTicket: <code>" + esc(ticket.id) + "</code>\\nUser: <code>" + esc(ownerId) + "</code>\\nTelegram ID: <code>" + m.from.id + "</code>\\nDetails: " + esc(details);
+    const ticketNotice = "🎫 <b>New Telegram Support Ticket</b>\nTicket: <code>" + esc(ticket.id) + "</code>\nUser: <code>" + esc(ownerId) + "</code>\nTelegram ID: <code>" + m.from.id + "</code>\nDetails: " + esc(details);
     const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"];
     if (photo && ownerChatId) await tg("sendPhoto", { chat_id: ownerChatId, photo, caption: ticketNotice, parse_mode: "HTML" });
-    else await notifyOwner(ticketNotice + (photo ? "\\nPhoto file ID: " + esc(photo) : ""));
+    else await notifyOwner(ticketNotice + (photo ? "\nPhoto file ID: " + esc(photo) : ""));
     return send(chatId, "✅ আপনার Support Ticket জমা হয়েছে।\nTicket ID: <code>" + esc(ticket.id) + "</code>\nAdmin-কে জানানো হয়েছে।", { inline_keyboard: [[{ text: "⬅️ Main Menu", callback_data: "menu:home" }]] });
   }
   if (m.contact) {
@@ -342,7 +342,7 @@ async function handleCallback(cq: any) {
       return screen(chatId, cq.message?.message_id, "আপনার ওয়েবসাইটের <b>Username বা Email</b> লিখুন:");
     }
     if (id === "register") return screen(chatId, cq.message?.message_id, "নিচের বাটনে ওয়েবসাইটে অ্যাকাউন্ট খুলুন, তারপর এখানে ফিরে 🔐 LOGIN করুন।", {
-      inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register` }]],
+      inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register${st.data?.pending_referrer_id ? `&ref=${encodeURIComponent(st.data.pending_referrer_id)}` : ""}` }]],
     });
   }
   if (!user) return welcome(chatId, null);
