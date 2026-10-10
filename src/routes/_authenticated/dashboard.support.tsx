@@ -36,6 +36,9 @@ function SupportPage() {
   const create = async () => {
     if (!user || !subject.trim() || !message.trim()) { toast.error("বিষয় ও মেসেজ লিখুন"); return; }
     setBusy(true);
+    const { data: existing, error: existingError } = await supabase.from("support_tickets").select("id").eq("user_id", user.id).eq("status", "open").limit(1).maybeSingle();
+    if (existingError) { setBusy(false); toast.error(existingError.message); return; }
+    if (existing) { setBusy(false); toast.error("আপনার আগের টিকিটে admin উত্তর দেওয়া পর্যন্ত নতুন টিকিট করা যাবে না"); setOpenId(existing.id); return; }
     const { data, error } = await supabase.from("support_tickets").insert({ user_id: user.id, subject: subject.trim().slice(0, 150), message: message.trim().slice(0, 2000) }).select("id").single();
     setBusy(false);
     if (error) { toast.error(error.message); return; }
