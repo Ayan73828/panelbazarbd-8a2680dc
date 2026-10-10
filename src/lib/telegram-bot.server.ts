@@ -214,7 +214,7 @@ async function showFundAmounts(chatId: number, user: any, method = "", messageId
       [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }],
     ],
   });
-  const amount = Number((method.match(/\d+/) ?? ["100"])[0]);
+  const amount = Number((method.match(/\\d+/) ?? ["100"])[0]);
   return screen(chatId, messageId, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\n\n${balanceLine}\n\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
     inline_keyboard: [
       [{ text: "📱 bKash", callback_data: `fundpay:bkash:${amount}` }, { text: "📱 Nagad", callback_data: `fundpay:nagad:${amount}` }],
