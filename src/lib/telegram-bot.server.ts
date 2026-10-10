@@ -160,7 +160,7 @@ export async function handleUpdate(u: any) {
     await db.from("support_tickets").update({ status: "resolved", updated_at: new Date().toISOString() }).eq("id", ticket.id);
     const { data: link } = await db.from("telegram_links").select("telegram_chat_id").eq("user_id", ticket.user_id).maybeSingle();
     const customerChat = ticket.telegram_chat_id ?? link?.telegram_chat_id;
-    if (customerChat) await send(Number(customerChat), `📩 <b>Support থেকে উত্তর এসেছে</b>\nটিকিট: <code>${esc(ticket.id)}</code>\n\n${esc(text.slice(0, 2000))}\n\nআপনার টিকিটটি সমাধান হিসেবে বন্ধ করা হয়েছে।`);
+    if (customerChat) await send(Number(customerChat), `📩 <b>Support থেকে উত্তর এসেছে</b> <b>${esc(text.slice(0, 2000))}</b>`);
     await setState(chatId, "");
     return send(chatId, "✅ Reply পাঠানো হয়েছে এবং টিকিট resolved করা হয়েছে।");
   }
@@ -226,7 +226,7 @@ export async function handleUpdate(u: any) {
       return send(chatId, "❌ ইমেইলে code পাঠানো যায়নি। ইমেইলটি registered কি না দেখুন, তারপর আবার LOGIN করুন।", GUEST_AUTH);
     }
     await setState(chatId, "login_otp", { email, otp_requested_at: Date.now() });
-    return send(chatId, "📩 <b>Verification code পাঠানো হয়েছে</b>\\n\\nইমেইল: <code>" + esc(email) + "</code>\\n\\nইমেইলে আসা code এখানে লিখুন। Code কাউকে দেবেন না। বাতিল করতে /cancel লিখুন।");
+    return send(chatId, "📩 <b>Verification code পাঠানো হয়েছে</b> <b>ইমেইল:</b> <code>" + esc(email) + "</code> <b>ইমেইলে আসা code এখানে লিখুন। Code কাউকে দেবেন না। বাতিল করতে /cancel লিখুন।");
   }
   if (st.state === "login_otp" && text) {
     if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Login বাতিল হয়েছে। আবার LOGIN চাপুন।", GUEST_AUTH); }
