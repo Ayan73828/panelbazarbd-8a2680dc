@@ -29,7 +29,7 @@ export function SupportThread({ ticket, admin }: { ticket: Ticket; admin?: boole
     if (error) { toast.error(error.message); return; }
     setText("");
     if (admin) {
-      const { error: closeErr } = await supabase.from("support_tickets").update({ status: "closed" }).eq("id", ticket.id);
+      const { error: closeErr } = await supabase.from("support_tickets").update({ status: "resolved" }).eq("id", ticket.id);
       if (closeErr) toast.error(closeErr.message);
       else toast.success("রিপ্লাই পাঠানো হয়েছে, টিকিট বন্ধ করা হয়েছে");
       void qc.invalidateQueries({ queryKey: ["tickets"] });
@@ -62,7 +62,7 @@ export function SupportThread({ ticket, admin }: { ticket: Ticket; admin?: boole
           <Textarea rows={3} placeholder="রিপ্লাই লিখুন…" value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} />
           <div className="flex gap-2">
             <Button className="flex-1" disabled={busy || !text.trim()} onClick={send}>{busy ? "Sending…" : "Send reply"}</Button>
-            {admin && <Button variant="secondary" onClick={() => setStatus("closed")}>Close</Button>}
+            {admin && <Button variant="secondary" onClick={() => setStatus("resolved")}>Close</Button>}
           </div>
         </div>
       ) : (
