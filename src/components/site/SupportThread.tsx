@@ -28,6 +28,12 @@ export function SupportThread({ ticket, admin }: { ticket: Ticket; admin?: boole
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     setText("");
+    if (admin) {
+      const { error: closeErr } = await supabase.from("support_tickets").update({ status: "closed" }).eq("id", ticket.id);
+      if (closeErr) toast.error(closeErr.message);
+      else toast.success("রিপ্লাই পাঠানো হয়েছে, টিকিট বন্ধ করা হয়েছে");
+      void qc.invalidateQueries({ queryKey: ["tickets"] });
+    }
     void qc.invalidateQueries({ queryKey: ["ticket-replies", ticket.id] });
   };
   const setStatus = async (status: string) => {
