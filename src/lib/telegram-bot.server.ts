@@ -23,10 +23,10 @@ const tk = (n: number) => `৳${Number(n).toLocaleString("en-US", { maximumFract
 
 const MENU = {
   inline_keyboard: [
-    [{ text: "🛍 SHOP NOW", callback_data: "menu:products" }, { text: "💰 MY WALLET", callback_data: "menu:wallet" }],
-    [{ text: "➕ ADD FUND", callback_data: "menu:fund" }, { text: "📦 ORDERS", callback_data: "menu:orders" }],
-    [{ text: "🔑 MY KEYS", callback_data: "menu:keys" }, { text: "👤 PROFILE", callback_data: "menu:profile" }],
-    [{ text: "📞 SUPPORT", callback_data: "menu:support" }, { text: "🌐 WEBSITE", url: SITE_URL }],
+    [{ text: "🛍️ Shop Now", callback_data: "menu:products" }],
+    [{ text: "🧾 My Order", callback_data: "menu:orders" }, { text: "👑 Profile", callback_data: "menu:profile" }],
+    [{ text: "💳 Add Balance", callback_data: "menu:fund" }, { text: "🤝 Referral", callback_data: "menu:referral" }],
+    [{ text: "💬 Support", callback_data: "menu:support" }],
   ],
 };
 const RESTART_KEYBOARD = {
@@ -321,6 +321,7 @@ async function handleCallback(cq: any) {
     if (id === "orders") return showOrders(chatId, user, false, cq.message?.message_id);
     if (id === "keys") return showOrders(chatId, user, true, cq.message?.message_id);
     if (id === "support") return showSupport(chatId, cq.message?.message_id);
+    if (id === "referral") return screen(chatId, cq.message?.message_id, `🤝 <b>Referral</b>\n\nআপনার referral link দেখতে website-এর Profile/Referral section ব্যবহার করুন।`, { inline_keyboard: [[{ text: "🌐 Open Website", url: SITE_URL }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
     if (id === "profile") return screen(chatId, cq.message?.message_id, `👤 <b>Profile</b>\nনাম: ${esc(user.name)}\nUsername: ${esc(user.username)}\nEmail: ${esc(user.email)}\nPhone: ${esc(user.phone)}\nব্যালেন্স: <b>${tk(user.balance)}</b>`, { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:home" }]] });
     if (id === "home") return screen(chatId, cq.message?.message_id, `🏪 <b>Panel Bazar BD</b> — Main Menu`, MENU);
   }
