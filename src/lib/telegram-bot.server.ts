@@ -34,8 +34,7 @@ const SHARE_NUMBER = {
   resize_keyboard: true,
 };
 const GUEST_AUTH = {
-  keyboard: [[{ text: "🔐 LOGIN" }, { text: "🆕 CREATE ACCOUNT" }]],
-  resize_keyboard: true,
+  inline_keyboard: [[{ text: "🔐 LOGIN", callback_data: "guest:login" }, { text: "🆕 CREATE ACCOUNT", callback_data: "guest:register" }]],
 };
 
 async function admin() {
@@ -277,9 +276,20 @@ async function handleCallback(cq: any) {
   await tg("answerCallbackQuery", { callback_query_id: cq.id });
   if (!chatId) return;
   const user = await linkedUser(cq.from.id);
+  const [kind, id] = String(cq.data ?? "").split(":");
+  if (kind === "guest") {
+    const st = await getState(chatId);
+    if (st.data?.phone_shared !== true) return welcome(chatId, null);
+    if (id === "login") {
+      await setState(chatId, "login_id");
+      return send(chatId, "আপনার ওয়েবসাইটের <b>Username বা Email</b> লিখুন:");
+    }
+    if (id === "register") return send(chatId, "নিচের বাটনে ওয়েবসাইটে অ্যাকাউন্ট খুলুন, তারপর এখানে ফিরে 🔐 LOGIN করুন।", {
+      inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register` }]],
+    });
+  }
   if (!user) return welcome(chatId, null);
   const db = await admin();
-  const [kind, id] = String(cq.data ?? "").split(":");
   if (kind === "menu") {
     if (id === "products") return showProducts(chatId);
     if (id === "wallet") return showWallet(chatId, user);
