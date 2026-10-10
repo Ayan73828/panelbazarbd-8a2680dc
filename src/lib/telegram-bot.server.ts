@@ -81,6 +81,14 @@ async function linkedUser(tgUserId: number) {
   const { data: p } = await db.from("profiles").select("*").eq("id", data.user_id).maybeSingle();
   return p as any;
 }
+const screen = async (chat_id: number, message_id: number | undefined, text: string, reply_markup?: unknown) => {
+  if (typeof message_id === "number") {
+    const result = await tg("editMessageText", { chat_id, message_id, text, parse_mode: "HTML", disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) });
+    if (result?.ok || String(result?.description ?? "").includes("message is not modified")) return result;
+  }
+  return send(chat_id, text, reply_markup);
+};
+
 const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
   const result = await tg("sendMessage", { chat_id, text, parse_mode: "HTML", disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) });
   const id = result?.result?.message_id;
@@ -195,8 +203,8 @@ async function doLogin(chatId: number, from: any, id: string, password: string) 
   return welcome(chatId, user);
 }
 
-async function showFundAmounts(chatId: number, user: any, method = "") {
-  if (!method) return send(chatId, `💰 <b>ADD FUND</b>\nবর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nPayment method বেছে নিন:`, {
+async function showFundAmounts(chatId: number, user: any, method = "", messageId?: number) {
+  if (!method) return screen(chatId, messageId, `💰 <b>ADD FUND</b>\nবর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nPayment method বেছে নিন:`, {
     inline_keyboard: [
       [{ text: "📱 bKash", callback_data: "menu:fundmethod-bkash" }, { text: "📱 Nagad", callback_data: "menu:fundmethod-nagad" }],
       [{ text: "💳 UddoktaPay", callback_data: "menu:fundmethod-uddokta" }],
@@ -204,7 +212,7 @@ async function showFundAmounts(chatId: number, user: any, method = "") {
     ],
   });
   const methodId = method.startsWith("bKash") ? "bkash" : method.startsWith("Nagad") ? "nagad" : "uddokta";
-  return send(chatId, `💰 <b>ADD FUND</b>\nPayment: <b>${esc(method)}</b>\nবর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nAmount বেছে নিন:`, {
+  return screen(chatId, messageId, `💰 <b>ADD FUND</b>\nPayment: <b>${esc(method)}</b>\nবর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nAmount বেছে নিন:`, {
     inline_keyboard: [
       [{ text: "৳100", callback_data: `fundpay:${methodId}:100` }, { text: "৳500", callback_data: `fundpay:${methodId}:500` }, { text: "৳1000", callback_data: `fundpay:${methodId}:1000` }],
       [{ text: "৳2000", callback_data: `fundpay:${methodId}:2000` }, { text: "✍️ Custom amount", url: `${SITE_URL}/dashboard/wallet` }],
@@ -212,16 +220,16 @@ async function showFundAmounts(chatId: number, user: any, method = "") {
     ],
   });
 }
-async function startTelegramPayment(chatId: number, user: any, amount: number, method = "UddoktaPay") {
+async function startTelegramPayment(chatId: number, user: any, amount: number, method = "UddoktaPay", messageId?: number) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { paymentBaseUrl } = await import("@/lib/uddoktapay.server");
   const apiKey = process.env["UDDOKTAPAY_API_KEY"];
-  if (!apiKey) return send(chatId, "⚠️ Payment gateway এখন কনফিগার করা নেই। Admin-এর সাথে যোগাযোগ করুন।", { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:fund" }]] });
+  if (!apiKey) return screen(chatId, messageId, "⚠️ Payment gateway এখন কনফিগার করা নেই। Admin-এর সাথে যোগাযোগ করুন।", { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:fund" }]] });
   const ref = crypto.randomUUID();
   const { error: insErr } = await supabaseAdmin.from("uddoktapay_payments").insert({
     id: ref, user_id: user.id, invoice_id: `pending-${ref}`, amount, status: "pending",
   });
-  if (insErr) return send(chatId, "❌ Payment request তৈরি হয়নি। আবার চেষ্টা করুন।");
+  if (insErr) return screen(chatId, messageId, "❌ Payment request তৈরি হয়নি। আবার চেষ্টা করুন।");
   const origin = SITE_URL.replace(/\/$/, "");
   const res = await fetch(`${paymentBaseUrl()}/checkout-v2`, {
     method: "POST",
@@ -241,10 +249,10 @@ async function startTelegramPayment(chatId: number, user: any, amount: number, m
   if (!res.ok || !body?.payment_url) {
     await supabaseAdmin.from("uddoktapay_payments").update({ status: "failed", raw: body }).eq("id", ref);
     console.error("Telegram UddoktaPay checkout failed", res.status, body);
-    return send(chatId, "❌ Payment link তৈরি হয়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।", { inline_keyboard: [[{ text: "↩️ Try again", callback_data: `fundamount:${amount}` }], [{ text: "⬅️ Back", callback_data: "menu:fund" }]] });
+    return screen(chatId, messageId, "❌ Payment link তৈরি হয়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।", { inline_keyboard: [[{ text: "↩️ Try again", callback_data: `fundamount:${amount}` }], [{ text: "⬅️ Back", callback_data: "menu:fund" }]] });
   }
   await supabaseAdmin.from("uddoktapay_payments").update({ raw: body }).eq("id", ref);
-  return send(chatId, `🧾 <b>PAYMENT SUMMARY</b>\n\nAmount: <b>${tk(amount)}</b>\nPayment: <b>${esc(method)}</b>\nStatus: Pending\n\nনিচের বাটনে চাপ দিলে UddoktaPay checkout Telegram-এর ভেতরে খুলবে (Telegram client সমর্থন করলে)। Payment successful হলে wallet অটো credit হবে।`, {
+  return screen(chatId, messageId, `🧾 <b>PAYMENT SUMMARY</b>\n\nAmount: <b>${tk(amount)}</b>\nPayment: <b>${esc(method)}</b>\nStatus: Pending\n\nনিচের বাটনে চাপ দিলে UddoktaPay checkout Telegram-এর ভেতরে খুলবে (Telegram client সমর্থন করলে)। Payment successful হলে wallet অটো credit হবে।`, {
     inline_keyboard: [[{ text: "💳 Pay now", web_app: { url: body.payment_url } }], [{ text: "🔗 Open payment", url: body.payment_url }], [{ text: "⬅️ Back", callback_data: "menu:fund" }]],
   });
 }
@@ -255,31 +263,27 @@ async function showProducts(chatId: number, messageId?: number) {
   const rows = (data ?? []).map((p: any) => [{ text: p.name, callback_data: `p:${p.id}` }]);
   rows.push([{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]);
   const body = { chat_id: chatId, text: data?.length ? "🛍 <b>Products</b> — একটি বেছে নিন:" : "এখন কোনো প্রোডাক্ট নেই।", parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: rows } };
-  if (messageId) {
-    const edited = await tg("editMessageText", { ...body, message_id: messageId });
-    if (edited?.ok) return edited;
-  }
-  return send(chatId, body.text, body.reply_markup);
+  return screen(chatId, messageId, body.text, body.reply_markup);
 }
 
-async function showWallet(chatId: number, user: any) {
+async function showWallet(chatId: number, user: any, messageId?: number) {
   const db = await admin();
   const { data } = await db.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(8);
   const lines = (data ?? []).map((t: any) => `${t.amount > 0 ? "➕" : "➖"} ${tk(Math.abs(t.amount))} · ${esc(t.description ?? t.type)}`);
-  return send(chatId, `💰 ব্যালেন্স: <b>${tk(user.balance)}</b>\n\n${lines.join("\n") || "কোনো লেনদেন নেই।"}`);
+  return screen(chatId, messageId, `💰 ব্যালেন্স: <b>${tk(user.balance)}</b>\n\n${lines.join("\n") || "কোনো লেনদেন নেই।"}`, { inline_keyboard: [[{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
 }
 
-async function showOrders(chatId: number, user: any, keysOnly: boolean) {
+async function showOrders(chatId: number, user: any, keysOnly: boolean, messageId?: number) {
   const db = await admin();
   let q = db.from("orders").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10);
   if (keysOnly) q = q.not("delivered_key", "is", null);
   const { data } = await q;
-  if (!data?.length) return send(chatId, keysOnly ? "কোনো Key নেই।" : "কোনো অর্ডার নেই।");
+  if (!data?.length) return screen(chatId, messageId, keysOnly ? "কোনো Key নেই।" : "কোনো অর্ডার নেই।", { inline_keyboard: [[{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
   const out = data.map((o: any) => `#${o.id.slice(0, 8)} · <b>${esc(o.product_name)}</b>\n${tk(o.total)} · ${esc(o.status)} · ${new Date(o.created_at).toLocaleDateString("en-GB")}${o.delivered_key ? `\n🔑 <code>${esc(o.delivered_key)}</code>` : ""}`);
-  return send(chatId, (keysOnly ? "🔑 <b>My Keys</b>\n\n" : "📦 <b>My Orders</b>\n\n") + out.join("\n\n"));
+  return screen(chatId, messageId, (keysOnly ? "🔑 <b>My Keys</b>\n\n" : "📦 <b>My Orders</b>\n\n") + out.join("\n\n"), { inline_keyboard: [[{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
 }
 
-async function showSupport(chatId: number) {
+async function showSupport(chatId: number, messageId?: number) {
   const db = await admin();
   const { data } = await db.from("site_settings").select("key,value").in("key", ["telegram_username", "whatsapp_number", "contact_phone"]);
   const s: Record<string, string> = {};
@@ -287,7 +291,7 @@ async function showSupport(chatId: number) {
   const btns: any[] = [];
   if (s["telegram_username"]) btns.push([{ text: "Telegram", url: `https://t.me/${s["telegram_username"].replace(/^@/, "")}` }]);
   if (s["whatsapp_number"]) btns.push([{ text: "WhatsApp", url: `https://wa.me/${s["whatsapp_number"].replace(/\D/g, "").replace(/^0/, "880")}` }]);
-  return send(chatId, "📞 সাপোর্টের জন্য যোগাযোগ করুন:", btns.length ? { inline_keyboard: btns } : undefined);
+  return screen(chatId, messageId, "📞 সাপোর্টের জন্য যোগাযোগ করুন:", { inline_keyboard: [...btns, [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
 }
 
 async function handleCallback(cq: any) {
@@ -301,9 +305,9 @@ async function handleCallback(cq: any) {
     if (st.data?.phone_shared !== true) return welcome(chatId, null);
     if (id === "login") {
       await setState(chatId, "login_id");
-      return send(chatId, "আপনার ওয়েবসাইটের <b>Username বা Email</b> লিখুন:");
+      return screen(chatId, cq.message?.message_id, "আপনার ওয়েবসাইটের <b>Username বা Email</b> লিখুন:");
     }
-    if (id === "register") return send(chatId, "নিচের বাটনে ওয়েবসাইটে অ্যাকাউন্ট খুলুন, তারপর এখানে ফিরে 🔐 LOGIN করুন।", {
+    if (id === "register") return screen(chatId, cq.message?.message_id, "নিচের বাটনে ওয়েবসাইটে অ্যাকাউন্ট খুলুন, তারপর এখানে ফিরে 🔐 LOGIN করুন।", {
       inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register` }]],
     });
   }
@@ -311,40 +315,40 @@ async function handleCallback(cq: any) {
   const db = await admin();
   if (kind === "menu") {
     if (id === "products") return showProducts(chatId, cq.message?.message_id);
-    if (id === "wallet") return showWallet(chatId, user);
-    if (id === "fund") return showFundAmounts(chatId, user);
-    if (id.startsWith("fundmethod-")) return showFundAmounts(chatId, user, id.endsWith("bkash") ? "bKash / UddoktaPay" : id.endsWith("nagad") ? "Nagad / UddoktaPay" : "UddoktaPay");
-    if (id === "orders") return showOrders(chatId, user, false);
-    if (id === "keys") return showOrders(chatId, user, true);
-    if (id === "support") return showSupport(chatId);
-    if (id === "profile") return send(chatId, `👤 <b>Profile</b>\nনাম: ${esc(user.name)}\nUsername: ${esc(user.username)}\nEmail: ${esc(user.email)}\nPhone: ${esc(user.phone)}\nব্যালেন্স: <b>${tk(user.balance)}</b>`, { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:home" }]] });
-    if (id === "home") return send(chatId, `🏪 <b>Panel Bazar BD</b> — Main Menu`, MENU);
+    if (id === "wallet") return showWallet(chatId, user, cq.message?.message_id);
+    if (id === "fund") return showFundAmounts(chatId, user, "", cq.message?.message_id);
+    if (id.startsWith("fundmethod-")) return showFundAmounts(chatId, user, id.endsWith("bkash") ? "bKash / UddoktaPay" : id.endsWith("nagad") ? "Nagad / UddoktaPay" : "UddoktaPay", cq.message?.message_id);
+    if (id === "orders") return showOrders(chatId, user, false, cq.message?.message_id);
+    if (id === "keys") return showOrders(chatId, user, true, cq.message?.message_id);
+    if (id === "support") return showSupport(chatId, cq.message?.message_id);
+    if (id === "profile") return screen(chatId, cq.message?.message_id, `👤 <b>Profile</b>\nনাম: ${esc(user.name)}\nUsername: ${esc(user.username)}\nEmail: ${esc(user.email)}\nPhone: ${esc(user.phone)}\nব্যালেন্স: <b>${tk(user.balance)}</b>`, { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:home" }]] });
+    if (id === "home") return screen(chatId, cq.message?.message_id, `🏪 <b>Panel Bazar BD</b> — Main Menu`, MENU);
   }
   if (kind === "fundshort" && id) {
     const amount = Number(id);
-    if (!(amount >= 1 && amount <= 100000)) return send(chatId, "সঠিক amount নির্বাচন করুন।");
-    return send(chatId, `💳 <b>ADD FUND</b>\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
+    if (!(amount >= 1 && amount <= 100000)) return screen(chatId, cq.message?.message_id, "সঠিক amount নির্বাচন করুন।");
+    return screen(chatId, cq.message?.message_id, `💳 <b>ADD FUND</b>\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
       inline_keyboard: [[{ text: "📱 bKash", callback_data: `fundpay:bkash:${amount}` }, { text: "📱 Nagad", callback_data: `fundpay:nagad:${amount}` }], [{ text: "💳 UddoktaPay", callback_data: `fundpay:uddokta:${amount}` }], [{ text: "⬅️ Back", callback_data: "menu:fund" }]],
     });
   }
   if (kind === "fundmethod" && id) {
     const method = id === "bkash" ? "bKash / UddoktaPay" : id === "nagad" ? "Nagad / UddoktaPay" : "UddoktaPay";
-    return showFundAmounts(chatId, user, method);
+    return showFundAmounts(chatId, user, method, cq.message?.message_id);
   }
   if (kind === "fundpay" && id) {
     const [, methodId, rawAmount] = String(cq.data ?? "").split(":");
     const amount = Number(rawAmount);
     const method = methodId === "bkash" ? "bKash / UddoktaPay" : methodId === "nagad" ? "Nagad / UddoktaPay" : "UddoktaPay";
-    if (!(amount >= 1 && amount <= 100000)) return send(chatId, "সঠিক amount নির্বাচন করুন।");
-    return startTelegramPayment(chatId, user, amount, method);
+    if (!(amount >= 1 && amount <= 100000)) return screen(chatId, cq.message?.message_id, "সঠিক amount নির্বাচন করুন।");
+    return startTelegramPayment(chatId, user, amount, method, cq.message?.message_id);
   }
   if (kind === "p" && id) {
     const { data: p } = await db.from("products").select("name,short_description").eq("id", id).maybeSingle();
     const { data: pk } = await db.from("product_packages").select("id,name,price").eq("product_id", id).eq("is_active", true).order("sort_order");
     const { data: stock } = await db.rpc("package_stock", { p_product_id: id });
     const avail = new Map<string, number>((stock ?? []).map((s: any) => [s.package_id, Number(s.available)]));
-    if (!pk?.length) return send(chatId, "এই প্রোডাক্টে কোনো প্যাকেজ নেই।");
-    return send(chatId, `<b>${esc(p?.name)}</b>\n${esc(p?.short_description ?? "")}\n\nপ্যাকেজ বেছে নিন:`, {
+    if (!pk?.length) return screen(chatId, cq.message?.message_id, "এই প্রোডাক্টে কোনো প্যাকেজ নেই।");
+    return screen(chatId, cq.message?.message_id, `<b>${esc(p?.name)}</b>\n${esc(p?.short_description ?? "")}\n\nপ্যাকেজ বেছে নিন:`, {
       inline_keyboard: pk.map((k: any) => [{
         text: `${k.name} — ${Number(k.price) > 0 ? tk(k.price) : "Price not set"}${(avail.get(k.id) ?? 0) > 0 ? "" : " (শেষ)"}`,
         callback_data: `k:${k.id}`,
@@ -354,7 +358,7 @@ async function handleCallback(cq: any) {
   if (kind === "k" && id) {
     const { data: k } = await db.from("product_packages").select("id,name,price,products(name)").eq("id", id).maybeSingle();
     if (!k) return;
-    return send(chatId, `কিনবেন?\n<b>${esc(k.products?.name)} — ${esc(k.name)}</b>\nদাম: <b>${tk(k.price)}</b>\nব্যালেন্স: ${tk(user.balance)}`, {
+    return screen(chatId, cq.message?.message_id, `কিনবেন?\n<b>${esc(k.products?.name)} — ${esc(k.name)}</b>\nদাম: <b>${tk(k.price)}</b>\nব্যালেন্স: ${tk(user.balance)}`, {
       inline_keyboard: [[{ text: "✅ Buy now", callback_data: `b:${k.id}` }]],
     });
   }
@@ -364,16 +368,16 @@ async function handleCallback(cq: any) {
       if (error.message.includes("INSUFFICIENT")) {
         const { data: k } = await db.from("product_packages").select("price").eq("id", id).maybeSingle();
         const shortfall = Math.max(1, Math.ceil(Number(k?.price ?? 100) - Number(user.balance ?? 0)));
-        return send(chatId, `❌ ব্যালেন্স যথেষ্ট নয়।\nপ্রয়োজন: ${tk(k?.price ?? 0)}\nআপনার ব্যালেন্স: ${tk(user.balance)}\n\nAdd Fund amount: ${tk(shortfall)}`, {
+        return screen(chatId, cq.message?.message_id, `❌ ব্যালেন্স যথেষ্ট নয়।\nপ্রয়োজন: ${tk(k?.price ?? 0)}\nআপনার ব্যালেন্স: ${tk(user.balance)}\n\nAdd Fund amount: ${tk(shortfall)}`, {
           inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [{ text: "⬅️ Back", callback_data: "menu:products" }]],
         });
       }
       const msg = error.message.includes("NO_KEYS") ? "এই প্যাকেজের Key বর্তমানে শেষ।"
         : `❌ ${error.message}`;
-      return send(chatId, msg);
+      return screen(chatId, cq.message?.message_id, msg);
     }
     const { data: o } = await db.from("orders").select("*").eq("id", oid).maybeSingle();
     await notifyOwner(`🛒 Telegram purchase\nUser: <b>${esc(user.username || user.email)}</b>\n${esc(o?.product_name)}\n${tk(o?.total ?? 0)} · Order #${String(oid).slice(0, 8)}`);
-    return send(chatId, `✅ কেনা সফল!\n<b>${esc(o?.product_name)}</b>\n🔑 Key: <code>${esc(o?.delivered_key)}</code>\nOrder #${String(oid).slice(0, 8)}`, MENU);
+    return screen(chatId, cq.message?.message_id, `✅ কেনা সফল!\n<b>${esc(o?.product_name)}</b>\n🔑 Key: <code>${esc(o?.delivered_key)}</code>\nOrder #${String(oid).slice(0, 8)}`, MENU);
   }
 }
