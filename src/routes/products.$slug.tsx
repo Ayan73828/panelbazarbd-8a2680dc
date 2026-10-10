@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSite";
 import { effectivePrice, money, statusLabel } from "@/lib/site";
 import { playMoneyDeduct } from "@/lib/sounds";
+import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 
 const productQuery = (slug: string) =>
   queryOptions({
@@ -270,7 +271,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     setError("");
     let done = 0;
     for (let i = 0; i < qty; i++) {
-      const { error } = sel
+      const { data: orderId, error } = sel
         ? await supabase.rpc("purchase_package", { p_package_id: sel.id })
         : await supabase.rpc("purchase_product", { p_product_id: product.id, p_quantity: 1 });
       if (error) {
@@ -278,6 +279,9 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
         break;
       }
       done++;
+      if (typeof orderId === "string") {
+        void telegramNotifyEvent({ data: { event: "order", recordId: orderId } }).catch((notifyError) => console.error("Telegram order notification failed", notifyError));
+      }
     }
     setBusy(false);
     refresh();
