@@ -158,11 +158,11 @@ export function SupportChat() {
             <div className="flex items-center gap-2 text-sm"><CheckCircle2 className="h-4 w-4" /> কথোপকথন সম্পন্ন</div>
             <button type="button" onClick={resetChat} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">Back to Support options</button>
             <div className="grid grid-cols-2 gap-2">{wa && <a href={wa} target="_blank" rel="noreferrer" className="rounded-lg bg-success px-3 py-2 text-center text-sm font-semibold text-background">WhatsApp</a>}{tg && <a href={tg} target="_blank" rel="noreferrer" className="rounded-lg bg-accent px-3 py-2 text-center text-sm font-semibold text-accent-foreground">Telegram</a>}</div>
-          </div> : flow === "pending" ? <div className="space-y-2 border-t border-border p-3"><p className="text-sm text-muted-foreground">আপনার Support Request জমা হয়েছে। অ্যাডমিনের উত্তর/সমাধানের জন্য অপেক্ষা করুন।</p><button type="button" onClick={() => { if (timeoutRef.current) clearTimeout(timeoutRef.current); setFlow("done"); setOpen(false); }} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">চ্যাট বন্ধ করুন</button></div> : <form onSubmit={submitMessage} className="flex items-center gap-2 border-t border-border p-3">
+          </div> : flow === "pending" ? <div className="space-y-2 border-t border-border p-3"><p className="text-sm text-muted-foreground">আপনার Support Request জমা হয়েছে। অ্যাডমিনের উত্তর/সমাধানের জন্য অপেক্ষা করুন।</p><button type="button" onClick={() => setOpen(false)} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">চ্যাট মিনিমাইজ করুন</button></div> : <form onSubmit={submitMessage} className="flex items-center gap-2 border-t border-border p-3">
             <input value={text} onChange={(event) => setText(event.target.value)} placeholder="আপনার মেসেজ লিখুন…" maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" aria-label="Your message" />
             <button type="submit" disabled={!text.trim() || busy} aria-label="Send message" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button>
           </form>}
-          <button type="button" onClick={resetChat} className="border-t border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground">← Support options</button>
+          {flow !== "pending" && <button type="button" onClick={resetChat} className="border-t border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground">← Support options</button>}
         </>}
       </section>}
     </>
