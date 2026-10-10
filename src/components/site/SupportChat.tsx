@@ -16,8 +16,15 @@ function normalizeSupportText(text: string): string {
     .normalize("NFKC")
     .replace(/[০-৯]/g, (digit) => String("০১২৩৪৫৬৭৮৯".indexOf(digit)))
     .replace(/[.,!?;:()[\]{}"'“”‘’]/g, " ")
-    .replace(/\\s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+function isGreetingOrTooVague(text: string): boolean {
+  const value = normalizeSupportText(text);
+  if (!value) return true;
+  if (/^(hi|hello|hey|hii+|helo+|assalamu alaikum|salam|salaam|আসসালামু আলাইকুম|সালাম|হাই|হ্যালো|হ্যালো ভাই|ভাই|ভাইয়া|ভাইয়া|ok|okay|আচ্ছা|জি|হুম|hmm|hmm+|test|পরীক্ষা)$/.test(value)) return true;
+  return value.length < 8;
 }
 
 function classifyIssue(text: string): "payment" | "expired" | "general" {
@@ -110,6 +117,10 @@ export function SupportChat() {
     setMessages((current) => [...current, { from: "user", text: value }]);
 
     if (flow === "issue") {
+      if (isGreetingOrTooVague(value)) {
+        setMessages((current) => [...current, { from: "bot", text: `ওয়ালাইকুম আসসালাম! 😊 বলুন, কী সমস্যায় পড়েছেন? যেমন—পেমেন্ট করার পর ব্যালেন্স আসেনি, প্যানেলের মেয়াদ শেষ, অথবা অন্য কোনো সমস্যা।` }]);
+        return;
+      }
       const kind = classifyIssue(value);
       if (kind === "payment") {
         setFlow("payment_details");
@@ -121,6 +132,21 @@ export function SupportChat() {
         setFlow("general_details");
         setMessages((current) => [...current, { from: "bot", text: "সমস্যাটি বুঝতে সাহায্য করার জন্য প্যানেলের নাম, Order ID (থাকলে) এবং কী ঘটেছে—এই তথ্যগুলো বিস্তারিত লিখুন।" }]);
       }
+      return;
+    }
+
+    if (flow === "general_details" && isGreetingOrTooVague(value)) {
+      setMessages((current) => [...current, { from: "bot", text: "আপনার সমস্যাটা এখনো পরিষ্কার বুঝতে পারিনি। একটু বিস্তারিত বলবেন—কী করতে গিয়ে কী সমস্যা হচ্ছে? কোনো error message দেখালে সেটাও লিখুন।" }]);
+      return;
+    }
+
+    if (flow === "payment_details" && isGreetingOrTooVague(value)) {
+      setMessages((current) => [...current, { from: "bot", text: "পেমেন্ট যাচাই করতে টাকা পাঠানোর নম্বর এবং Transaction ID (TrxID)—দুটিই লিখুন। শুধু “hi” বা ছোট উত্তর দিলে টিকিট তৈরি হবে না।" }]);
+      return;
+    }
+
+    if (flow === "expired_details" && isGreetingOrTooVague(value)) {
+      setMessages((current) => [...current, { from: "bot", text: "দয়া করে প্যানেলের নাম এবং Order ID লিখুন, যাতে সমস্যাটি সঠিকভাবে নথিভুক্ত করা যায়।" }]);
       return;
     }
 
