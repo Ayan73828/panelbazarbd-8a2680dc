@@ -6,7 +6,7 @@ import { useSettings } from "@/hooks/useSite";
 import { tgLink, waLink } from "@/lib/site";
 
 type ChatMessage = { from: "bot" | "user"; text: string };
-type Flow = "issue" | "payment_details" | "expired_details" | "general_details" | "done";
+type Flow = "issue" | "payment_details" | "expired_details" | "general_details" | "pending" | "done";
 const agents = ["রাকিব", "মিরাজ", "মীরা", "মাহি"];
 const greeting = (name: string) => `আসসালামু ওয়ালাইকুম! আমি ${name}, Panel Bazar BD-এর AI Support Assistant। আপনার কী সমস্যা হয়েছে, একটু দয়া করে বিস্তারিত খুলে বলুন।`;
 
@@ -28,12 +28,25 @@ export function SupportChat() {
   const [agent] = useState(() => agents[Math.floor(Math.random() * agents.length)] || "রাকিব");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wa = waLink(settings.whatsapp_number, `Hello ${settings.site_name}, I need support.`);
   const tg = tgLink(settings.telegram_username);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, open, mode]);
+
+  useEffect(() => {
+    if (flow !== "pending") return;
+    timeoutRef.current = setTimeout(() => {
+      setMessages((current) => [...current, { from: "bot", text: "৫ মিনিটের মধ্যে সমাধান নিশ্চিত না হওয়ায় চ্যাটটি বন্ধ করা হয়েছে। আপনার Support Request অ্যাডমিনের কাছে জমা আছে।" }]);
+      setFlow("done");
+      setOpen(false);
+    }, 5 * 60 * 1000);
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [flow]);
 
   const startAI = () => {
     setMode("ai");
@@ -42,6 +55,7 @@ export function SupportChat() {
   };
 
   const resetChat = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setMode("chooser");
     setFlow("issue");
     setMessages([]);
@@ -52,7 +66,7 @@ export function SupportChat() {
   const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = text.trim();
-    if (!value || busy || flow === "done") return;
+    if (!value || busy || flow === "done" || flow === "pending") return;
     setText("");
     setMessages((current) => [...current, { from: "user", text: value }]);
 
@@ -95,12 +109,13 @@ export function SupportChat() {
       status: "open",
     });
     setBusy(false);
-    setFlow("done");
     if (error) {
+      setFlow("done");
       console.error("AI support ticket creation failed", error);
       setMessages((current) => [...current, { from: "bot", text: "দুঃখিত, এই মুহূর্তে টিকিট জমা হয়নি। কিছুক্ষণ পর আবার চেষ্টা করুন অথবা Normal Support থেকে WhatsApp/Telegram-এ যোগাযোগ করুন।" }]);
     } else {
-      setMessages((current) => [...current, { from: "bot", text: "ধন্যবাদ, আপনার তথ্য পেয়েছি। কিছু সময় দিয়ে সহযোগিতা করুন—আমাদের অ্যাডমিন আপনার সমস্যার সমাধানের চেষ্টা করছেন।" }]);
+      setFlow("pending");
+      setMessages((current) => [...current, { from: "bot", text: "ধন্যবাদ, আপনার তথ্য পেয়েছি। কিছু সময় দিয়ে সহযোগিতা করুন—আমাদের অ্যাডমিন আপনার সমস্যার সমাধানের চেষ্টা করছেন। ৫ মিনিটের মধ্যে সমাধান না হলে এই চ্যাটটি স্বয়ংক্রিয়ভাবে বন্ধ হবে; আপনার Support Request অ্যাডমিনের কাছে জমা থাকবে।" }]);
     }
   };
 
@@ -139,7 +154,7 @@ export function SupportChat() {
             <div className="flex items-center gap-2 text-sm"><CheckCircle2 className="h-4 w-4" /> কথোপকথন সম্পন্ন</div>
             <button type="button" onClick={resetChat} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">Back to Support options</button>
             <div className="grid grid-cols-2 gap-2">{wa && <a href={wa} target="_blank" rel="noreferrer" className="rounded-lg bg-success px-3 py-2 text-center text-sm font-semibold text-background">WhatsApp</a>}{tg && <a href={tg} target="_blank" rel="noreferrer" className="rounded-lg bg-accent px-3 py-2 text-center text-sm font-semibold text-accent-foreground">Telegram</a>}</div>
-          </div> : <form onSubmit={submitMessage} className="flex items-center gap-2 border-t border-border p-3">
+          </div> : flow === "pending" ? <div className="space-y-2 border-t border-border p-3"><p className="text-sm text-muted-foreground">আপনার Support Request জমা হয়েছে। অ্যাডমিনের উত্তর/সমাধানের জন্য অপেক্ষা করুন।</p><button type="button" onClick={() => { if (timeoutRef.current) clearTimeout(timeoutRef.current); setFlow("done"); setOpen(false); }} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">চ্যাট বন্ধ করুন</button></div> : <form onSubmit={submitMessage} className="flex items-center gap-2 border-t border-border p-3">
             <input value={text} onChange={(event) => setText(event.target.value)} placeholder="আপনার মেসেজ লিখুন…" maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" aria-label="Your message" />
             <button type="submit" disabled={!text.trim() || busy} aria-label="Send message" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button>
           </form>}
