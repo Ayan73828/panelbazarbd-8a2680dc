@@ -96,10 +96,12 @@ const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
   return result;
 };
 
-async function welcome(chatId: number, user: any) {
+async function welcome(chatId: number, user: any, messageId?: number) {
   if (user) {
-    await send(chatId, `🏪 ━━ <b>Panel Bazar BD</b> ━━ 🏪\n\n👋 Welcome back, <b>${esc(user.name || user.username || "Customer")}</b>\n\n⭐ ━ <b>REGULAR HIGHLIGHTS</b> ━ ⭐\n\n│ 🔑 Wholesale Game Keys &amp; VIP Stocks\n│ ⚡ Priority Auto-Delivery 24/7\n│ 🎁 Tiered Referral\n│ 📞 Dedicated VIP Partner Support\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🚀 <b>Tap Shop Now to Start!</b>`, MENU);
-    await send(chatId, " ", RESTART_KEYBOARD);
+    const welcomeText = `🏪 ━━ <b>Panel Bazar BD</b> ━━ 🏪\n\n👋 Welcome back, <b>${esc(user.name || user.username || "Customer")}</b>\n\n⭐ ━ <b>REGULAR HIGHLIGHTS</b> ━ ⭐\n\n│ 🔑 Wholesale Game Keys &amp; VIP Stocks\n│ ⚡ Priority Auto-Delivery 24/7\n│ 🎁 Tiered Referral\n│ 📞 Dedicated VIP Partner Support\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🚀 <b>Tap Shop Now to Start!</b>`;
+    if (typeof messageId === "number") await screen(chatId, messageId, welcomeText, MENU);
+    else await send(chatId, welcomeText, MENU);
+    if (typeof messageId !== "number") await send(chatId, " ", RESTART_KEYBOARD);
   } else {
     const st = await getState(chatId);
     if (st.data?.phone_shared) {
@@ -321,9 +323,9 @@ async function handleCallback(cq: any) {
     if (id === "orders") return showOrders(chatId, user, false, cq.message?.message_id);
     if (id === "keys") return showOrders(chatId, user, true, cq.message?.message_id);
     if (id === "support") return showSupport(chatId, cq.message?.message_id);
-    if (id === "referral") return screen(chatId, cq.message?.message_id, `🤝 <b>Referral</b>\n\nআপনার referral link দেখতে website-এর Profile/Referral section ব্যবহার করুন।`, { inline_keyboard: [[{ text: "🌐 Open Website", url: SITE_URL }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
+    if (id === "referral") return screen(chatId, cq.message?.message_id, `🤝 <b>REFERRAL PROGRAM</b>\n\nপ্রতি সফল নতুন referral-এ ৳2 reward পাওয়ার জন্য আপনার referral link website-এর Referral Program থেকে নিন।\n\nReferral link ও reward history দেখতে নিচের বাটনে চাপ দিন।`, { inline_keyboard: [[{ text: "🤝 Open Referral Program", url: `${SITE_URL}/dashboard/referral` }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
     if (id === "profile") return screen(chatId, cq.message?.message_id, `👤 <b>Profile</b>\nনাম: ${esc(user.name)}\nUsername: ${esc(user.username)}\nEmail: ${esc(user.email)}\nPhone: ${esc(user.phone)}\nব্যালেন্স: <b>${tk(user.balance)}</b>`, { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:home" }]] });
-    if (id === "home") return screen(chatId, cq.message?.message_id, `🏪 <b>Panel Bazar BD</b> — Main Menu`, MENU);
+    if (id === "home") return welcome(chatId, user, cq.message?.message_id);
   }
   if (kind === "fundshort" && id) {
     const amount = Number(id);
