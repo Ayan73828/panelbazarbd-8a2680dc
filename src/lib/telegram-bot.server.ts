@@ -214,7 +214,7 @@ export async function handleUpdate(u: any) {
   }
   if (st.state === "login_email" && text) {
     const email = text.trim().toLowerCase();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 255) return send(chatId, "❌ সঠিক email address দিন।");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255) return send(chatId, "❌ সঠিক email address দিন।");
     const { createClient } = await import("@supabase/supabase-js");
     const key = process.env["SUPABASE_PUBLISHABLE_KEY"] ?? process.env["SUPABASE_ANON_KEY"] ?? "";
     if (!process.env["SUPABASE_URL"] || !key) return send(chatId, "⚠️ Login service এখন কনফিগার করা নেই। পরে আবার চেষ্টা করুন।");
@@ -231,7 +231,7 @@ export async function handleUpdate(u: any) {
   if (st.state === "login_otp" && text) {
     if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Login বাতিল হয়েছে। আবার LOGIN চাপুন।", GUEST_AUTH); }
     const email = String(st.data?.email ?? "");
-    const code = text.replace(/\\s+/g, "");
+    const code = text.replace(/\s+/g, "");
     if (!email || !/^(?:\\d{6}|\\d{8})$/.test(code)) return send(chatId, "❌ ইমেইলে আসা 6 বা 8 সংখ্যার verification code লিখুন।");
     await tg("deleteMessage", { chat_id: chatId, message_id: m.message_id }).catch(() => undefined);
     const { createClient } = await import("@supabase/supabase-js");
