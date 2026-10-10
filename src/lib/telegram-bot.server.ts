@@ -327,9 +327,9 @@ async function handleCallback(cq: any) {
       const { data: rows, error } = await db.from("referrals").select("id,reward_amount").eq("referrer_id", user.id);
       const referralCount = error ? 0 : (rows ?? []).length;
       const totalReward = error ? 0 : (rows ?? []).reduce((sum: number, row: any) => sum + Number(row.reward_amount ?? 0), 0);
-      const referralLink = `${SITE_URL}/auth?mode=register&ref=${encodeURIComponent(user.id)}`;
+      const referralLink = `https://panelbazarbd.shop/auth?mode=register&ref=${encodeURIComponent(user.id)}`;
       const text = `🤝 <b>REFERRAL PROGRAM</b>\\n\\n🎁 প্রতি সফল নতুন referral-এ পুরস্কার: <b>৳2</b>\\n👥 সফল referral: <b>${referralCount}</b>\\n💰 মোট referral reward: <b>${tk(totalReward)}</b>\\n\\n🔗 <b>আপনার Referral Link:</b>\\n${esc(referralLink)}\\n\\nএই link বন্ধুদের পাঠান। নতুন user link দিয়ে register করে email verify করলে reward একবার যোগ হবে।`;
-      return screen(chatId, cq.message?.message_id, text, { inline_keyboard: [[{ text: "📋 Open Referral Page", url: `${SITE_URL}/dashboard/referral` }], [{ text: "🌐 Open Website", url: "https://panelbazarbd.shop" }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
+      return screen(chatId, cq.message?.message_id, text, { inline_keyboard: [[{ text: "📋 Open Referral Page", url: "https://panelbazarbd.shop/dashboard/referral" }], [{ text: "🌐 Open Website", url: "https://panelbazarbd.shop" }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
     }
     if (id === "profile") return screen(chatId, cq.message?.message_id, `👤 <b>Profile</b>\nনাম: ${esc(user.name)}\nUsername: ${esc(user.username)}\nEmail: ${esc(user.email)}\nPhone: ${esc(user.phone)}\nব্যালেন্স: <b>${tk(user.balance)}</b>`, { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:home" }]] });
     if (id === "home") return welcome(chatId, user, cq.message?.message_id);
