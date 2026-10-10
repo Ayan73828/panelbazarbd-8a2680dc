@@ -22,13 +22,12 @@ const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g,
 const tk = (n: number) => `৳${Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 
 const MENU = {
-  keyboard: [
-    [{ text: "🛍 Products" }, { text: "💰 Wallet" }],
-    [{ text: "➕ Add Fund" }, { text: "📦 Orders" }],
-    [{ text: "🔑 Keys" }, { text: "👤 Profile" }],
-    [{ text: "📞 Support" }, { text: "🌐 Website" }],
+  inline_keyboard: [
+    [{ text: "🛍 SHOP NOW", callback_data: "menu:products" }, { text: "💰 MY WALLET", callback_data: "menu:wallet" }],
+    [{ text: "➕ ADD FUND", callback_data: "menu:fund" }, { text: "📦 ORDERS", callback_data: "menu:orders" }],
+    [{ text: "🔑 MY KEYS", callback_data: "menu:keys" }, { text: "👤 PROFILE", callback_data: "menu:profile" }],
+    [{ text: "📞 SUPPORT", callback_data: "menu:support" }, { text: "🌐 WEBSITE", url: SITE_URL }],
   ],
-  resize_keyboard: true,
 };
 const SHARE_NUMBER = {
   keyboard: [[{ text: "📱 SHARE MY NUMBER", request_contact: true }]],
@@ -54,6 +53,17 @@ async function setState(chatId: number, state: string, data: Record<string, unkn
     updated_at: new Date().toISOString(),
   });
 }
+async function rememberMessage(chatId: number, messageId: number) {
+  const db = await admin();
+  const current = await getState(chatId);
+  const ids = Array.isArray(current.data?.recent_bot_message_ids) ? current.data.recent_bot_message_ids : [];
+  await db.from("telegram_sessions").upsert({
+    chat_id: chatId,
+    state: current.state ?? "",
+    data: { ...(current.data ?? {}), recent_bot_message_ids: [...ids, messageId].slice(-80) },
+    updated_at: new Date().toISOString(),
+  });
+}
 async function getState(chatId: number) {
   const db = await admin();
   const { data } = await db.from("telegram_sessions").select("*").eq("chat_id", chatId).maybeSingle();
@@ -66,8 +76,12 @@ async function linkedUser(tgUserId: number) {
   const { data: p } = await db.from("profiles").select("*").eq("id", data.user_id).maybeSingle();
   return p as any;
 }
-const send = (chat_id: number, text: string, reply_markup?: unknown) =>
-  tg("sendMessage", { chat_id, text, parse_mode: "HTML", disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) });
+const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
+  const result = await tg("sendMessage", { chat_id, text, parse_mode: "HTML", disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) });
+  const id = result?.result?.message_id;
+  if (typeof id === "number") await rememberMessage(chat_id, id).catch((e) => console.error("telegram message tracking", e));
+  return result;
+};
 
 async function welcome(chatId: number, user: any) {
   if (user) {
@@ -92,7 +106,9 @@ export async function handleUpdate(u: any) {
   const st = await getState(chatId);
 
   if (text.startsWith("/start")) {
-    await setState(chatId, st.data?.phone_shared ? (user ? "" : "guest_auth") : (user ? "" : "guest_share_number"));
+    const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
+    for (const message_id of oldIds) await tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined);
+    await setState(chatId, st.data?.phone_shared ? (user ? "" : "guest_auth") : (user ? "" : "guest_share_number"), { recent_bot_message_ids: [] });
     if (user) return welcome(chatId, user);
     if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
     return send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nশুরু করতে নিচের SHARE MY NUMBER বাটনে চাপ দিন।", SHARE_NUMBER);
@@ -132,8 +148,8 @@ export async function handleUpdate(u: any) {
     case "🛍 Products": return showProducts(chatId);
     case "💰 Wallet": return showWallet(chatId, user);
     case "➕ Add Fund":
-      return send(chatId, `💰 বর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\nনিচের বাটনে bKash/Nagad দিয়ে টাকা অ্যাড করুন। টাকা অটো ওয়ালেটে যোগ হবে।`, {
-        inline_keyboard: [[{ text: "➕ Add Fund", url: `${SITE_URL}/dashboard/wallet` }]],
+      return send(chatId, `💰 বর্তমান ব্যালেন্স: <b>${tk(user.balance)}</b>\nনিচে Add Fund চাপুন।`, {
+        inline_keyboard: [[{ text: "➕ Add Fund", callback_data: "menu:fund" }], [{ text: "⬅️ Back", callback_data: "menu:home" }]],
       });
     case "📦 Orders": return showOrders(chatId, user, false);
     case "🔑 Keys": return showOrders(chatId, user, true);
