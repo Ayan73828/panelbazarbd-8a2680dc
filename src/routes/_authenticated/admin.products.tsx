@@ -84,7 +84,26 @@ function AdminProducts() {
 function ProductDialog({ value, cats, onClose, onSaved }: { value: P; cats: P[]; onClose: () => void; onSaved: () => void }) {
   const [f, setF] = useState<P>(value);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const set = (k: string, v: unknown) => setF((s: P) => ({ ...s, [k]: v }));
+  const uploadProductImage = async (file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image file"); return; }
+    if (file.size > 8 * 1024 * 1024) { toast.error("Image must be smaller than 8 MB"); return; }
+    setUploadingImage(true);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const path = `products/${crypto.randomUUID()}.${ext}`;
+      const { data, error } = await db.storage.from("product-images").upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+      if (error) throw error;
+      const { data: publicUrl } = db.storage.from("product-images").getPublicUrl(data.path);
+      set("image_url", publicUrl.publicUrl);
+      toast.success("Image uploaded");
+    } catch (e) {
+      toast.error(`Image upload failed: ${errMsg(e)}`);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
   const save = async () => {
     if (!f.name.trim()) { toast.error("Name is required"); return; }
     const price = Number(f.price);
@@ -138,7 +157,12 @@ function ProductDialog({ value, cats, onClose, onSaved }: { value: P; cats: P[];
           <Field label="Discount price" hint="Optional"><Input type="number" min={0} step="0.01" value={f.discount_price} onChange={(e) => set("discount_price", e.target.value)} /></Field>
           <Field label="Stock"><Input type="number" min={0} value={f.stock} onChange={(e) => set("stock", e.target.value)} /></Field>
           <Field label="Sort position" hint="Lower shows first"><Input type="number" value={f.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></Field>
-          <div className="sm:col-span-2"><Field label="Main image URL"><Input value={f.image_url} onChange={(e) => set("image_url", e.target.value)} placeholder="https://…" /></Field></div>
+          <div className="sm:col-span-2 space-y-2">
+            <Field label="Main product image"><Input type="file" accept="image/*" disabled={uploadingImage} onChange={(e) => { const file = e.target.files?.[0]; if (file) void uploadProductImage(file); e.currentTarget.value = ""; }} /></Field>
+            {uploadingImage && <p className="text-sm text-muted-foreground">Uploading image…</p>}
+            {f.image_url && <div className="flex items-center gap-3 rounded-lg border p-2"><img src={f.image_url} alt="Product preview" className="h-20 w-20 rounded-md object-cover" /><div className="min-w-0 flex-1"><p className="text-sm font-medium">Selected image</p><p className="break-all text-xs text-muted-foreground">{f.image_url}</p><Button type="button" variant="ghost" size="sm" onClick={() => set("image_url", "")}>Remove image</Button></div></div>}
+            <Field label="Or paste image URL"><Input value={f.image_url} onChange={(e) => set("image_url", e.target.value)} placeholder="https://…" /></Field>
+          </div>
           <div className="sm:col-span-2"><Field label="More images" hint="One URL per line"><Textarea rows={2} value={f.images} onChange={(e) => set("images", e.target.value)} /></Field></div>
           <div className="sm:col-span-2"><Field label="Short description"><Input maxLength={300} value={f.short_description ?? ""} onChange={(e) => set("short_description", e.target.value)} /></Field></div>
           <div className="sm:col-span-2"><Field label="Full description"><Textarea rows={4} value={f.full_description ?? ""} onChange={(e) => set("full_description", e.target.value)} /></Field></div>
