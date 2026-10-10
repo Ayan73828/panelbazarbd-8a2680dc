@@ -1,7 +1,7 @@
 // Server-only Telegram bot logic. Uses the same database as the website.
 import { notifyOwner } from "@/lib/uddoktapay.server";
 
-export const SITE_URL = process.env["SITE_URL"] || "https://panelbazarbd-8a2680dc.onrender.com";
+export const SITE_URL = process.env["SITE_URL"] || "https://panelbazarbd.shop";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 async function tg(method: string, body: Record<string, unknown>) {
@@ -290,10 +290,10 @@ async function showSupport(chatId: number, messageId?: number) {
   const { data } = await db.from("site_settings").select("key,value").in("key", ["telegram_username", "whatsapp_number", "contact_phone"]);
   const s: Record<string, string> = {};
   for (const r of data ?? []) s[r.key] = r.value;
-  const btns: any[] = [];
-  if (s["telegram_username"]) btns.push([{ text: "Telegram", url: `https://t.me/${s["telegram_username"].replace(/^@/, "")}` }]);
-  if (s["whatsapp_number"]) btns.push([{ text: "WhatsApp", url: `https://wa.me/${s["whatsapp_number"].replace(/\D/g, "").replace(/^0/, "880")}` }]);
-  return screen(chatId, messageId, "📞 সাপোর্টের জন্য যোগাযোগ করুন:", { inline_keyboard: [...btns, [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
+  const btns: any[] = [[{ text: "🌐 OPEN WEBSITE — panelbazarbd.shop", url: "https://panelbazarbd.shop" }]];
+  if (s["telegram_username"]) btns.push([{ text: "👤 Admin on Telegram", url: `https://t.me/${s["telegram_username"].replace(/^@/, "")}` }]);
+  if (s["whatsapp_number"]) btns.push([{ text: "💬 WhatsApp Support", url: `https://wa.me/${s["whatsapp_number"].replace(/\\D/g, "").replace(/^0/, "880")}` }]);
+  return screen(chatId, messageId, "💬 <b>SUPPORT CENTER</b>\\n\\nনিচের Website বাটনে চাপ দিয়ে Panel Bazar BD খুলুন, অথবা Admin-এর সাথে যোগাযোগ করুন।", { inline_keyboard: [...btns, [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
 }
 
 async function handleCallback(cq: any) {
@@ -323,7 +323,14 @@ async function handleCallback(cq: any) {
     if (id === "orders") return showOrders(chatId, user, false, cq.message?.message_id);
     if (id === "keys") return showOrders(chatId, user, true, cq.message?.message_id);
     if (id === "support") return showSupport(chatId, cq.message?.message_id);
-    if (id === "referral") return screen(chatId, cq.message?.message_id, `🤝 <b>REFERRAL PROGRAM</b>\n\nপ্রতি সফল নতুন referral-এ ৳2 reward পাওয়ার জন্য আপনার referral link website-এর Referral Program থেকে নিন।\n\nReferral link ও reward history দেখতে নিচের বাটনে চাপ দিন।`, { inline_keyboard: [[{ text: "🤝 Open Referral Program", url: `${SITE_URL}/dashboard/referral` }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
+    if (id === "referral") {
+      const { data: rows, error } = await db.from("referrals").select("id,reward_amount").eq("referrer_id", user.id);
+      const referralCount = error ? 0 : (rows ?? []).length;
+      const totalReward = error ? 0 : (rows ?? []).reduce((sum: number, row: any) => sum + Number(row.reward_amount ?? 0), 0);
+      const referralLink = `${SITE_URL}/auth?mode=register&ref=${encodeURIComponent(user.id)}`;
+      const text = `🤝 <b>REFERRAL PROGRAM</b>\\n\\n🎁 প্রতি সফল নতুন referral-এ পুরস্কার: <b>৳2</b>\\n👥 সফল referral: <b>${referralCount}</b>\\n💰 মোট referral reward: <b>${tk(totalReward)}</b>\\n\\n🔗 <b>আপনার Referral Link:</b>\\n${esc(referralLink)}\\n\\nএই link বন্ধুদের পাঠান। নতুন user link দিয়ে register করে email verify করলে reward একবার যোগ হবে।`;
+      return screen(chatId, cq.message?.message_id, text, { inline_keyboard: [[{ text: "📋 Open Referral Page", url: `${SITE_URL}/dashboard/referral` }], [{ text: "🌐 Open Website", url: "https://panelbazarbd.shop" }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
+    }
     if (id === "profile") return screen(chatId, cq.message?.message_id, `👤 <b>Profile</b>\nনাম: ${esc(user.name)}\nUsername: ${esc(user.username)}\nEmail: ${esc(user.email)}\nPhone: ${esc(user.phone)}\nব্যালেন্স: <b>${tk(user.balance)}</b>`, { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:home" }]] });
     if (id === "home") return welcome(chatId, user, cq.message?.message_id);
   }
