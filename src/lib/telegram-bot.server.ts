@@ -29,6 +29,12 @@ const MENU = {
     [{ text: "📞 SUPPORT", callback_data: "menu:support" }, { text: "🌐 WEBSITE", url: SITE_URL }],
   ],
 };
+const RESTART_KEYBOARD = {
+  keyboard: [[{ text: "Restart 🔁" }]],
+  resize_keyboard: true,
+  is_persistent: true,
+  input_field_placeholder: "Restart the bot",
+};
 const SHARE_NUMBER = {
   keyboard: [[{ text: "📱 SHARE MY NUMBER", request_contact: true }]],
   resize_keyboard: true,
@@ -84,7 +90,7 @@ const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
 
 async function welcome(chatId: number, user: any) {
   if (user) {
-    await send(chatId, `🏪 ━━ <b>Panel Bazar BD</b> ━━ 🏪\n\n👋 Welcome back, <b>${esc(user.name || user.username || "Customer")}</b>\n\n⭐ ━ <b>REGULAR HIGHLIGHTS</b> ━ ⭐\n\n│ 🔑 Wholesale Game Keys &amp; VIP Stocks\n│ ⚡ Priority Auto-Delivery 24/7\n│ 🎁 Tiered Referral\n│ 📞 Dedicated VIP Partner Support\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🚀 <b>Tap Shop Now to Start!</b>`, { inline_keyboard: [[{ text: "Restart 🔁", callback_data: "start:restart" }]] });
+    await send(chatId, `🏪 ━━ <b>Panel Bazar BD</b> ━━ 🏪\n\n👋 Welcome back, <b>${esc(user.name || user.username || "Customer")}</b>\n\n⭐ ━ <b>REGULAR HIGHLIGHTS</b> ━ ⭐\n\n│ 🔑 Wholesale Game Keys &amp; VIP Stocks\n│ ⚡ Priority Auto-Delivery 24/7\n│ 🎁 Tiered Referral\n│ 📞 Dedicated VIP Partner Support\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🚀 <b>Tap Shop Now to Start!</b>`, RESTART_KEYBOARD);
   } else {
     const st = await getState(chatId);
     if (st.data?.phone_shared) {
@@ -104,6 +110,10 @@ export async function handleUpdate(u: any) {
   const user = await linkedUser(m.from.id);
   const st = await getState(chatId);
 
+  if (text === "Restart 🔁") {
+    if (!user) return welcome(chatId, null);
+    return send(chatId, "🏪 <b>Panel Bazar BD</b> — Main Menu", MENU);
+  }
   if (text.startsWith("/start")) {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
     for (const message_id of oldIds) await tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined);
@@ -281,10 +291,6 @@ async function handleCallback(cq: any) {
   if (!chatId) return;
   const user = await linkedUser(cq.from.id);
   const [kind, id] = String(cq.data ?? "").split(":");
-  if (kind === "start" && id === "restart") {
-    if (!user) return welcome(chatId, null);
-    return send(chatId, "🏪 <b>Panel Bazar BD</b> — Main Menu", MENU);
-  }
   if (kind === "guest") {
     const st = await getState(chatId);
     if (st.data?.phone_shared !== true) return welcome(chatId, null);
