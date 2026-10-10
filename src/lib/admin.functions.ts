@@ -51,3 +51,51 @@ export const adminConnectTelegram = createServerFn({ method: "POST" })
     const me = await tgApi("getMe", {});
     return { ok: true, bot: me.result?.username as string | undefined };
   });
+
+export const adminTelegramBroadcast = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      title: z.string().trim().min(1).max(200),
+      message: z.string().trim().min(1).max(3500),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { tgApi } = await import("@/lib/telegram-bot.server");
+    if (!process.env["TELEGRAM_BOT_TOKEN"]) throw new Error("Telegram bot is not configured");
+
+    const text = `📢 ${data.title.trim()}\\n\\n${data.message.trim()}`;
+    if (text.length > 4096) throw new Error("Announcement is too long for Telegram");
+
+    let offset = 0;
+    let sent = 0;
+    let failed = 0;
+    const pageSize = 500;
+    while (true) {
+      const { data: rows, error } = await supabaseAdmin
+        .from("telegram_sessions")
+        .select("chat_id")
+        .order("chat_id", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw new Error("Could not load Telegram bot users: " + error.message);
+      const chatIds = (rows ?? [])
+        .map((row: { chat_id: number | string | null }) => Number(row.chat_id))
+        .filter((id: number) => Number.isFinite(id) && id !== 0);
+
+      for (const chatId of chatIds) {
+        try {
+          const result = await tgApi("sendMessage", { chat_id: chatId, text, disable_web_page_preview: true });
+          if (result?.ok) sent++;
+          else failed++;
+        } catch {
+          failed++;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 45));
+      }
+      if (!rows || rows.length < pageSize) break;
+      offset += pageSize;
+    }
+    return { ok: true, sent, failed, total: sent + failed };
+  });
