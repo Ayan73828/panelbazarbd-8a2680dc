@@ -36,6 +36,9 @@ export const telegramNotifyEvent = createServerFn({ method: "POST" })
     if (!data.recordId) throw new Error("Support ticket reference is required");
     const { data: ticket } = await supabaseAdmin.from("support_tickets").select("id, subject, message").eq("id", data.recordId).eq("user_id", context.userId).maybeSingle();
     if (!ticket) throw new Error("Support ticket not found");
-    await notifyOwner(`📩 <b>New Support Ticket</b>\nUser: ${esc(who)}\nSubject: ${esc(ticket.subject)}\nMessage: ${esc(String(ticket.message).slice(0, 1200))}\nTicket: #${esc(String(ticket.id).slice(0, 8))}`);
+    await notifyOwner(
+      `📩 <b>New Support Ticket</b>\\nSource: Website\\nUser: ${esc(who)}\\nSubject: ${esc(ticket.subject)}\\nMessage: ${esc(String(ticket.message).slice(0, 1200))}\\nTicket: <code>${esc(ticket.id)}</code>`,
+      { inline_keyboard: [[{ text: "↩️ Reply", callback_data: "supportreply:" + ticket.id }, { text: "✅ Close", callback_data: "supportclose:" + ticket.id }]] },
+    );
     return { ok: true };
   });
