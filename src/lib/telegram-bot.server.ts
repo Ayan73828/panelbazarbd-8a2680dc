@@ -236,7 +236,7 @@ async function doLogin(chatId: number, from: any, id: string, password: string) 
 }
 
 async function showFundAmounts(chatId: number, user: any, method = "", messageId?: number) {
-  const balanceLine = `💳 Current Balance: ${dualMoney(user.balance)}\n\n━━━━━━━━━━━━━━━━━━━━━━\n💳 Available Payment Methods:\n🇧🇩 bKash / Nagad (Bangladeshi payment)\n\n✅ Use balance for purchases!\n━━━━━━━━━━━━━━━━━━━━━━`;
+  const balanceLine = `💳 Current Balance: ${dualMoney(user.balance)}\n\n━━━━━━━━━━━━━━━━━━━━━━\n💳 Available Payment Methods:\n🇧🇩 Bangladeshi payment (bKash/Nagad)\n\n✅ Use balance for purchases!\n━━━━━━━━━━━━━━━━━━━━━━`;
   if (!method) return screen(chatId, messageId, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\n\n${balanceLine}\n\nSelect amount to deposit.\nChoose your payment method next:`, {
     inline_keyboard: [
       [{ text: "৳100", callback_data: "fundshort:100" }, { text: "৳200", callback_data: "fundshort:200" }, { text: "৳500", callback_data: "fundshort:500" }],
@@ -247,7 +247,7 @@ async function showFundAmounts(chatId: number, user: any, method = "", messageId
   const amount = Number((method.match(/\d+/) ?? ["100"])[0]);
   return screen(chatId, messageId, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\n\n${balanceLine}\n\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
     inline_keyboard: [
-      [{ text: "📱 bKash", callback_data: `fundpay:bkash:${amount}` }, { text: "📱 Nagad", callback_data: `fundpay:nagad:${amount}` }],
+      [{ text: "🇧🇩 Bangladeshi payment (bKash/Nagad)", callback_data: `fundpay:uddokta:${amount}` }],
       [{ text: "⬅️ Back to amounts", callback_data: "menu:fund" }],
     ],
   });
@@ -358,7 +358,7 @@ async function handleCallback(cq: any) {
     if (id === "referral") {
       const { data: rows, error } = await db.from("referrals").select("id").eq("referrer_id", user.id);
       const referralCount = error ? 0 : (rows ?? []).length;
-      const referralLink = `https://t.me/${process.env["TELEGRAM_BOT_USERNAME"] || "BLACKBUNNY_BOT"}?start=ref_${encodeURIComponent(user.id)}`;
+      const referralLink = `https://t.me/${"panelbazarbd_bot"}?start=ref_${encodeURIComponent(user.id)}`;
       const text = `🤝 <b>REFERRAL PROGRAM</b>\n\n👥 Successful referrals: <b>${referralCount}</b>\n\n🔗 <b>Your personal Telegram link:</b>\n${esc(referralLink)}\n\nবন্ধুকে এই link পাঠান। সে link দিয়ে bot-এ Start চাপবে, নিজের নম্বর share করবে এবং website account তৈরি করে email verify করলে referral গণনা হবে।`;
       return screen(chatId, cq.message?.message_id, text, { inline_keyboard: [[{ text: "📋 Open Website Referral Page", url: "https://panelbazarbd.shop/dashboard/referral" }], [{ text: "🌐 Open Website", url: "https://panelbazarbd.shop" }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
     }
@@ -384,8 +384,8 @@ async function handleCallback(cq: any) {
   if (kind === "fundshort" && id) {
     const amount = Number(id);
     if (!(amount >= 1 && amount <= 100000)) return screen(chatId, cq.message?.message_id, "সঠিক amount নির্বাচন করুন।");
-    return screen(chatId, cq.message?.message_id, `💳 <b>ADD FUND</b>\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
-      inline_keyboard: [[{ text: "📱 bKash", callback_data: `fundpay:bkash:${amount}` }, { text: "📱 Nagad", callback_data: `fundpay:nagad:${amount}` }], [{ text: "💳 UddoktaPay", callback_data: `fundpay:uddokta:${amount}` }], [{ text: "⬅️ Back", callback_data: "menu:fund" }]],
+    return screen(chatId, cq.message?.message_id, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
+      inline_keyboard: [[{ text: "🇧🇩 Bangladeshi payment (bKash/Nagad)", callback_data: `fundpay:uddokta:${amount}` }], [{ text: "⬅️ Back to amounts", callback_data: "menu:fund" }]],
     });
   }
   if (kind === "fundmethod" && id) {
@@ -395,11 +395,12 @@ async function handleCallback(cq: any) {
   if (kind === "fundpay" && id) {
     const [, methodId, rawAmount] = String(cq.data ?? "").split(":");
     const amount = Number(rawAmount);
-    const method = methodId === "bkash" ? "bKash / UddoktaPay" : methodId === "nagad" ? "Nagad / UddoktaPay" : "UddoktaPay";
+    const method = "Bangladeshi payment (bKash/Nagad)";
+    if (methodId !== "uddokta") return screen(chatId, cq.message?.message_id, "সঠিক payment method নির্বাচন করুন।");
     if (!(amount >= 1 && amount <= 100000)) return screen(chatId, cq.message?.message_id, "সঠিক amount নির্বাচন করুন।");
     return startTelegramPayment(chatId, user, amount, method, cq.message?.message_id);
   }
-  if (kind === "p" && id) {
+    if (kind === "p" && id) {
     const { data: p } = await db.from("products").select("name,short_description").eq("id", id).maybeSingle();
     const { data: pk } = await db.from("product_packages").select("id,name,price").eq("product_id", id).eq("is_active", true).order("sort_order");
     const { data: stock } = await db.rpc("package_stock", { p_product_id: id });
