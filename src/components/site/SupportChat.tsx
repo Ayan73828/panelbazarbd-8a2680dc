@@ -10,10 +10,33 @@ type Flow = "issue" | "payment_details" | "expired_details" | "general_details" 
 const agents = ["রাকিব", "মিরাজ", "মীরা", "মাহি"];
 const greeting = (name: string) => `আসসালামু ওয়ালাইকুম! আমি ${name}, Panel Bazar BD-এর AI Support Assistant। আপনার কী সমস্যা হয়েছে, একটু দয়া করে বিস্তারিত খুলে বলুন।`;
 
+function normalizeSupportText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[০-৯]/g, (digit) => String("০১২৩৪৫৬৭৮৯".indexOf(digit)))
+    .replace(/[.,!?;:()[\]{}"'“”‘’]/g, " ")
+    .replace(/\\s+/g, " ")
+    .trim();
+}
+
 function classifyIssue(text: string): "payment" | "expired" | "general" {
-  const value = text.toLowerCase();
-  if (/payment|পেমেন্ট|টাকা|পাইনি|হয়নি|হয়নি|ট্রানজ্যাকশন|transaction|trx|বিকাশ|নগদ|রকেট|add balance|deposit/.test(value)) return "payment";
-  if (/expired|expire|expaird|এক্সপায়ার|এক্সপায়ার|মেয়াদ|মেয়াদ|মেয়াদোত্তীর্ণ/.test(value)) return "expired";
+  const value = normalizeSupportText(text);
+
+  // Check expiry first so phrases such as "panel er meyad sesh, payment diyechi"
+  // are not incorrectly routed to the payment-not-received flow.
+  const expiredPatterns = [
+    /expire|expaird|expired|meyad|mead|miyad|ses ?hoye|date ses|panel bondho|panel kaj korche na|panel kaj kortese na|panel cholche na/,
+    /এক্সপায়ার|এক্সপায়ার|মেয়াদ|মেয়াদ|মেয়াদোত্তীর্ণ|মেয়াদ শেষ|মেয়াদ শেষ|মেয়াদ শেষ হয়ে|মেয়াদ sesh|বন্ধ হয়ে গেছে|বন্ধ হয়ে গেছে/
+  ];
+  if (expiredPatterns.some((pattern) => pattern.test(value))) return "expired";
+
+  const paymentPatterns = [
+    /payment|pay ?ment|deposit|add balance|balance add|recharge|top ?up|trx ?id|transaction|trans ?id|bkash|bikash|nagad|rocket|upay|send money|cash ?in/,
+    /tk kete|taka kete|taka path|tk path|taka dei|tk disi|tk diyechi|payment kori|pay kor|balance ashe nai|balance ase nai|balance add hoy nai|tk add hoy nai|taka pai nai|tk pai nai|payment hoy nai|payment ashe nai|payment ase nai|money pai nai|taka dhuke nai/,
+    /পেমেন্ট|টাকা|টাকা কেটে|টাকা পাঠ|টাকা দিয়েছি|টাকা দিয়েছি|পাইনি|পাই নি|পায়নি|পায়নি|হয়নি|হয়নি|ট্রানজ্যাকশন|বিকাশ|নগদ|রকেট|ব্যালেন্স|ডিপোজিট|রিচার্জ|ক্যাশ ইন/
+  ];
+  if (paymentPatterns.some((pattern) => pattern.test(value))) return "payment";
   return "general";
 }
 
