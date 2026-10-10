@@ -20,9 +20,9 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Login or Register — PANEL BAZAR BD" },
-      { name: "description", content: "Register and sign in securely using a six-digit email verification code." },
+      { name: "description", content: "Register and sign in securely using an email verification code." },
       { property: "og:title", content: "Login or Register — PANEL BAZAR BD" },
-      { property: "og:description", content: "Login and register using a six-digit email OTP." },
+      { property: "og:description", content: "Login and register using an email verification code." },
     ],
   }),
   component: AuthPage,
@@ -46,7 +46,7 @@ function AuthPage() {
             <Link to="/auth" search={{ mode: "register" }} className={`rounded-full py-2 text-center font-medium ${mode === "register" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Register</Link>
           </div>
           <OtpAuthForm mode={mode} />
-          <p className="mt-5 text-center text-xs text-muted-foreground">A six-digit verification code will be sent to your email. Never share your code with anyone.</p>
+          <p className="mt-5 text-center text-xs text-muted-foreground">Never share your email verification code with anyone.</p>
         </div>
       </div>
     </SiteLayout>
@@ -90,7 +90,7 @@ function OtpAuthForm({ mode }: { mode: Mode }) {
       }
       setPending({ email: normalizedEmail, mode, ...(mode === "register" ? { name: name.trim(), phone: phone.trim() } : {}) });
       setCode("");
-      toast.success("Six-digit code sent. Check your inbox and spam folder.");
+      toast.success("Code sent. Check your inbox and spam folder.");
     } catch (err) {
       toast.error(errMsg(err));
     } finally {
@@ -130,20 +130,20 @@ function OtpAuthForm({ mode }: { mode: Mode }) {
       {!pending ? (
         <form onSubmit={requestCode} className="space-y-4">
           <h1 className="text-xl font-bold">{mode === "login" ? "Login with email OTP" : "Create your account"}</h1>
-          <p className="text-sm text-muted-foreground">{mode === "login" ? "Enter your registered email and we'll send a six-digit sign-in code." : "Enter your details. We'll email you a six-digit code to verify your account."}</p>
+          <p className="text-sm text-muted-foreground">{mode === "login" ? "Enter your registered email to continue." : "Enter your details to create your account."}</p>
           {mode === "register" && <>
             <div className="space-y-1.5"><Label htmlFor="register-name">Full name</Label><Input id="register-name" required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></div>
             <div className="space-y-1.5"><Label htmlFor="register-phone">Phone</Label><Input id="register-phone" type="tel" required maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" /></div>
           </>}
           <div className="space-y-1.5"><Label htmlFor="auth-email">Email</Label><Input id="auth-email" type="email" required maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></div>
-          <Button type="submit" className="w-full rounded-full" disabled={busy}>{busy ? "Sending code…" : "Send 6-digit code"}</Button>
+          <Button type="submit" className="w-full rounded-full" disabled={busy}>{busy ? "Sending code…" : "{mode === "login" ? "Login" : "Continue"}"}</Button>
         </form>
       ) : (
         <form onSubmit={verifyCode} className="space-y-4">
           <h1 className="text-xl font-bold">Verify your email</h1>
-          <p className="text-sm text-muted-foreground">Enter the six-digit code sent to <span className="font-medium">{pending.email}</span>.</p>
+          <p className="text-sm text-muted-foreground">Enter the code sent to <span className="font-medium">{pending.email}</span>.</p>
           <div className="space-y-1.5"><Label htmlFor="auth-code">6-digit code</Label><Input id="auth-code" inputMode="numeric" autoComplete="one-time-code" type="text" required minLength={6} maxLength={6} pattern="[0-9]{6}" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} /></div>
-          <Button type="submit" className="w-full rounded-full" disabled={busy || code.length !== 6}>{busy ? "Verifying…" : "Verify code and continue"}</Button>
+          <Button type="submit" className="w-full rounded-full" disabled={busy || !/^(?:\\d{6}|\\d{8})$/.test(code)}>{busy ? "Verifying…" : "Verify code and continue"}</Button>
           <Button type="button" variant="outline" className="w-full rounded-full" disabled={busy} onClick={() => { setPending(null); setCode(""); }}>Use a different email</Button>
           <p className="text-xs text-muted-foreground">If no email arrives, check spam. You can request another code after the email provider's cooldown.</p>
         </form>
