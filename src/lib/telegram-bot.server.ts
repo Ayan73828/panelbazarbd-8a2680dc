@@ -132,10 +132,36 @@ export async function handleUpdate(u: any) {
   if (text.startsWith("/start")) {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
     for (const message_id of oldIds) await tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined);
-    await setState(chatId, st.data?.phone_shared ? (user ? "" : "guest_auth") : (user ? "" : "guest_share_number"), { recent_bot_message_ids: [] });
+    const payload = text.split(/\s+/)[1] ?? "";
+    const referrerId = payload.startsWith("ref_") ? payload.slice(4) : st.data?.pending_referrer_id;
+    const nextData = { recent_bot_message_ids: [], ...(referrerId ? { pending_referrer_id: referrerId } : {}) };
+    await setState(chatId, st.data?.phone_shared ? (user ? "" : "guest_auth") : (user ? "" : "guest_share_number"), nextData);
     if (user) return welcome(chatId, user);
     if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
     return send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nশুরু করতে নিচের SHARE MY NUMBER বাটনে চাপ দিন।", SHARE_NUMBER);
+  }
+  if (st.state === "support_ticket_details" && (text || m.photo?.length)) {
+    if (text === "/cancel") {
+      await setState(chatId, "");
+      return showSupport(chatId);
+    }
+    const details = String(m.caption ?? text ?? "").trim();
+    if (details.length < 5) return send(chatId, "সমস্যার বিস্তারিত একটু লিখুন; চাইলে একই মেসেজে screenshot/photo দিন।");
+    const photo = Array.isArray(m.photo) && m.photo.length ? m.photo[m.photo.length - 1].file_id : null;
+    const ticketDb = await admin();
+    const ticketState = await getState(chatId);
+    const ownerId = String(ticketState.data?.support_user_id ?? user?.id ?? "");
+    if (!ownerId) return send(chatId, "Account link পাওয়া যায়নি। আগে website account দিয়ে Telegram-এ LOGIN করুন।");
+    const { data: ticket, error: ticketError } = await ticketDb.from("telegram_support_tickets").insert({
+      user_id: ownerId, telegram_user_id: m.from.id, telegram_chat_id: chatId, details, photo_file_id: photo,
+    }).select("id").single();
+    if (ticketError) {
+      console.error("Support ticket save failed", ticketError);
+      return send(chatId, "Ticket save করা যায়নি। আবার চেষ্টা করুন বা Telegram Admin-কে message দিন।");
+    }
+    await setState(chatId, "");
+    await notifyOwner("🎫 <b>New Telegram Support Ticket</b>\\nTicket: <code>" + esc(ticket.id) + "</code>\\nUser: <code>" + esc(ownerId) + "</code>\\nTelegram ID: <code>" + m.from.id + "</code>\\nDetails: " + esc(details) + (photo ? "\\nPhoto attached in ticket database." : ""));
+    return send(chatId, "✅ আপনার Support Ticket জমা হয়েছে।\\nTicket ID: <code>" + esc(ticket.id) + "</code>\\nAdmin-কে জানানো হয়েছে।", { inline_keyboard: [[{ text: "⬅️ Main Menu", callback_data: "menu:home" }]] });
   }
   if (m.contact) {
     if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
@@ -146,7 +172,7 @@ export async function handleUpdate(u: any) {
   }
   if (text === "🆕 CREATE ACCOUNT")
     return send(chatId, "নিচের বাটনে ওয়েবসাইটে অ্যাকাউন্ট খুলুন, তারপর এখানে ফিরে 🔐 LOGIN করুন।", {
-      inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register` }]],
+      inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register${st.data?.pending_referrer_id ? `&ref=${encodeURIComponent(st.data.pending_referrer_id)}` : ""}` }]],
     });
   if (text === "🔐 LOGIN" || text === "/login") {
     await setState(chatId, "login_id");
