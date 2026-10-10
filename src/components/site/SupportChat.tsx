@@ -114,62 +114,55 @@ export function SupportChat() {
     const value = text.trim();
     if (!value || busy || flow === "done" || flow === "pending") return;
     setText("");
-    setMessages((current) => [...current, { from: "user", text: value }]);
+    setBusy(true);
+    const nextMessages: ChatMessage[] = [...messages, { from: "user", text: value }];
+    setMessages(nextMessages);
 
-    if (flow === "issue") {
-      if (isGreetingOrTooVague(value)) {
-        setMessages((current) => [...current, { from: "bot", text: `ওয়ালাইকুম আসসালাম! 😊 বলুন, কী সমস্যায় পড়েছেন? যেমন—পেমেন্ট করার পর ব্যালেন্স আসেনি, প্যানেলের মেয়াদ শেষ, অথবা অন্য কোনো সমস্যা।` }]);
+    try {
+      const response = await fetch("/api/public/support/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentName: agent,
+          messages: nextMessages.map((message) => ({
+            role: message.from === "bot" ? "assistant" : "user",
+            content: message.text,
+          })),
+        }),
+      });
+      const result = await response.json() as {
+        reply?: string;
+        error?: string;
+        category?: "payment" | "expired" | "general";
+        readyForTicket?: boolean;
+        subject?: string;
+        ticketMessage?: string;
+      };
+      if (!response.ok || !result.reply) {
+        setMessages((current) => [...current, { from: "bot", text: result.error || "দুঃখিত, AI Support এখন উত্তর দিতে পারছে না। একটু পরে আবার চেষ্টা করুন অথবা Normal Support ব্যবহার করুন।" }]);
         return;
       }
-      const kind = classifyIssue(value);
-      if (kind === "payment") {
-        setFlow("payment_details");
-        setMessages((current) => [...current, { from: "bot", text: "বুঝতে পেরেছি। Kindly আপনি যে নম্বর থেকে টাকা পাঠিয়েছেন, সেই নম্বরটি এবং Transaction ID (TrxID) এখানে দিন।" }]);
-      } else if (kind === "expired") {
-        setFlow("expired_details");
-        setMessages((current) => [...current, { from: "bot", text: "বুঝতে পেরেছি। আপনার প্যানেলের নাম এবং Order ID-টি এখানে দিন, দয়া করে।" }]);
-      } else {
-        setFlow("general_details");
-        setMessages((current) => [...current, { from: "bot", text: "সমস্যাটি বুঝতে সাহায্য করার জন্য প্যানেলের নাম, Order ID (থাকলে) এবং কী ঘটেছে—এই তথ্যগুলো বিস্তারিত লিখুন।" }]);
+
+      setMessages((current) => [...current, { from: "bot", text: result.reply! }]);
+      if (result.readyForTicket) {
+        if (!user?.id) {
+          setFlow("done");
+          setMessages((current) => [...current, { from: "bot", text: "Support Request তৈরি করার আগে অনুগ্রহ করে Login করুন। আপনার তথ্য কপি করে Normal Support-এ পাঠাতে পারেন।" }]);
+          return;
+        }
+        const ticketMessage = (result.ticketMessage || nextMessages.map((message) => `${message.from === "user" ? "Customer" : "Assistant"}: ${message.text}`).join("\n")).slice(0, 5000);
+        pendingTicketRef.current = {
+          subject: result.subject || "AI Support Request",
+          message: ticketMessage,
+        };
+        setFlow("pending");
+        setMessages((current) => [...current, { from: "bot", text: "আপনার তথ্য নেওয়া হয়েছে। ৫ মিনিটের মধ্যে সমাধান না হলে আপনার ID দিয়ে Support Request তৈরি হবে।" }]);
       }
-      return;
-    }
-
-    if (flow === "general_details" && isGreetingOrTooVague(value)) {
-      setMessages((current) => [...current, { from: "bot", text: "আপনার সমস্যাটা এখনো পরিষ্কার বুঝতে পারিনি। একটু বিস্তারিত বলবেন—কী করতে গিয়ে কী সমস্যা হচ্ছে? কোনো error message দেখালে সেটাও লিখুন।" }]);
-      return;
-    }
-
-    if (flow === "payment_details" && isGreetingOrTooVague(value)) {
-      setMessages((current) => [...current, { from: "bot", text: "পেমেন্ট যাচাই করতে টাকা পাঠানোর নম্বর এবং Transaction ID (TrxID)—দুটিই লিখুন। শুধু “hi” বা ছোট উত্তর দিলে টিকিট তৈরি হবে না।" }]);
-      return;
-    }
-
-    if (flow === "expired_details" && isGreetingOrTooVague(value)) {
-      setMessages((current) => [...current, { from: "bot", text: "দয়া করে প্যানেলের নাম এবং Order ID লিখুন, যাতে সমস্যাটি সঠিকভাবে নথিভুক্ত করা যায়।" }]);
-      return;
-    }
-
-    const kind = flow === "payment_details" ? "payment" : flow === "expired_details" ? "expired" : "general";
-    const subject = kind === "payment" ? "AI Support: Payment not received" : kind === "expired" ? "AI Support: Expired panel/order" : "AI Support: General issue";
-    const firstIssue = messages.find((message) => message.from === "user")?.text ?? "Support request";
-    const fullMessage = `Issue: ${firstIssue}\nCustomer details: ${value}\nCollected by: ${agent} (AI Support Assistant)`;
-    setBusy(true);
-
-    if (!user?.id) {
+    } catch {
+      setMessages((current) => [...current, { from: "bot", text: "ইন্টারনেট বা সার্ভারের সমস্যার কারণে উত্তর আনা যায়নি। আবার চেষ্টা করুন অথবা Normal Support ব্যবহার করুন।" }]);
+    } finally {
       setBusy(false);
-      setFlow("done");
-      setMessages((current) => [...current,
-        { from: "bot", text: "ধন্যবাদ। নিরাপদে আপনার সমস্যাটি অ্যাডমিনের কাছে পাঠাতে অনুগ্রহ করে আগে Login করুন। আপাতত Normal Support থেকে WhatsApp বা Telegram-এ যোগাযোগ করতে পারেন।" },
-        { from: "bot", text: `আপনার দেওয়া তথ্য (কপি করে পাঠাতে পারেন):\n${fullMessage}` },
-      ]);
-      return;
     }
-
-    pendingTicketRef.current = { subject, message: fullMessage };
-    setBusy(false);
-    setFlow("pending");
-    setMessages((current) => [...current, { from: "bot", text: "ধন্যবাদ, আপনার তথ্য পেয়েছি। কিছু সময় দিয়ে সহযোগিতা করুন—আমাদের অ্যাডমিন আপনার সমস্যার সমাধানের চেষ্টা করছেন। ৫ মিনিটের মধ্যে সমাধান না হলে এই চ্যাটটি স্বয়ংক্রিয়ভাবে বন্ধ হবে এবং আপনার ID দিয়ে Support Request তৈরি হবে।" }]);
   };
 
   return (
