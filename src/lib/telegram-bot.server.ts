@@ -226,7 +226,7 @@ export async function handleUpdate(u: any) {
       return send(chatId, "❌ ইমেইলে code পাঠানো যায়নি। ইমেইলটি registered কি না দেখুন, তারপর আবার LOGIN করুন।", GUEST_AUTH);
     }
     await setState(chatId, "login_otp", { email, otp_requested_at: Date.now() });
-    return send(chatId, "📩 <b>Verification code পাঠানো হয়েছে</b>\n\n<b>ইমেইল:</b> <code>" + esc(email) + "</code>\n\n👇 নিচে <b>Reply</b> করে ইমেইলে আসা OTP code পাঠান। Code কাউকে দেবেন না। বাতিল করতে /cancel লিখুন।", { force_reply: true, input_field_placeholder: "এখানে OTP code লিখুন…" });
+    return send(chatId, "✅ <b>আপনার ইমেইলে verification code পাঠানো হয়েছে!</b>\n\n📧 Email: <code>" + esc(email) + "</code>\n\n🔐 <b>এখন ইমেইল খুলে code-টি দেখুন, তারপর নিচে Reply করে এই Telegram bot-এ code পাঠিয়ে Verify করুন।</b>\n\n⚠️ Code কাউকে শেয়ার করবেন না। নতুন code নিতে বা বাতিল করতে /cancel লিখুন।", { force_reply: true, input_field_placeholder: "ইমেইলে পাওয়া OTP code লিখুন…" });
   }
   if (st.state === "login_otp" && text) {
     if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Login বাতিল হয়েছে। আবার LOGIN চাপুন।", GUEST_AUTH); }
