@@ -30,8 +30,12 @@ const MENU = {
   ],
   resize_keyboard: true,
 };
-const GUEST = {
-  keyboard: [[{ text: "📱 SHARE MY NUMBER", request_contact: true }], [{ text: "🔐 LOGIN" }, { text: "🆕 CREATE ACCOUNT" }]],
+const SHARE_NUMBER = {
+  keyboard: [[{ text: "📱 SHARE MY NUMBER", request_contact: true }]],
+  resize_keyboard: true,
+};
+const GUEST_AUTH = {
+  keyboard: [[{ text: "🔐 LOGIN" }, { text: "🆕 CREATE ACCOUNT" }]],
   resize_keyboard: true,
 };
 
@@ -42,7 +46,13 @@ async function admin() {
 
 async function setState(chatId: number, state: string, data: Record<string, unknown> = {}) {
   const db = await admin();
-  await db.from("telegram_sessions").upsert({ chat_id: chatId, state, data, updated_at: new Date().toISOString() });
+  const current = await getState(chatId);
+  await db.from("telegram_sessions").upsert({
+    chat_id: chatId,
+    state,
+    data: { ...(current.data ?? {}), ...data },
+    updated_at: new Date().toISOString(),
+  });
 }
 async function getState(chatId: number) {
   const db = await admin();
@@ -63,7 +73,12 @@ async function welcome(chatId: number, user: any) {
   if (user) {
     await send(chatId, `👋 স্বাগতম <b>${esc(user.name || user.username)}</b>!\n💰 ব্যালেন্স: <b>${tk(user.balance)}</b>\n\nনিচের মেনু থেকে বেছে নিন।`, MENU);
   } else {
-    await send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nআপনার ওয়েবসাইট অ্যাকাউন্ট দিয়ে 🔐 LOGIN করুন, অথবা 🆕 CREATE ACCOUNT করুন।", GUEST);
+    const st = await getState(chatId);
+    if (st.data?.phone_shared) {
+      await send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nএখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
+    } else {
+      await send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nশুরু করতে নিচের SHARE MY NUMBER বাটনে চাপ দিন।", SHARE_NUMBER);
+    }
   }
 }
 
@@ -76,8 +91,19 @@ export async function handleUpdate(u: any) {
   const user = await linkedUser(m.from.id);
   const st = await getState(chatId);
 
-  if (text.startsWith("/start")) { await setState(chatId, ""); return welcome(chatId, user); }
-  if (m.contact) return send(chatId, "✅ নম্বর পেয়েছি। এখন 🔐 LOGIN চাপুন এবং ওয়েবসাইটের Username/Email ও Password দিন।", GUEST);
+  if (text.startsWith("/start")) {
+    await setState(chatId, st.data?.phone_shared ? (user ? "" : "guest_auth") : (user ? "" : "guest_share_number"));
+    if (user) return welcome(chatId, user);
+    if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
+    return send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nশুরু করতে নিচের SHARE MY NUMBER বাটনে চাপ দিন।", SHARE_NUMBER);
+  }
+  if (m.contact) {
+    if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
+    if (!m.contact.user_id || m.contact.user_id !== m.from.id) return send(chatId, "⚠️ নিজের নম্বর SHARE MY NUMBER বাটন দিয়ে শেয়ার করুন।", SHARE_NUMBER);
+    await setState(chatId, "guest_auth", { phone_shared: true, phone: String(m.contact.phone_number ?? "").slice(0, 30) });
+    await tg("sendMessage", { chat_id: chatId, text: " ", reply_markup: { remove_keyboard: true } });
+    return send(chatId, "✅ নম্বর পেয়েছি। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
+  }
   if (text === "🆕 CREATE ACCOUNT")
     return send(chatId, "নিচের বাটনে ওয়েবসাইটে অ্যাকাউন্ট খুলুন, তারপর এখানে ফিরে 🔐 LOGIN করুন।", {
       inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register` }]],
@@ -100,7 +126,7 @@ export async function handleUpdate(u: any) {
   if (text === "/logout") {
     const db = await admin();
     await db.from("telegram_links").delete().eq("telegram_user_id", m.from.id);
-    return send(chatId, "Logout হয়েছে।", GUEST);
+    return send(chatId, "Logout হয়েছে।", GUEST_AUTH);
   }
   switch (text) {
     case "🛍 Products": return showProducts(chatId);
@@ -126,12 +152,12 @@ async function doLogin(chatId: number, from: any, id: string, password: string) 
     const { data } = await db.rpc("resolve_login_email", { p_username: id });
     email = data ?? "";
   }
-  if (!email) return send(chatId, "❌ Username/Email বা Password ভুল। আবার 🔐 LOGIN চাপুন।", GUEST);
+  if (!email) return send(chatId, "❌ Username/Email বা Password ভুল। আবার 🔐 LOGIN চাপুন।", GUEST_AUTH);
   const { createClient } = await import("@supabase/supabase-js");
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"] ?? process.env["SUPABASE_ANON_KEY"] ?? "";
   const pub = createClient(process.env["SUPABASE_URL"]!, key, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data, error } = await pub.auth.signInWithPassword({ email, password });
-  if (error || !data.user) return send(chatId, "❌ Username/Email বা Password ভুল। আবার 🔐 LOGIN চাপুন।", GUEST);
+  if (error || !data.user) return send(chatId, "❌ Username/Email বা Password ভুল। আবার 🔐 LOGIN চাপুন।", GUEST_AUTH);
   await db.from("telegram_links").delete().or(`user_id.eq.${data.user.id},telegram_user_id.eq.${from.id}`);
   await db.from("telegram_links").insert({ user_id: data.user.id, telegram_user_id: from.id, telegram_chat_id: chatId, telegram_username: from.username ?? null });
   const user = await linkedUser(from.id);
