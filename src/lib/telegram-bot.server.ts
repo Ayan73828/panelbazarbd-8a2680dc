@@ -20,7 +20,7 @@ export const tgApi = tg;
 
 const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const tk = (n: number) => `৳${Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-const dualMoney = (n: number) => `${Number(n ?? 0).toFixed(2)} (${tk(Number(n ?? 0) * 100)})`;
+const dualMoney = (n: number) => tk(Number(n ?? 0));
 
 const MENU = {
   inline_keyboard: [
