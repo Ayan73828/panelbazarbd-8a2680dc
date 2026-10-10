@@ -25,17 +25,21 @@ export function SupportThread({ ticket, admin }: { ticket: Ticket; admin?: boole
   const send = async () => {
     if (!text.trim() || !user) return;
     setBusy(true);
-    const { error } = await supabase.from("support_replies").insert({ ticket_id: ticket.id, user_id: user.id, message: text.trim().slice(0, 2000) });
-    setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    setText("");
     if (admin) {
       try {
         await telegramNotifyEvent({ data: { event: "support_reply", recordId: ticket.id, message: text.trim().slice(0, 2000) } });
       } catch (e) {
         console.error("Telegram support reply notification failed", e);
-        toast.error("Reply website-এ save হয়েছে, কিন্তু Telegram-এ পাঠানো যায়নি");
+        setBusy(false);
+        toast.error("Telegram-এ reply পাঠানো যায়নি। Ticket খোলা থাকবে; আবার চেষ্টা করুন।");
+        return;
       }
+    }
+    const { error } = await supabase.from("support_replies").insert({ ticket_id: ticket.id, user_id: user.id, message: text.trim().slice(0, 2000) });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    setText("");
+    if (admin) {
       const { error: closeErr } = await supabase.from("support_tickets").update({ status: "resolved" }).eq("id", ticket.id);
       if (closeErr) toast.error(closeErr.message);
       else toast.success("রিপ্লাই পাঠানো হয়েছে, টিকিট বন্ধ করা হয়েছে");
