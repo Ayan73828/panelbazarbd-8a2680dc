@@ -66,7 +66,8 @@ export const adminTelegramBroadcast = createServerFn({ method: "POST" })
     const { tgApi } = await import("@/lib/telegram-bot.server");
     if (!process.env["TELEGRAM_BOT_TOKEN"]) throw new Error("Telegram bot is not configured");
 
-    const text = `📢 <b>${data.title.trim()}</b> <b>${data.message.trim()}</b>`;
+    const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const text = `<b>📢 ${escapeHtml(data.title.trim())} ${escapeHtml(data.message.trim())}</b>`;
     if (text.length > 4096) throw new Error("Announcement is too long for Telegram");
 
     let offset = 0;
@@ -86,7 +87,7 @@ export const adminTelegramBroadcast = createServerFn({ method: "POST" })
 
       for (const chatId of chatIds) {
         try {
-          const result = await tgApi("sendMessage", { chat_id: chatId, text, disable_web_page_preview: true });
+          const result = await tgApi("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true });
           if (result?.ok) sent++;
           else failed++;
         } catch {
