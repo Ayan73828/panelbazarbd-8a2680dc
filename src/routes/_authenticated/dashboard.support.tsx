@@ -10,6 +10,7 @@ import { SupportThread, StatusBadge } from "@/components/site/SupportThread";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard/support")({
   head: () => ({ meta: [{ title: "Support — PANEL BAZAR BD" }, { name: "description", content: "Open a support ticket and chat with the admin." }] }),
@@ -39,6 +40,7 @@ function SupportPage() {
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     setSubject(""); setMessage(""); setOpenId(data.id);
+    void telegramNotifyEvent({ data: { event: "support", recordId: data.id } }).catch((notifyError) => console.error("Telegram support notification failed", notifyError));
     toast.success("টিকিট তৈরি হয়েছে");
     void qc.invalidateQueries({ queryKey: ["tickets"] });
   };
