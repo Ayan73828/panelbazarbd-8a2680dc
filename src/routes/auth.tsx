@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 
 type Mode = "login" | "register";
+type PendingOtp = { email: string; mode: Mode; name?: string; phone?: string };
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>): { mode?: Mode | undefined } => ({
@@ -19,9 +20,9 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Login or Register — PANEL BAZAR BD" },
-      { name: "description", content: "Sign in or create your reseller account with email and password." },
+      { name: "description", content: "Register and sign in securely using a six-digit email verification code." },
       { property: "og:title", content: "Login or Register — PANEL BAZAR BD" },
-      { property: "og:description", content: "Login and register with email and password." },
+      { property: "og:description", content: "Login and register using a six-digit email OTP." },
     ],
   }),
   component: AuthPage,
@@ -44,29 +45,52 @@ function AuthPage() {
             <Link to="/auth" search={{ mode: "login" }} className={`rounded-full py-2 text-center font-medium ${mode === "login" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Login</Link>
             <Link to="/auth" search={{ mode: "register" }} className={`rounded-full py-2 text-center font-medium ${mode === "register" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Register</Link>
           </div>
-          {mode === "login" ? <LoginForm /> : <RegisterForm />}
-          <p className="mt-5 text-center text-xs text-muted-foreground">To change your password, please contact the admin.</p>
+          <OtpAuthForm mode={mode} />
+          <p className="mt-5 text-center text-xs text-muted-foreground">A six-digit verification code will be sent to your email. Never share your code with anyone.</p>
         </div>
       </div>
     </SiteLayout>
   );
 }
 
-function LoginForm() {
+function OtpAuthForm({ mode }: { mode: Mode }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [pending, setPending] = useState<PendingOtp | null>(null);
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
 
-  async function login(e: FormEvent) {
+  async function requestCode(e: FormEvent) {
     e.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (mode === "register") {
+      if (name.trim().length < 2) return void toast.error("Please enter your full name.");
+      if (!/^[+\d][\d\s-]{6,}$/.test(phone.trim())) return void toast.error("Please enter a valid phone number.");
+    }
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-      if (error) throw error;
-      sessionStorage.setItem("kr_alive", "1");
-      toast.success("Logged in successfully!");
-      navigate({ to: "/dashboard", replace: true });
+      if (mode === "register") {
+        // Supabase requires a password for signUp; this random value is never shown or stored by the app.
+        // Users authenticate through email OTP, not this generated password.
+        const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(32)), (v) => v.toString(16).padStart(2, "0")).join("");
+        const { error } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password: `Aa1!${randomPart}`,
+          options: { data: { name: name.trim(), full_name: name.trim(), phone: phone.trim() } },
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: normalizedEmail,
+          options: { shouldCreateUser: false },
+        });
+        if (error) throw error;
+      }
+      setPending({ email: normalizedEmail, mode, ...(mode === "register" ? { name: name.trim(), phone: phone.trim() } : {}) });
+      setCode("");
+      toast.success("Six-digit code sent. Check your inbox and spam folder.");
     } catch (err) {
       toast.error(errMsg(err));
     } finally {
@@ -74,43 +98,25 @@ function LoginForm() {
     }
   }
 
-  return (
-    <form onSubmit={login} className="space-y-4">
-      <h1 className="text-xl font-bold">Login to your account</h1>
-      <p className="text-sm text-muted-foreground">Enter your registered email and password.</p>
-      <div className="space-y-1.5"><Label htmlFor="login-email">Email</Label><Input id="login-email" type="email" required maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></div>
-      <div className="space-y-1.5"><Label htmlFor="login-password">Password</Label><Input id="login-password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></div>
-      <Button type="submit" className="w-full rounded-full" disabled={busy}>{busy ? "Logging in…" : "Login"}</Button>
-    </form>
-  );
-}
-
-function RegisterForm() {
-  const [f, setF] = useState({ name: "", phone: "", email: "", password: "" });
-  const [busy, setBusy] = useState(false);
-  const navigate = useNavigate();
-  const up = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
-
-  async function register(e: FormEvent) {
+  async function verifyCode(e: FormEvent) {
     e.preventDefault();
-    if (f.name.trim().length < 2) return void toast.error("Please enter your full name.");
-    if (!/^[+\d][\d\s-]{6,}$/.test(f.phone.trim())) return void toast.error("Please enter a valid phone number.");
-    if (f.password.length < 6) return void toast.error("Password must be at least 6 characters.");
+    if (!pending) return;
+    if (!/^\d{6}$/.test(code.trim())) return void toast.error("Enter the six-digit code from your email.");
     setBusy(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: f.email.trim(),
-        password: f.password,
-        options: { data: { name: f.name.trim(), full_name: f.name.trim(), phone: f.phone.trim() } },
+      const { error } = await supabase.auth.verifyOtp({
+        email: pending.email,
+        token: code.trim(),
+        type: pending.mode === "register" ? "signup" : "email",
       });
       if (error) throw error;
-      if (!data.session) {
-        toast.error("Email confirmation is still enabled. Please ask the admin to disable it in Supabase Auth settings.");
-        return;
-      }
       sessionStorage.setItem("kr_alive", "1");
-      void telegramNotifyEvent({ data: { event: "signup" } }).catch((notifyError) => console.error("Telegram signup notification failed", notifyError));
-      toast.success("Account created successfully!");
+      if (pending.mode === "register") {
+        void telegramNotifyEvent({ data: { event: "signup" } }).catch((notifyError) => console.error("Telegram signup notification failed", notifyError));
+        toast.success("Email verified and account created successfully!");
+      } else {
+        toast.success("Logged in successfully!");
+      }
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
       toast.error(errMsg(err));
@@ -120,14 +126,28 @@ function RegisterForm() {
   }
 
   return (
-    <form onSubmit={register} className="space-y-4">
-      <h1 className="text-xl font-bold">Create an account</h1>
-      <p className="text-sm text-muted-foreground">Register with your email and password. No email code is needed.</p>
-      <div className="space-y-1.5"><Label htmlFor="register-name">Full name</Label><Input id="register-name" required maxLength={80} value={f.name} onChange={up("name")} autoComplete="name" /></div>
-      <div className="space-y-1.5"><Label htmlFor="register-phone">Phone</Label><Input id="register-phone" type="tel" required maxLength={20} value={f.phone} onChange={up("phone")} autoComplete="tel" /></div>
-      <div className="space-y-1.5"><Label htmlFor="register-email">Email</Label><Input id="register-email" type="email" required maxLength={255} value={f.email} onChange={up("email")} autoComplete="email" /></div>
-      <div className="space-y-1.5"><Label htmlFor="register-password">Password (at least 6 characters)</Label><Input id="register-password" type="password" required minLength={6} value={f.password} onChange={up("password")} autoComplete="new-password" /></div>
-      <Button type="submit" className="w-full rounded-full" disabled={busy}>{busy ? "Creating account…" : "Register"}</Button>
-    </form>
+    <div className="space-y-4">
+      {!pending ? (
+        <form onSubmit={requestCode} className="space-y-4">
+          <h1 className="text-xl font-bold">{mode === "login" ? "Login with email OTP" : "Create your account"}</h1>
+          <p className="text-sm text-muted-foreground">{mode === "login" ? "Enter your registered email and we'll send a six-digit sign-in code." : "Enter your details. We'll email you a six-digit code to verify your account."}</p>
+          {mode === "register" && <>
+            <div className="space-y-1.5"><Label htmlFor="register-name">Full name</Label><Input id="register-name" required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></div>
+            <div className="space-y-1.5"><Label htmlFor="register-phone">Phone</Label><Input id="register-phone" type="tel" required maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" /></div>
+          </>}
+          <div className="space-y-1.5"><Label htmlFor="auth-email">Email</Label><Input id="auth-email" type="email" required maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></div>
+          <Button type="submit" className="w-full rounded-full" disabled={busy}>{busy ? "Sending code…" : "Send 6-digit code"}</Button>
+        </form>
+      ) : (
+        <form onSubmit={verifyCode} className="space-y-4">
+          <h1 className="text-xl font-bold">Verify your email</h1>
+          <p className="text-sm text-muted-foreground">Enter the six-digit code sent to <span className="font-medium">{pending.email}</span>.</p>
+          <div className="space-y-1.5"><Label htmlFor="auth-code">6-digit code</Label><Input id="auth-code" inputMode="numeric" autoComplete="one-time-code" type="text" required minLength={6} maxLength={6} pattern="[0-9]{6}" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} /></div>
+          <Button type="submit" className="w-full rounded-full" disabled={busy || code.length !== 6}>{busy ? "Verifying…" : "Verify code and continue"}</Button>
+          <Button type="button" variant="outline" className="w-full rounded-full" disabled={busy} onClick={() => { setPending(null); setCode(""); }}>Use a different email</Button>
+          <p className="text-xs text-muted-foreground">If no email arrives, check spam. You can request another code after the email provider's cooldown.</p>
+        </form>
+      )}
+    </div>
   );
 }
