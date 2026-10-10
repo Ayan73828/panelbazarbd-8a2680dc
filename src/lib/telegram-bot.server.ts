@@ -128,7 +128,7 @@ export async function handleUpdate(u: any) {
 
   if (text === "Restart 🔁") {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
-    for (const message_id of oldIds) await tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined);
+    await Promise.all(oldIds.map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)));
     await setState(chatId, st.data?.phone_shared ? (user ? "" : "guest_auth") : (user ? "" : "guest_share_number"), { recent_bot_message_ids: [] });
     if (user) return welcome(chatId, user);
     if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
@@ -201,7 +201,7 @@ export async function handleUpdate(u: any) {
     if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
     if (!m.contact.user_id || m.contact.user_id !== m.from.id) return send(chatId, "⚠️ নিজের নম্বর SHARE MY NUMBER বাটন দিয়ে শেয়ার করুন।", SHARE_NUMBER);
     await setState(chatId, "guest_auth", { phone_shared: true, phone: String(m.contact.phone_number ?? "").slice(0, 30) });
-    await tg("sendMessage", { chat_id: chatId, text: " ", reply_markup: { remove_keyboard: true } });
+    await tg("sendMessage", { chat_id: chatId, text: "✅ নম্বর শেয়ার হয়েছে।", reply_markup: { remove_keyboard: true } });
     return send(chatId, "✅ নম্বর পেয়েছি। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
   }
   if (text === "🆕 CREATE ACCOUNT")
