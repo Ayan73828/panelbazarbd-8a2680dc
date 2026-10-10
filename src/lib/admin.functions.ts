@@ -66,7 +66,7 @@ export const adminTelegramBroadcast = createServerFn({ method: "POST" })
     const { tgApi } = await import("@/lib/telegram-bot.server");
     if (!process.env["TELEGRAM_BOT_TOKEN"]) throw new Error("Telegram bot is not configured");
 
-    const text = `📢 ${data.title.trim()}\\n\\n${data.message.trim()}`;
+    const text = `📢 <b>${data.title.trim()}</b> <b>${data.message.trim()}</b>`;
     if (text.length > 4096) throw new Error("Announcement is too long for Telegram");
 
     let offset = 0;
