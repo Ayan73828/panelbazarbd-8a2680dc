@@ -98,6 +98,8 @@ function RegisterForm() {
   const [f, setF] = useState({ name: "", username: "", email: "", phone: "", password: "", confirm: "" });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [verifying, setVerifying] = useState(false);
   const navigate = useNavigate();
   const up = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
 
@@ -131,12 +133,40 @@ function RegisterForm() {
     }
   }
 
+  async function verifyEmail(e: FormEvent) {
+    e.preventDefault();
+    const code = otp.trim();
+    if (!/^\\d{6}$/.test(code)) return void toast.error("Enter the 6-digit code from your email");
+    setVerifying(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: f.email.trim(),
+        token: code,
+        type: "signup",
+      });
+      if (error) throw error;
+      if (data.session) {
+        toast.success("Email verified! Account created.");
+        navigate({ to: "/dashboard", replace: true });
+      } else {
+        toast.success("Email verified. You can now log in.");
+        navigate({ to: "/auth", search: { mode: "login" }, replace: true });
+      }
+    } catch (err) {
+      toast.error(errMsg(err));
+    } finally {
+      setVerifying(false);
+    }
+  }
+
   if (done)
     return (
-      <div className="space-y-3 text-center">
-        <h1 className="text-xl font-bold">Check your email</h1>
-        <p className="text-sm text-muted-foreground">We sent a confirmation link to {f.email}. Open it to activate your account, then log in.</p>
-      </div>
+      <form onSubmit={verifyEmail} className="space-y-4">
+        <h1 className="text-xl font-bold">Verify your email</h1>
+        <p className="text-sm text-muted-foreground">We sent a 6-digit verification code to {f.email}. Enter the code below to activate your account.</p>
+        <div className="space-y-1.5"><Label htmlFor="signup-otp">Email verification code</Label><Input id="signup-otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={otp} onChange={(e) => setOtp(e.target.value.replace(/\\D/g, "").slice(0, 6))} /></div>
+        <Button type="submit" className="w-full rounded-full" disabled={verifying}>{verifying ? "Verifying…" : "Verify email"}</Button>
+      </form>
     );
 
   return (
