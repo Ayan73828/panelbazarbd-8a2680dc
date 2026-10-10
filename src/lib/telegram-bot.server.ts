@@ -91,6 +91,10 @@ const screen = async (chat_id: number, message_id: number | undefined, text: str
 };
 
 const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
+  if (!String(text ?? "").trim()) {
+    console.error("Telegram send skipped: empty text", { chat_id });
+    return { ok: false, description: "Empty message text" };
+  }
   const result = await tg("sendMessage", { chat_id, text, parse_mode: "HTML", disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) });
   const id = result?.result?.message_id;
   if (typeof id === "number") await rememberMessage(chat_id, id).catch((e) => console.error("telegram message tracking", e));
