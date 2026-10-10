@@ -161,7 +161,10 @@ export async function handleUpdate(u: any) {
       return send(chatId, "Ticket save করা যায়নি। আবার চেষ্টা করুন বা Telegram Admin-কে message দিন।");
     }
     await setState(chatId, "");
-    await notifyOwner("🎫 <b>New Telegram Support Ticket</b>\nTicket: <code>" + esc(ticket.id) + "</code>\nUser: <code>" + esc(ownerId) + "</code>\nTelegram ID: <code>" + m.from.id + "</code>\nDetails: " + esc(details) + (photo ? "\nPhoto attached in ticket database." : ""));
+    const ticketNotice = "🎫 <b>New Telegram Support Ticket</b>\\nTicket: <code>" + esc(ticket.id) + "</code>\\nUser: <code>" + esc(ownerId) + "</code>\\nTelegram ID: <code>" + m.from.id + "</code>\\nDetails: " + esc(details);
+    const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"];
+    if (photo && ownerChatId) await tg("sendPhoto", { chat_id: ownerChatId, photo, caption: ticketNotice, parse_mode: "HTML" });
+    else await notifyOwner(ticketNotice + (photo ? "\\nPhoto file ID: " + esc(photo) : ""));
     return send(chatId, "✅ আপনার Support Ticket জমা হয়েছে।\nTicket ID: <code>" + esc(ticket.id) + "</code>\nAdmin-কে জানানো হয়েছে।", { inline_keyboard: [[{ text: "⬅️ Main Menu", callback_data: "menu:home" }]] });
   }
   if (m.contact) {
