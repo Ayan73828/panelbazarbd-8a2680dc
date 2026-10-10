@@ -141,6 +141,25 @@ export async function handleUpdate(u: any) {
     if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
     return send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nশুরু করতে নিচের SHARE MY NUMBER বাটনে চাপ দিন।", SHARE_NUMBER);
   }
+  if (st.state === "admin_support_reply" && text) {
+    if (String(chatId) !== String(process.env["TELEGRAM_OWNER_CHAT_ID"] ?? "")) return;
+    if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Reply বাতিল করা হয়েছে।"); }
+    const ticketId = String(st.data?.support_ticket_id ?? "");
+    const db = await admin();
+    const { data: ticket } = await db.from("support_tickets").select("id,user_id,subject,telegram_chat_id,status").eq("id", ticketId).eq("status", "open").maybeSingle();
+    if (!ticket) { await setState(chatId, ""); return send(chatId, "টিকিটটি পাওয়া যায়নি বা আগেই বন্ধ হয়েছে।"); }
+    const { data: admins } = await db.from("user_roles").select("user_id").eq("role", "admin").limit(1);
+    const adminId = admins?.[0]?.user_id;
+    if (!adminId) return send(chatId, "Admin profile পাওয়া যায়নি; reply সংরক্ষণ হয়নি।");
+    const { error: replyError } = await db.from("support_replies").insert({ ticket_id: ticket.id, user_id: adminId, message: text.slice(0, 2000) });
+    if (replyError) { console.error("Telegram support reply failed", replyError); return send(chatId, "Reply save হয়নি। আবার চেষ্টা করুন।"); }
+    await db.from("support_tickets").update({ status: "resolved", updated_at: new Date().toISOString() }).eq("id", ticket.id);
+    const { data: link } = await db.from("telegram_links").select("telegram_chat_id").eq("user_id", ticket.user_id).maybeSingle();
+    const customerChat = ticket.telegram_chat_id ?? link?.telegram_chat_id;
+    if (customerChat) await send(Number(customerChat), `📩 <b>Support থেকে উত্তর এসেছে</b>\nটিকিট: <code>${esc(ticket.id)}</code>\n\n${esc(text.slice(0, 2000))}\n\nআপনার টিকিটটি সমাধান হিসেবে বন্ধ করা হয়েছে।`);
+    await setState(chatId, "");
+    return send(chatId, "✅ Reply পাঠানো হয়েছে এবং টিকিট resolved করা হয়েছে।");
+  }
   if (st.state === "support_ticket_details" && (text || m.photo?.length)) {
     if (text === "/cancel") {
       await setState(chatId, "");
@@ -153,18 +172,25 @@ export async function handleUpdate(u: any) {
     const ticketState = await getState(chatId);
     const ownerId = String(ticketState.data?.support_user_id ?? user?.id ?? "");
     if (!ownerId) return send(chatId, "Account link পাওয়া যায়নি। আগে website account দিয়ে Telegram-এ LOGIN করুন।");
-    const { data: ticket, error: ticketError } = await ticketDb.from("telegram_support_tickets").insert({
-      user_id: ownerId, telegram_user_id: m.from.id, telegram_chat_id: chatId, details, photo_file_id: photo,
+    const { data: existing } = await ticketDb.from("support_tickets").select("id").eq("user_id", ownerId).eq("status", "open").limit(1).maybeSingle();
+    if (existing) {
+      await setState(chatId, "");
+      return send(chatId, `আপনার একটি Support Ticket এখনও খোলা আছে। Admin উত্তর দিলে নতুন টিকিট করতে পারবেন।\nTicket ID: <code>${esc(existing.id)}</code>`);
+    }
+    const { data: ticket, error: ticketError } = await ticketDb.from("support_tickets").insert({
+      user_id: ownerId, subject: "Telegram Support Ticket", message: details, source: "telegram", telegram_user_id: m.from.id, telegram_chat_id: chatId, photo_file_id: photo,
     }).select("id").single();
     if (ticketError) {
       console.error("Support ticket save failed", ticketError);
       return send(chatId, "Ticket save করা যায়নি। আবার চেষ্টা করুন বা Telegram Admin-কে message দিন।");
     }
     await setState(chatId, "");
-    const ticketNotice = "🎫 <b>New Telegram Support Ticket</b>\nTicket: <code>" + esc(ticket.id) + "</code>\nUser: <code>" + esc(ownerId) + "</code>\nTelegram ID: <code>" + m.from.id + "</code>\nDetails: " + esc(details);
+    const ticketNotice = "🎫 <b>New Support Ticket</b>\\nTicket: <code>" + esc(ticket.id) + "</code>\\nSource: Telegram Bot\\nUser: <code>" + esc(ownerId) + "</code>\\nTelegram ID: <code>" + m.from.id + "</code>\\nDetails: " + esc(details);
     const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"];
-    if (photo && ownerChatId) await tg("sendPhoto", { chat_id: ownerChatId, photo, caption: ticketNotice, parse_mode: "HTML" });
-    else await notifyOwner(ticketNotice + (photo ? "\nPhoto file ID: " + esc(photo) : ""));
+    const keyboard = { inline_keyboard: [[{ text: "↩️ Reply", callback_data: "supportreply:" + ticket.id }, { text: "✅ Close", callback_data: "supportclose:" + ticket.id }]] };
+    if (photo && ownerChatId) await tg("sendPhoto", { chat_id: ownerChatId, photo, caption: ticketNotice, parse_mode: "HTML", reply_markup: keyboard });
+    else if (ownerChatId) await tg("sendMessage", { chat_id: ownerChatId, text: ticketNotice, parse_mode: "HTML", reply_markup: keyboard });
+    else await notifyOwner(ticketNotice + (photo ? "\\nPhoto file ID: " + esc(photo) : ""));
     return send(chatId, "✅ আপনার Support Ticket জমা হয়েছে।\nTicket ID: <code>" + esc(ticket.id) + "</code>\nAdmin-কে জানানো হয়েছে।", { inline_keyboard: [[{ text: "⬅️ Main Menu", callback_data: "menu:home" }]] });
   }
   if (m.contact) {
@@ -334,6 +360,21 @@ async function handleCallback(cq: any) {
   if (!chatId) return;
   const user = await linkedUser(cq.from.id);
   const [kind, id] = String(cq.data ?? "").split(":");
+  const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"];
+  if ((kind === "supportreply" || kind === "supportclose") && String(chatId) === String(ownerChatId ?? "")) {
+    const db = await admin();
+    const { data: ticket } = await db.from("support_tickets").select("id,user_id,subject,telegram_chat_id,status").eq("id", id).eq("status", "open").maybeSingle();
+    if (!ticket) return screen(chatId, cq.message?.message_id, "টিকিটটি আগেই বন্ধ হয়েছে বা পাওয়া যায়নি।");
+    if (kind === "supportreply") {
+      await setState(chatId, "admin_support_reply", { support_ticket_id: ticket.id });
+      return screen(chatId, cq.message?.message_id, `↩️ <b>Reply লিখুন</b>\nTicket: <code>${esc(ticket.id)}</code>\nUser: <code>${esc(ticket.user_id)}</code>\n\nএখন আপনার উত্তর পাঠান। বাতিল করতে /cancel লিখুন।`);
+    }
+    await db.from("support_tickets").update({ status: "resolved", updated_at: new Date().toISOString() }).eq("id", ticket.id);
+    const { data: link } = await db.from("telegram_links").select("telegram_chat_id").eq("user_id", ticket.user_id).maybeSingle();
+    const customerChat = ticket.telegram_chat_id ?? link?.telegram_chat_id;
+    if (customerChat) await send(Number(customerChat), `✅ আপনার Support Ticket <code>${esc(ticket.id)}</code> admin বন্ধ করেছেন। প্রয়োজন হলে নতুন টিকিট খুলুন।`);
+    return screen(chatId, cq.message?.message_id, `✅ <b>Ticket resolved</b>\n<code>${esc(ticket.id)}</code>`);
+  }
   if (kind === "guest") {
     const st = await getState(chatId);
     if (st.data?.phone_shared !== true) return welcome(chatId, null);
