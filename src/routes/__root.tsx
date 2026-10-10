@@ -124,6 +124,8 @@ function RootShell({ children }: { children: ReactNode }) {
 /** Applies admin-editable brand colors and favicon at runtime. */
 function BrandTheme() {
   const { settings } = useSettings();
+  const { isFetched } = useSettings();
+
   useEffect(() => {
     const root = document.documentElement;
     if (settings.primary_color) root.style.setProperty("--primary", settings.primary_color);
@@ -138,7 +140,9 @@ function BrandTheme() {
       }
       link.href = settings.favicon_url;
     }
-  }, [settings]);
+
+    if (isFetched) document.documentElement.classList.add("brand-theme-ready");
+  }, [settings, isFetched]);
   return null;
 }
 
