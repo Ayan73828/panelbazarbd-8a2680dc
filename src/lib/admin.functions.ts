@@ -39,9 +39,10 @@ export const adminConnectTelegram = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     await assertAdmin(context);
     const { tgApi, SITE_URL } = await import("@/lib/telegram-bot.server");
+    const { telegramWebhookSecret } = await import("@/routes/api/public/telegram/webhook");
     const r = await tgApi("setWebhook", {
       url: `${SITE_URL}/api/public/telegram/webhook`,
-      secret_token: process.env["TELEGRAM_WEBHOOK_SECRET"],
+      secret_token: telegramWebhookSecret(process.env["TELEGRAM_BOT_TOKEN"]!),
       allowed_updates: ["message", "callback_query"],
       drop_pending_updates: true,
     });
