@@ -209,17 +209,44 @@ export async function handleUpdate(u: any) {
       inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register${st.data?.pending_referrer_id ? `&ref=${encodeURIComponent(st.data.pending_referrer_id)}` : ""}` }]],
     });
   if (text === "🔐 LOGIN" || text === "/login") {
-    await setState(chatId, "login_id");
-    return send(chatId, "আপনার ওয়েবসাইটের <b>Username বা Email</b> লিখুন:", { remove_keyboard: true });
+    await setState(chatId, "login_email");
+    return send(chatId, "ওয়েবসাইটে নিবন্ধিত <b>Email address</b> লিখুন। আপনার ইমেইলে verification code পাঠানো হবে:", { remove_keyboard: true });
   }
-  if (st.state === "login_id" && text) {
-    await setState(chatId, "login_pw", { id: text.slice(0, 200) });
-    return send(chatId, "এখন <b>Password</b> লিখুন (মেসেজটি সাথে সাথে মুছে ফেলা হবে):");
+  if (st.state === "login_email" && text) {
+    const email = text.trim().toLowerCase();
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 255) return send(chatId, "❌ সঠিক email address দিন।");
+    const { createClient } = await import("@supabase/supabase-js");
+    const key = process.env["SUPABASE_PUBLISHABLE_KEY"] ?? process.env["SUPABASE_ANON_KEY"] ?? "";
+    if (!process.env["SUPABASE_URL"] || !key) return send(chatId, "⚠️ Login service এখন কনফিগার করা নেই। পরে আবার চেষ্টা করুন।");
+    const pub = createClient(process.env["SUPABASE_URL"]!, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error } = await pub.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+    if (error) {
+      console.error("Telegram OTP request failed", error.message);
+      await setState(chatId, "");
+      return send(chatId, "❌ ইমেইলে code পাঠানো যায়নি। ইমেইলটি registered কি না দেখুন, তারপর আবার LOGIN করুন।", GUEST_AUTH);
+    }
+    await setState(chatId, "login_otp", { email, otp_requested_at: Date.now() });
+    return send(chatId, "📩 <b>Verification code পাঠানো হয়েছে</b>\\n\\nইমেইল: <code>" + esc(email) + "</code>\\n\\nইমেইলে আসা code এখানে লিখুন। Code কাউকে দেবেন না। বাতিল করতে /cancel লিখুন।");
   }
-  if (st.state === "login_pw" && text) {
-    await tg("deleteMessage", { chat_id: chatId, message_id: m.message_id });
+  if (st.state === "login_otp" && text) {
+    if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Login বাতিল হয়েছে। আবার LOGIN চাপুন।", GUEST_AUTH); }
+    const email = String(st.data?.email ?? "");
+    const code = text.replace(/\\s+/g, "");
+    if (!email || !/^(?:\\d{6}|\\d{8})$/.test(code)) return send(chatId, "❌ ইমেইলে আসা 6 বা 8 সংখ্যার verification code লিখুন।");
+    await tg("deleteMessage", { chat_id: chatId, message_id: m.message_id }).catch(() => undefined);
+    const { createClient } = await import("@supabase/supabase-js");
+    const key = process.env["SUPABASE_PUBLISHABLE_KEY"] ?? process.env["SUPABASE_ANON_KEY"] ?? "";
+    const pub = createClient(process.env["SUPABASE_URL"]!, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await pub.auth.verifyOtp({ email, token: code, type: "email" });
+    if (error || !data.user) { console.error("Telegram OTP verification failed", error?.message); return send(chatId, "❌ Code ভুল বা মেয়াদ শেষ। সঠিক code আবার দিন, অথবা /cancel লিখে নতুন code নিন।"); }
+    const db = await admin();
+    await db.from("telegram_links").delete().or("user_id.eq." + data.user.id + ",telegram_user_id.eq." + m.from.id);
+    const { error: linkError } = await db.from("telegram_links").insert({ user_id: data.user.id, telegram_user_id: m.from.id, telegram_chat_id: chatId, telegram_username: m.from.username ?? null });
+    if (linkError) { console.error("Telegram account link failed", linkError); await setState(chatId, ""); return send(chatId, "❌ Email verify হয়েছে, কিন্তু Telegram account link করা যায়নি। Admin-কে জানান।"); }
     await setState(chatId, "");
-    return doLogin(chatId, m.from, String(st.data?.id ?? ""), text);
+    const linked = await linkedUser(m.from.id);
+    await notifyOwner("🔗 Telegram linked: <b>" + esc(linked?.username || email) + "</b> (@" + esc(m.from.username ?? m.from.id) + ")");
+    return welcome(chatId, linked);
   }
 
   if (!user) return welcome(chatId, null);
@@ -243,26 +270,6 @@ export async function handleUpdate(u: any) {
     case "🌐 Website": return send(chatId, "🌐 ওয়েবসাইট:", { inline_keyboard: [[{ text: "Open website", url: SITE_URL }]] });
     default: return welcome(chatId, user);
   }
-}
-
-async function doLogin(chatId: number, from: any, id: string, password: string) {
-  const db = await admin();
-  let email = id;
-  if (!id.includes("@")) {
-    const { data } = await db.rpc("resolve_login_email", { p_username: id });
-    email = data ?? "";
-  }
-  if (!email) return send(chatId, "❌ Username/Email বা Password ভুল। আবার 🔐 LOGIN চাপুন।", GUEST_AUTH);
-  const { createClient } = await import("@supabase/supabase-js");
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"] ?? process.env["SUPABASE_ANON_KEY"] ?? "";
-  const pub = createClient(process.env["SUPABASE_URL"]!, key, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await pub.auth.signInWithPassword({ email, password });
-  if (error || !data.user) return send(chatId, "❌ Username/Email বা Password ভুল। আবার 🔐 LOGIN চাপুন।", GUEST_AUTH);
-  await db.from("telegram_links").delete().or(`user_id.eq.${data.user.id},telegram_user_id.eq.${from.id}`);
-  await db.from("telegram_links").insert({ user_id: data.user.id, telegram_user_id: from.id, telegram_chat_id: chatId, telegram_username: from.username ?? null });
-  const user = await linkedUser(from.id);
-  await notifyOwner(`🔗 Telegram linked: <b>${esc(user?.username || email)}</b> (@${esc(from.username ?? from.id)})`);
-  return welcome(chatId, user);
 }
 
 async function showFundAmounts(chatId: number, user: any, method = "", messageId?: number) {
@@ -383,8 +390,8 @@ async function handleCallback(cq: any) {
     const st = await getState(chatId);
     if (st.data?.phone_shared !== true) return welcome(chatId, null);
     if (id === "login") {
-      await setState(chatId, "login_id");
-      return screen(chatId, cq.message?.message_id, "আপনার ওয়েবসাইটের <b>Username বা Email</b> লিখুন:");
+      await setState(chatId, "login_email");
+      return screen(chatId, cq.message?.message_id, "ওয়েবসাইটে নিবন্ধিত <b>Email address</b> লিখুন। আপনার ইমেইলে verification code পাঠানো হবে:");
     }
     if (id === "register") return screen(chatId, cq.message?.message_id, "নিচের বাটনে ওয়েবসাইটে অ্যাকাউন্ট খুলুন, তারপর এখানে ফিরে 🔐 LOGIN করুন।", {
       inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register${st.data?.pending_referrer_id ? `&ref=${encodeURIComponent(st.data.pending_referrer_id)}` : ""}` }]],
