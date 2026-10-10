@@ -111,8 +111,12 @@ export async function handleUpdate(u: any) {
   const st = await getState(chatId);
 
   if (text === "Restart 🔁") {
-    if (!user) return welcome(chatId, null);
-    return send(chatId, "🏪 <b>Panel Bazar BD</b> — Main Menu", MENU);
+    const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
+    for (const message_id of oldIds) await tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined);
+    await setState(chatId, st.data?.phone_shared ? (user ? "" : "guest_auth") : (user ? "" : "guest_share_number"), { recent_bot_message_ids: [] });
+    if (user) return welcome(chatId, user);
+    if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
+    return send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\\n\\nশুরু করতে নিচের SHARE MY NUMBER বাটনে চাপ দিন।", SHARE_NUMBER);
   }
   if (text.startsWith("/start")) {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
