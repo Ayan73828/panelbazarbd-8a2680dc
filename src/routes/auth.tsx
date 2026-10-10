@@ -29,9 +29,12 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  const { mode = "login" } = Route.useSearch();
+  const { mode: routeMode = "login" } = Route.useSearch();
+  const [mode, setMode] = useState<Mode>(routeMode);
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => setMode(routeMode), [routeMode]);
 
   useEffect(() => {
     if (!loading && user) navigate({ to: "/dashboard", replace: true });
@@ -42,8 +45,8 @@ function AuthPage() {
       <div className="mx-auto w-full max-w-md px-4 py-10">
         <div className="panel p-6">
           <div className="mb-6 grid grid-cols-2 rounded-full bg-surface-2 p-1 text-sm">
-            <Link to="/auth" search={{ mode: "login" }} className={`rounded-full py-2 text-center font-medium ${mode === "login" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Login</Link>
-            <Link to="/auth" search={{ mode: "register" }} className={`rounded-full py-2 text-center font-medium ${mode === "register" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Register</Link>
+            <button type="button" onClick={() => setMode("login")} className={`rounded-full py-2 text-center font-medium ${mode === "login" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Login</button>
+            <button type="button" onClick={() => setMode("register")} className={`rounded-full py-2 text-center font-medium ${mode === "register" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Register</button>
           </div>
           <OtpAuthForm mode={mode} />
           <p className="mt-5 text-center text-xs text-muted-foreground">Never share your email verification code with anyone.</p>
