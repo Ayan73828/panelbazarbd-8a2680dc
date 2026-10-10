@@ -36,37 +36,48 @@ export const Route = createFileRoute("/api/public/support/ai")({
           }
 
           const agentName = typeof body.agentName === "string" && /^[\u0980-\u09FF]{2,20}$/.test(body.agentName) ? body.agentName : "রাকিব";
-          const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: SYSTEM_PROMPT + "\nএই কথোপকথনে তোমার নাম: " + agentName + "." }] },
-              contents: messages,
-              generationConfig: {
-                temperature: 0.4,
-                responseMimeType: "application/json",
-                responseSchema: {
-                  type: "OBJECT",
-                  properties: {
-                    reply: { type: "STRING" },
-                    category: { type: "STRING", enum: ["payment", "expired", "general"] },
-                    readyForTicket: { type: "BOOLEAN" },
-                    subject: { type: "STRING" },
-                    ticketMessage: { type: "STRING" }
-                  },
-                  required: ["reply", "category", "readyForTicket", "subject", "ticketMessage"]
+          // Prefer Flash-Lite for broad availability, then fall back to Flash if the first model is busy.
+          const modelCandidates = ["gemini-3.5-flash-lite", "gemini-3.8-flash"];
+          let data: { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> } | null = null;
+          for (const model of modelCandidates) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: SYSTEM_PROMPT + "\\nএই কথোপকথনে তোমার নাম: " + agentName + "." }] },
+                contents: messages,
+                generationConfig: {
+                  responseMimeType: "application/json",
+                  responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                      reply: { type: "STRING" },
+                      category: { type: "STRING", enum: ["payment", "expired", "general"] },
+                      readyForTicket: { type: "BOOLEAN" },
+                      subject: { type: "STRING" },
+                      ticketMessage: { type: "STRING" }
+                    },
+                    required: ["reply", "category", "readyForTicket", "subject", "ticketMessage"]
+                  }
                 }
-              }
-            })
-          });
+              })
+            });
 
-          if (!response.ok) {
+            if (response.ok) {
+              data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+              break;
+            }
+
             const detail = await response.text();
-            console.error("Gemini support API error", response.status, detail.slice(0, 500));
-            return Response.json({ error: "AI is temporarily unavailable. Please try again or use Normal Support." }, { status: 502 });
+            console.error("Gemini support API error", model, response.status, detail.slice(0, 300));
+            // Try the next model when the current model is unavailable, rate-limited, or overloaded.
+            if (![400, 404, 429, 500, 502, 503, 504].includes(response.status)) break;
           }
 
-          const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+          if (!data) {
+            return Response.json({ error: "AI support is temporarily busy. Please wait a few seconds and try again, or use Normal Support." }, { status: 502 });
+          }
+
           const raw = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
           const parsed = JSON.parse(raw) as { reply: string; category: string; readyForTicket: boolean; subject: string; ticketMessage: string };
           if (typeof parsed.reply !== "string" || typeof parsed.readyForTicket !== "boolean") {
