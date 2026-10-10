@@ -86,23 +86,31 @@ function ProductDialog({ value, cats, onClose, onSaved }: { value: P; cats: P[];
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const set = (k: string, v: unknown) => setF((s: P) => ({ ...s, [k]: v }));
-  const uploadProductImage = async (file: File) => {
+  const uploadProductImage = async (file: File, target: "main" | "gallery" = "main") => {
     if (!file.type.startsWith("image/")) { toast.error("Please select an image file"); return; }
-    if (file.size > 8 * 1024 * 1024) { toast.error("Image must be smaller than 8 MB"); return; }
+    if (file.size > 8 * 1024 * 1024) { toast.error("Each image must be smaller than 8 MB"); return; }
     setUploadingImage(true);
     try {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
       const path = `products/${crypto.randomUUID()}.${ext}`;
       const { data, error } = await db.storage.from("product-images").upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
       if (error) throw error;
       const { data: publicUrl } = db.storage.from("product-images").getPublicUrl(data.path);
-      set("image_url", publicUrl.publicUrl);
+      if (target === "main") {
+        set("image_url", publicUrl.publicUrl);
+      } else {
+        set("images", [...String(f.images || "").split("\n").map((s) => s.trim()).filter(Boolean), publicUrl.publicUrl].join("\n"));
+      }
       toast.success("Image uploaded");
     } catch (e) {
       toast.error(`Image upload failed: ${errMsg(e)}`);
     } finally {
       setUploadingImage(false);
     }
+  };
+  const uploadProductImages = async (files: FileList | null, target: "main" | "gallery") => {
+    if (!files?.length) return;
+    for (const file of Array.from(files)) await uploadProductImage(file, target);
   };
   const save = async () => {
     if (!f.name.trim()) { toast.error("Name is required"); return; }
@@ -158,12 +166,18 @@ function ProductDialog({ value, cats, onClose, onSaved }: { value: P; cats: P[];
           <Field label="Stock"><Input type="number" min={0} value={f.stock} onChange={(e) => set("stock", e.target.value)} /></Field>
           <Field label="Sort position" hint="Lower shows first"><Input type="number" value={f.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></Field>
           <div className="sm:col-span-2 space-y-2">
-            <Field label="Upload main product photo" hint="Choose an image from your phone Photo Library. Image URL is optional."><Input type="file" accept="image/*" disabled={uploadingImage} onChange={(e) => { const file = e.target.files?.[0]; if (file) void uploadProductImage(file); e.currentTarget.value = ""; }} /></Field>
+            <Field label="Main product photo" hint="Tap to choose a photo from your phone gallery. Maximum 8 MB.">
+              <Input type="file" accept="image/*" disabled={uploadingImage} onChange={(e) => { void uploadProductImages(e.target.files, "main"); e.currentTarget.value = ""; }} />
+            </Field>
             {uploadingImage && <p className="text-sm text-muted-foreground">Uploading image…</p>}
-            {f.image_url && <div className="flex items-center gap-3 rounded-lg border p-2"><img src={f.image_url} alt="Product preview" className="h-20 w-20 rounded-md object-cover" /><div className="min-w-0 flex-1"><p className="text-sm font-medium">Selected image</p><p className="break-all text-xs text-muted-foreground">{f.image_url}</p><Button type="button" variant="ghost" size="sm" onClick={() => set("image_url", "")}>Remove image</Button></div></div>}
-            <Field label="Or paste image URL"><Input value={f.image_url} onChange={(e) => set("image_url", e.target.value)} placeholder="https://…" /></Field>
+            {f.image_url && <div className="flex items-center gap-3 rounded-lg border p-2"><img src={f.image_url} alt="Product preview" className="h-20 w-20 rounded-md object-cover" /><div className="min-w-0 flex-1"><p className="text-sm font-medium">Selected main photo</p><Button type="button" variant="ghost" size="sm" onClick={() => set("image_url", "")}>Remove photo</Button></div></div>}
           </div>
-          <div className="sm:col-span-2"><Field label="More images" hint="One URL per line"><Textarea rows={2} value={f.images} onChange={(e) => set("images", e.target.value)} /></Field></div>
+          <div className="sm:col-span-2 space-y-2">
+            <Field label="Additional product photos" hint="Choose one or multiple photos from your phone gallery. Each image must be under 8 MB.">
+              <Input type="file" accept="image/*" multiple disabled={uploadingImage} onChange={(e) => { void uploadProductImages(e.target.files, "gallery"); e.currentTarget.value = ""; }} />
+            </Field>
+            {String(f.images || "").split("\n").filter(Boolean).length > 0 && <div className="grid grid-cols-3 gap-2">{String(f.images || "").split("\n").map((url, index) => url.trim() ? <div key={url + index} className="relative overflow-hidden rounded-lg border"><img src={url.trim()} alt={`Product photo ${index + 1}`} className="h-24 w-full object-cover" /><Button type="button" variant="secondary" size="sm" className="w-full rounded-none" onClick={() => set("images", String(f.images || "").split("\n").filter(Boolean).filter((_, i) => i !== index).join("\n"))}>Remove</Button></div> : null)}</div>}
+          </div>
           <div className="sm:col-span-2"><Field label="Short description"><Input maxLength={300} value={f.short_description ?? ""} onChange={(e) => set("short_description", e.target.value)} /></Field></div>
           <div className="sm:col-span-2"><Field label="Full description"><Textarea rows={4} value={f.full_description ?? ""} onChange={(e) => set("full_description", e.target.value)} /></Field></div>
           <div className="sm:col-span-2"><Field label="Features" hint="One per line"><Textarea rows={3} value={f.features} onChange={(e) => set("features", e.target.value)} /></Field></div>
