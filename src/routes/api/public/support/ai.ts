@@ -59,9 +59,10 @@ export const Route = createFileRoute("/api/public/support/ai")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = process.env["GROQ_API_KEY"];
-        if (!apiKey) {
-          return Response.json({ error: "AI support is not configured yet. Please set GROQ_API_KEY in the Render server environment." }, { status: 503 });
+        const geminiApiKey = process.env["GEMINI_API_KEY"];
+        const groqApiKey = process.env["GROQ_API_KEY"];
+        if (!geminiApiKey && !groqApiKey) {
+          return Response.json({ error: "AI support is not configured yet. Please add GEMINI_API_KEY or GROQ_API_KEY in the Render server environment." }, { status: 503 });
         }
 
         try {
@@ -81,60 +82,106 @@ export const Route = createFileRoute("/api/public/support/ai")({
           }
 
           const agentName = typeof body.agentName === "string" && /^[\u0980-\u09FF]{2,20}$/.test(body.agentName) ? body.agentName : "রাকিব";
-          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: "openai/gpt-oss-20b",
-              reasoning_format: "hidden",
-              reasoning_effort: "low",
-              messages: [
-                { role: "system", content: SYSTEM_PROMPT + "\nএই কথোপকথনে তোমার নাম: " + agentName + "." },
-                ...messages
-              ],
-              response_format: {
-                type: "json_schema",
-                json_schema: {
-                  name: "panel_bazar_support_response",
-                  strict: true,
-                  schema: {
-                    type: "object",
-                    properties: {
-                      reply: { type: "string" },
-                      category: { type: "string", enum: ["payment", "expired", "general"] },
-                      readyForTicket: { type: "boolean" },
-                      subject: { type: "string" },
-                      ticketMessage: { type: "string" }
-                    },
-                    required: ["reply", "category", "readyForTicket", "subject", "ticketMessage"],
-                    additionalProperties: false
-                  }
-                }
-              },
-              temperature: 0.3,
-              max_tokens: 700
-            })
-          });
+          const systemPrompt = SYSTEM_PROMPT + "\\nএই কথোপকথনে তোমার নাম: " + agentName + ".";
+          let raw = "";
+          let providerErrors: string[] = [];
 
-          if (!response.ok) {
-            const detail = await response.text();
-            console.error("Groq support API error", response.status, detail.slice(0, 300));
-            if (response.status === 401 || response.status === 403) {
-              return Response.json({ error: "AI support API key is invalid or not authorized. Please check GROQ_API_KEY in Render." }, { status: 503 });
+          // Gemini is the primary provider. Groq is used as a backup if Gemini fails or reaches a limit.
+          if (geminiApiKey) {
+            try {
+              const geminiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(geminiApiKey), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  systemInstruction: { parts: [{ text: systemPrompt }] },
+                  contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+                  generationConfig: {
+                    temperature: 0.3,
+                    maxOutputTokens: 900,
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                      type: "OBJECT",
+                      properties: {
+                        reply: { type: "STRING" },
+                        category: { type: "STRING", enum: ["payment", "expired", "general"] },
+                        readyForTicket: { type: "BOOLEAN" },
+                        subject: { type: "STRING" },
+                        ticketMessage: { type: "STRING" }
+                      },
+                      required: ["reply", "category", "readyForTicket", "subject", "ticketMessage"],
+                      propertyOrdering: ["reply", "category", "readyForTicket", "subject", "ticketMessage"]
+                    }
+                  }
+                })
+              });
+              if (geminiResponse.ok) {
+                const geminiData = await geminiResponse.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+                raw = geminiData.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+                if (!raw) providerErrors.push("Gemini returned an empty response");
+              } else {
+                const detail = await geminiResponse.text();
+                console.error("Gemini support API error", geminiResponse.status, detail.slice(0, 300));
+                providerErrors.push("Gemini HTTP " + geminiResponse.status);
+              }
+            } catch (error) {
+              console.error("Gemini support API request failed", error);
+              providerErrors.push("Gemini request failed");
             }
-            if (response.status === 429) {
-              return Response.json({ error: "AI support has reached its current usage limit. Please try again later or use Normal Support." }, { status: 503 });
-            }
-            return Response.json({ error: "AI support is temporarily busy. Please try again or use Normal Support." }, { status: 502 });
           }
 
-          const data = await response.json() as {
-            choices?: Array<{ message?: { content?: string | null } }>;
-          };
-          const raw = data.choices?.[0]?.message?.content ?? "";
+          if (!raw && groqApiKey) {
+            try {
+              const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${groqApiKey}` },
+                body: JSON.stringify({
+                  model: "openai/gpt-oss-20b",
+                  reasoning_format: "hidden",
+                  reasoning_effort: "low",
+                  messages: [{ role: "system", content: systemPrompt }, ...messages],
+                  response_format: {
+                    type: "json_schema",
+                    json_schema: {
+                      name: "panel_bazar_support_response",
+                      strict: true,
+                      schema: {
+                        type: "object",
+                        properties: {
+                          reply: { type: "string" },
+                          category: { type: "string", enum: ["payment", "expired", "general"] },
+                          readyForTicket: { type: "boolean" },
+                          subject: { type: "string" },
+                          ticketMessage: { type: "string" }
+                        },
+                        required: ["reply", "category", "readyForTicket", "subject", "ticketMessage"],
+                        additionalProperties: false
+                      }
+                    }
+                  },
+                  temperature: 0.3,
+                  max_tokens: 700
+                })
+              });
+              if (groqResponse.ok) {
+                const groqData = await groqResponse.json() as { choices?: Array<{ message?: { content?: string | null } }> };
+                raw = groqData.choices?.[0]?.message?.content ?? "";
+              } else {
+                const detail = await groqResponse.text();
+                console.error("Groq backup support API error", groqResponse.status, detail.slice(0, 300));
+                providerErrors.push("Groq HTTP " + groqResponse.status);
+              }
+            } catch (error) {
+              console.error("Groq backup support API request failed", error);
+              providerErrors.push("Groq request failed");
+            }
+          }
+
+          if (!raw) {
+            return Response.json({
+              error: "AI support is temporarily unavailable. Please try again shortly or use Normal Support."
+            }, { status: 503 });
+          }
+
           const parsed = JSON.parse(raw) as { reply: string; category: string; readyForTicket: boolean; subject: string; ticketMessage: string };
           if (typeof parsed.reply !== "string" || typeof parsed.readyForTicket !== "boolean") {
             return Response.json({ error: "Invalid AI response." }, { status: 502 });
