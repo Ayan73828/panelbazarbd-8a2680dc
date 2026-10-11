@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSettings } from "@/hooks/useSite";
 import { money } from "@/lib/site";
-import { adminDeleteUser, adminResetPassword, adminSetUserRoles } from "@/lib/admin.functions";
+import { adminDeleteUser, adminResetPassword, adminSetUserRoles, adminSaveUserPermissions } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({ component: AdminUsers });
 
@@ -62,6 +62,10 @@ function UserDetail({ user, onClose }: { user: U; onClose: () => void }) {
   const resetPw = useServerFn(adminResetPassword);
   const delUser = useServerFn(adminDeleteUser);
   const setUserRoles = useServerFn(adminSetUserRoles);
+  const saveUserPermissions = useServerFn(adminSaveUserPermissions);
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [initialPermissions, setInitialPermissions] = useState<string[]>([]);
+  const [permissionsBusy, setPermissionsBusy] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [initialRoles, setInitialRoles] = useState<string[]>([]);
   const [roleBusy, setRoleBusy] = useState(false);
