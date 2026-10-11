@@ -62,9 +62,14 @@ export function playUiClick() {
   filter.frequency.setValueAtTime(1450, t);
   filter.Q.setValueAtTime(0.7, t);
   gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.022, t + 0.0015);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.022);
+  gain.gain.exponentialRampToValueAtTime(0.055, t + 0.0015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.026);
   osc.connect(filter).connect(gain).connect(ac.destination);
   osc.start(t);
-  osc.stop(t + 0.025);
+  osc.stop(t + 0.029);
+
+  // Light haptic tap on browsers/devices that expose the Vibration API.
+  try {
+    if ("vibrate" in navigator) navigator.vibrate(10);
+  } catch { /* Haptics are optional; some browsers do not support this API. */ }
 }
