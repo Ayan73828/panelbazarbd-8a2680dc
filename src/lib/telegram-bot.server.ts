@@ -315,7 +315,7 @@ export async function handleUpdate(u: any) {
       const message = String(unlinkError.message ?? "").includes("SPLIT_METADATA_MISSING")
         ? "⚠️ এই account আগে link করা হয়েছিল, কিন্তু link করার সময়কার মূল balance ratio সংরক্ষিত নেই। ভুলভাবে টাকা ভাগ না করার জন্য auto-unlink বন্ধ রাখা হয়েছে। Admin Support-এ যোগাযোগ করুন।"
         : "❌ নিরাপদে unlink করা যায়নি। কোনো balance পরিবর্তন করা হয়নি। Support-এ যোগাযোগ করুন।";
-      return send(chatId, message, MENU);
+      return send(chatId, message, await mainMenuForTelegramUser(m.from.id));
     }
     await setState(chatId, "", { recent_bot_message_ids: [] });
     return handleUpdate({ message: { text: "/start", chat: { id: chatId }, from: m.from } });
@@ -333,7 +333,7 @@ export async function handleUpdate(u: any) {
       return send(chatId, `👤 <b>Profile</b>\nনাম: ${esc(user.name)}\nUsername: ${esc(user.username)}\nEmail: ${esc(user.email)}\nPhone: ${esc(user.phone)}\nব্যালেন্স: <b>${tk(user.balance)}</b>\n\nLogout: /logout`);
     case "📞 Support": return showSupport(chatId);
     case "🌐 Website": return send(chatId, "🌐 ওয়েবসাইট:", { inline_keyboard: [[{ text: "Open website", url: SITE_URL }]] });
-    default: return welcome(chatId, user);
+    default: return welcome(chatId, user, undefined, m.from.id);
   }
 }
 
@@ -519,7 +519,7 @@ async function handleCallback(cq: any) {
         const message = String(unlinkError.message ?? "").includes("SPLIT_METADATA_MISSING")
           ? "⚠️ এই account আগে link করা হয়েছিল, কিন্তু link করার সময়কার মূল balance ratio সংরক্ষিত নেই। ভুলভাবে টাকা ভাগ না করার জন্য auto-unlink বন্ধ রাখা হয়েছে। Admin Support-এ যোগাযোগ করুন।"
           : "❌ নিরাপদে unlink করা যায়নি। কোনো balance পরিবর্তন করা হয়নি। Support-এ যোগাযোগ করুন।";
-        return screen(chatId, cq.message?.message_id, message, MENU);
+        return screen(chatId, cq.message?.message_id, message, await mainMenuForTelegramUser(cq.from.id));
       }
       await setState(chatId, "", { recent_bot_message_ids: [] });
       await screen(chatId, cq.message?.message_id, "<b>Website Successfully Unlinked ‼️</b>", await mainMenuForTelegramUser(cq.from.id));
