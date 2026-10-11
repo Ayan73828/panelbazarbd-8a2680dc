@@ -83,7 +83,7 @@ function UserDetail({ user, onClose }: { user: U; onClose: () => void }) {
     } catch (e) { toast.error(errMsg(e)); }
     finally { setRoleBusy(false); }
   };
-  const [hist, setHist = useState<{ orders: U[]; txs: U[] } | null>(null);
+  const [hist, setHist] = useState<{ orders: U[]; txs: U[] } | null>(null);
 
   const loadHist = async () => {
     const [o, t] = await Promise.all([
