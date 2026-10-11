@@ -286,7 +286,7 @@ export function SupportChat() {
 
       setMessages((current) => [...current, { from: "bot", text: result.reply! }]);
       playPremiumReplySound();
-      const promisedFiveMinuteWait = /(?:5|৫)\\s*(?:minute|min|মিনিট)|wait.{0,20}(?:5|৫)|অপেক্ষা.{0,20}(?:5|৫)/i.test(result.reply);
+      const promisedFiveMinuteWait = /(?:5|৫)\s*(?:minute|min|মিনিট)|wait.{0,20}(?:5|৫)|অপেক্ষা.{0,20}(?:5|৫)/i.test(result.reply);
       if (result.readyForTicket || promisedFiveMinuteWait) {
         if (!user?.id) {
           setFlow("done");
