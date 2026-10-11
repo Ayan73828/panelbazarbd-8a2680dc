@@ -190,7 +190,7 @@ export async function handleUpdate(u: any) {
     const nextData = { recent_bot_message_ids: [], pending_referrer_id: referrerId || null };
     await setState(chatId, "", nextData);
     const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
-    return welcome(chatId, account);
+    return welcome(chatId, account, undefined, m.from.id);
   }
   if (st.state === "admin_support_reply" && text) {
     const supportOperatorChatId = process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
@@ -464,7 +464,7 @@ async function handleCallback(cq: any) {
       inline_keyboard: [[{ text: "🆕 Create New Account", url: SITE_URL + "/auth?mode=register" + (st.data?.pending_referrer_id ? "&ref=" + encodeURIComponent(st.data.pending_referrer_id) : "") }], [{ text: "⬅️ Back", callback_data: "menu:link_account" }]],
     });
   }
-  if (kind === "guest") {}
+  if (kind === "guest") {
     const st = await getState(chatId);
     if (id === "login") {
       await setState(chatId, "login_email");
@@ -474,7 +474,7 @@ async function handleCallback(cq: any) {
       inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register${st.data?.pending_referrer_id ? `&ref=${encodeURIComponent(st.data.pending_referrer_id)}` : ""}` }]],
     });
   }
-  if (!user) return welcome(chatId, null);
+  if (!user) return welcome(chatId, null, undefined, cq.from.id);
   const db = await admin();
   if (kind === "menu") {
     if (id === "products") return showProducts(chatId, cq.message?.message_id);
@@ -511,7 +511,7 @@ async function handleCallback(cq: any) {
       if (!link) {
         await setState(chatId, "", { phone_shared: true });
         await screen(chatId, cq.message?.message_id, "আপনার Telegram account কোনো website account-এর সঙ্গে linked নেই।");
-        return welcome(chatId, null);
+        return welcome(chatId, null, undefined, cq.from.id);
       }
       const { data: split, error: unlinkError } = await db.rpc("bot_unlink_telegram_account", { p_telegram_user_id: cq.from.id }).maybeSingle();
       if (unlinkError) {
@@ -522,7 +522,7 @@ async function handleCallback(cq: any) {
         return screen(chatId, cq.message?.message_id, message, MENU);
       }
       await setState(chatId, "", { recent_bot_message_ids: [] });
-      await screen(chatId, cq.message?.message_id, "<b>Website Successfully Unlinked ‼️</b>", MENU);
+      await screen(chatId, cq.message?.message_id, "<b>Website Successfully Unlinked ‼️</b>", await mainMenuForTelegramUser(cq.from.id));
       // Run the same guest start flow as /start; do not show Login/Create Account buttons.
       return handleUpdate({ message: { text: "/start", chat: { id: chatId }, from: cq.from } });
     }
