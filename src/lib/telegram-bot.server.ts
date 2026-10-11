@@ -537,7 +537,6 @@ async function handleCallback(cq: any) {
       const joined = user.created_at ? new Date(user.created_at).toLocaleString("sv-SE", { timeZone: "Asia/Dhaka" }).replace("T", " ") : "—";
       const account = user.is_admin ? "👑 Admin" : "🧑‍💼 Regular";
       const profileText = `👤 ━━ <b>YOUR PROFILE</b> ━━ 👤\n\n🆔 User ID: <code>${cq.from.id}</code>\n📛 Name: ${esc(user.name || user.username || "—")}\n📧 Email: ${esc(user.email || "Not added")}\n📱 Number: ${esc(user.phone || "Not added")}\n👑 Account: ${account}\n\n💰 ━ <b>Balance</b> ━\n   💳 Current: ${dualMoney(user.balance)}\n\n📊 ━ <b>Statistics</b> ━\n   📦 Orders: ${orderCount}\n   💸 Spent: ${dualMoney(spent)}\n   👥 Referrals: ${referralResult.count ?? 0}\n\n📅 Joined: ${joined}`;
-      const { data: linkedAccount } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
       const profileKeyboard = [
         [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }],
       ];
