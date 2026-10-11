@@ -46,6 +46,30 @@ export const adminSetCustomerAgentRole = createServerFn({ method: "POST" })
     return { ok: true, enabled: data.enabled };
   });
 
+export const adminSetUserRoles = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    userId: z.string().uuid(),
+    roles: z.array(z.enum(["user", "customer_agent", "admin"])).max(3),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    if (String(context.claims?.email ?? "").toLowerCase() !== "ishak777998@gmail.com") {
+      throw new Error("Only the main admin can assign roles");
+    }
+    if (data.userId === context.userId && !data.roles.includes("admin")) throw new Error("You cannot remove your own admin role");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: target, error: targetError } = await supabaseAdmin.from("profiles").select("email").eq("id", data.userId).maybeSingle();
+    if (targetError) throw new Error(targetError.message);
+    if (String(target?.email ?? "").toLowerCase() === "ishak777998@gmail.com" && data.userId !== context.userId) throw new Error("Main admin account is protected");
+    const { error: deleteError } = await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId);
+    if (deleteError) throw new Error(deleteError.message);
+    if (data.roles.length) {
+      const { error: insertError } = await supabaseAdmin.from("user_roles").insert([...new Set(data.roles)].map((role) => ({ user_id: data.userId, role })));
+      if (insertError) throw new Error(insertError.message);
+    }
+    return { ok: true, roles: [...new Set(data.roles)] };
+  });
+
 export const adminDeleteUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ userId: z.string().uuid() }).parse(d))
