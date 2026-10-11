@@ -55,9 +55,8 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
       const profileRes = await fetch(`${url}/rest/v1/profiles?select=email&id=eq.${user.id}`, { headers: { apikey: service, Authorization: `Bearer ${service}` } });
       const profile = await profileRes.json() as Array<{ email?: string | null }>;
       const email = user.email || profile?.[0]?.email || undefined;
-      const ticket = inserted[0];
       const emailResult = isNewTicket ? await sendEmail(process.env["RESEND_API_KEY"], email, `Support request created: ${subject}`,
-        `Hello,\n\nYour Panel Bazar BD support request has been created.\nTicket ID: ${ticket.id}\nSubject: ${subject}\n\nDetails:\n${message}\n\nWe will review your request.\nPanel Bazar BD Support`);
+        `Hello,\n\nYour Panel Bazar BD support request has been created.\nTicket ID: ${ticket.id}\nSubject: ${subject}\n\nDetails:\n${message}\n\nWe will review your request.\nPanel Bazar BD Support`) : { sent: false };
       let telegramNotified = false;
       if (isNewTicket && body.source === "customer_agent") {
         const botToken = process.env["TELEGRAM_SUPPORT_BOT_TOKEN"] || process.env["SUPPORT_TELEGRAM_BOT_TOKEN"] || process.env["TELEGRAM_BOT_TOKEN"];
