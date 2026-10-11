@@ -143,14 +143,26 @@ const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
   return result;
 };
 
-async function welcome(chatId: number, user: any, messageId?: number) {
+async function mainMenuForTelegramUser(tgUserId?: number) {
+  if (!tgUserId) return MENU;
+  const db = await admin();
+  const { data: link } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", tgUserId).maybeSingle();
+  const rows = MENU.inline_keyboard.filter((row) => !row.some((button) => button.callback_data === "menu:link_account"));
+  rows.push([link
+    ? { text: "🔓 Unlink Website Account", callback_data: "menu:logout" }
+    : { text: "🔗 Linked Website Account", callback_data: "menu:link_account" }]);
+  return { inline_keyboard: rows };
+}
+
+async function welcome(chatId: number, user: any, messageId?: number, tgUserId?: number) {
+  const mainMenu = await mainMenuForTelegramUser(tgUserId);
   if (user) {
     const welcomeText = `🏪 ━━ <b>Panel Bazar BD</b> ━━ 🏪\n\n👋 Welcome back, <b>${esc(user.name || user.username || "Customer")}</b>\n\n⭐ ━ <b>REGULAR HIGHLIGHTS</b> ━ ⭐\n\n│ 🔑 Wholesale Game Keys &amp; VIP Stocks\n│ ⚡ Priority Auto-Delivery 24/7\n│ 🎁 Tiered Referral\n│ 📞 Dedicated VIP Partner Support\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🚀 <b>Tap Shop Now to Start!</b>`;
-    if (typeof messageId === "number") await screen(chatId, messageId, welcomeText, MENU);
-    else await send(chatId, welcomeText, MENU);
+    if (typeof messageId === "number") await screen(chatId, messageId, welcomeText, mainMenu);
+    else await send(chatId, welcomeText, mainMenu);
     if (typeof messageId !== "number") await send(chatId, " ", RESTART_KEYBOARD);
   } else {
-    await send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nএখনই Telegram থেকেই Shop Now, Add Balance ও My Order ব্যবহার করতে পারবেন। Website account যুক্ত করা ঐচ্ছিক।", MENU);
+    await send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nএখনই Telegram থেকেই Shop Now, Add Balance ও My Order ব্যবহার করতে পারবেন। Website account যুক্ত করা ঐচ্ছিক।", mainMenu);
   }
 }
 
@@ -168,7 +180,7 @@ export async function handleUpdate(u: any) {
     await Promise.all(oldIds.map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)));
     await setState(chatId, "", { recent_bot_message_ids: [] });
     const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
-    return welcome(chatId, account);
+    return welcome(chatId, account, undefined, m.from.id);
   }
   if (text.startsWith("/start")) {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
@@ -283,7 +295,7 @@ export async function handleUpdate(u: any) {
     await setState(chatId, "");
     const linked = await linkedUser(m.from.id);
     await notifyOwner("🔗 Telegram linked: <b>" + esc(linked?.username || email) + "</b> (@" + esc(m.from.username ?? m.from.id) + ")");
-    return welcome(chatId, linked);
+    return welcome(chatId, linked, undefined, m.from.id);
   }
 
   if (!user) {
@@ -440,7 +452,19 @@ async function handleCallback(cq: any) {
     if (customerChat) await send(Number(customerChat), `✅ আপনার Support Ticket <code>${esc(ticket.id)}</code> admin বন্ধ করেছেন। প্রয়োজন হলে নতুন টিকিট খুলুন।`);
     return screen(chatId, cq.message?.message_id, `✅ <b>Ticket resolved</b>\n<code>${esc(ticket.id)}</code>`);
   }
-  if (kind === "guest") {
+  if (kind === "linkchoice") {
+    const st = await getState(chatId);
+    if (id === "existing") {
+      const { data: linked } = await (await admin()).from("telegram_links").select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
+      if (linked) return screen(chatId, cq.message?.message_id, "আপনার Telegram account ইতিমধ্যে website account-এর সঙ্গে linked আছে। Main Menu-তেই Unlink option পাবেন।", await mainMenuForTelegramUser(cq.from.id));
+      await setState(chatId, "login_email");
+      return screen(chatId, cq.message?.message_id, "🔗 <b>I Already Have an Account</b>\n\nআপনার website account-এর registered email দিন। Verification code দিয়ে account ownership নিশ্চিত হলে আগের মতো account linking process শুরু হবে।", { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "menu:home" }]] });
+    }
+    if (id === "create") return screen(chatId, cq.message?.message_id, "🆕 <b>Create New Website Account</b>\n\nনিচের বাটনে panelbazarbd.shop-এ নতুন account তৈরি করুন।", {
+      inline_keyboard: [[{ text: "🆕 Create New Account", url: SITE_URL + "/auth?mode=register" + (st.data?.pending_referrer_id ? "&ref=" + encodeURIComponent(st.data.pending_referrer_id) : "") }], [{ text: "⬅️ Back", callback_data: "menu:link_account" }]],
+    });
+  }
+  if (kind === "guest") {}
     const st = await getState(chatId);
     if (id === "login") {
       await setState(chatId, "login_email");
@@ -457,8 +481,15 @@ async function handleCallback(cq: any) {
     if (id === "wallet") return showWallet(chatId, user, cq.message?.message_id);
     if (id === "fund") return showFundAmounts(chatId, user, "", cq.message?.message_id);
     if (id === "link_account") {
-      await setState(chatId, "login_email");
-      return screen(chatId, cq.message?.message_id, "🔗 <b>Linked Website Account</b>\n\nআপনার website account-এর registered email দিন। Verification code দিয়ে account ownership নিশ্চিত হলে আপনার Telegram purchase history ও অবশিষ্ট balance website account-এ যুক্ত হবে।", { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "menu:home" }]] });
+      const { data: linked } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
+      if (linked) return screen(chatId, cq.message?.message_id, "আপনার website account ইতিমধ্যে linked আছে। Unlink করতে Main Menu-র Unlink Website Account বাটন ব্যবহার করুন।", await mainMenuForTelegramUser(cq.from.id));
+      return screen(chatId, cq.message?.message_id, "🔗 <b>Linked Website Account</b>\n\nআপনি কী করতে চান?", {
+        inline_keyboard: [
+          [{ text: "🔐 I Already Have an Account", callback_data: "linkchoice:existing" }],
+          [{ text: "🆕 Create New Account", callback_data: "linkchoice:create" }],
+          [{ text: "❌ Cancel", callback_data: "menu:home" }],
+        ],
+      });
     }
     if (id.startsWith("fundmethod-")) return showFundAmounts(chatId, user, id.endsWith("bkash") ? "bKash / UddoktaPay" : id.endsWith("nagad") ? "Nagad / UddoktaPay" : "UddoktaPay", cq.message?.message_id);
     if (id === "orders") return showOrders(chatId, user, false, cq.message?.message_id);
@@ -508,12 +539,11 @@ async function handleCallback(cq: any) {
       const profileText = `👤 ━━ <b>YOUR PROFILE</b> ━━ 👤\n\n🆔 User ID: <code>${cq.from.id}</code>\n📛 Name: ${esc(user.name || user.username || "—")}\n📧 Email: ${esc(user.email || "Not added")}\n📱 Number: ${esc(user.phone || "Not added")}\n👑 Account: ${account}\n\n💰 ━ <b>Balance</b> ━\n   💳 Current: ${dualMoney(user.balance)}\n\n📊 ━ <b>Statistics</b> ━\n   📦 Orders: ${orderCount}\n   💸 Spent: ${dualMoney(spent)}\n   👥 Referrals: ${referralResult.count ?? 0}\n\n📅 Joined: ${joined}`;
       const { data: linkedAccount } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
       const profileKeyboard = [
-        ...(linkedAccount ? [[{ text: "🚪 Logout", callback_data: "menu:logout" }]] : []),
         [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }],
       ];
       return screen(chatId, cq.message?.message_id, profileText, { inline_keyboard: profileKeyboard });
     }
-    if (id === "home") return welcome(chatId, user, cq.message?.message_id);
+    if (id === "home") return welcome(chatId, user, cq.message?.message_id, cq.from.id);
   }
   if (kind === "fundshort" && id) {
     const amount = Number(id);
