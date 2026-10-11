@@ -84,26 +84,27 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
         const chatId = process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"];
         if (botToken && chatId) {
           const telegramText = [
-            requestedSource === "customer_agent" ? "🟢 NEW CUSTOMER AGENT CHAT" : "🚨 NEW AI SUPPORT TICKET",
+            requestedSource === "customer_agent" ? "🟢 NEW CUSTOMER AGENT CHAT" : "🚨 NEW WEBSITE SUPPORT TICKET",
             `Ticket: ${ticket.id}`,
-            `Customer name: ${customerProfile?.name || customerProfile?.username || "Not set"}`,
-            `Username: ${customerProfile?.username || "Not set"}`,
+            `👤 Customer: ${customerProfile?.name || customerProfile?.username || "Not set"}`,
+            `🔖 Username: ${customerProfile?.username || "Not set"}`,
             `User ID: ${user.id}`,
-            `Email: ${email || "Not set"}`,
-            `Account phone: ${customerProfile?.phone || "Not set"}`,
-            `Balance: ${customerProfile?.balance ?? "Not available"}`,
-            `Subject: ${subject}`,
+            `📧 Email: ${email || "Not set"}`,
+            `📱 Phone: ${customerProfile?.phone || "Not set"}`,
+            `💰 Balance: ${customerProfile?.balance ?? "Not available"}`,
+            `📝 Subject: ${subject}`,
             "",
-            "Customer details / conversation:",
+            "💬 Customer details / conversation:",
             message.slice(0, 3500),
             "",
-            requestedSource === "customer_agent" ? "Reply from the website Customer Agent inbox." : "Please review this ticket in the admin/support panel.",
-          ].join("\\n");
+            "👇 Reply বা Close করতে নিচের বাটন ব্যবহার করুন।",
+          ].join("\n");
+          const keyboard = { inline_keyboard: [[{ text: "↩️ Reply to Customer", callback_data: "supportreply:" + ticket.id }, { text: "✅ Close Ticket", callback_data: "supportclose:" + ticket.id }]] };
           try {
             const telegramRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: chatId, text: telegramText }),
+              body: JSON.stringify({ chat_id: chatId, text: telegramText, reply_markup: keyboard }),
             });
             const telegramBody = await telegramRes.json() as { ok?: boolean; description?: string };
             telegramNotified = telegramRes.ok && telegramBody.ok === true;
