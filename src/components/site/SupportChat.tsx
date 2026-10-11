@@ -64,6 +64,18 @@ export function SupportChat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingTicketRef = useRef<{ subject: string; message: string } | null>(null);
+  const primeReplySound = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const context = audioContextRef.current || new AudioContextClass();
+      audioContextRef.current = context;
+      if (context.state === "suspended") void context.resume();
+    } catch {
+      // Audio is optional; some browsers may block it.
+    }
+  };
+
   const playPremiumReplySound = () => {
     try {
       const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -212,6 +224,8 @@ export function SupportChat() {
     event.preventDefault();
     const value = text.trim();
     if (!value || busy || flow === "done" || flow === "pending") return;
+    // Prime audio during the user's tap so iOS Safari can play the later reply chime.
+    primeReplySound();
     setText("");
     setBusy(true);
     const nextMessages: ChatMessage[] = [...messages, { from: "user", text: value }];
