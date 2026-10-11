@@ -286,19 +286,23 @@ export function SupportChat() {
 
       setMessages((current) => [...current, { from: "bot", text: result.reply! }]);
       playPremiumReplySound();
-      if (result.readyForTicket) {
+      const promisedFiveMinuteWait = /(?:5|৫)\\s*(?:minute|min|মিনিট)|wait.{0,20}(?:5|৫)|অপেক্ষা.{0,20}(?:5|৫)/i.test(result.reply);
+      if (result.readyForTicket || promisedFiveMinuteWait) {
         if (!user?.id) {
           setFlow("done");
           setMessages((current) => [...current, { from: "bot", text: "Support Request তৈরি করার আগে অনুগ্রহ করে Login করুন। আপনার তথ্য কপি করে Normal Support-এ পাঠাতে পারেন।" }]);
           return;
         }
-        const ticketMessage = (result.ticketMessage || nextMessages.map((message) => `${message.from === "user" ? "Customer" : "Assistant"}: ${message.text}`).join("\n")).slice(0, 5000);
+        const transcript = [...nextMessages, { from: "bot" as const, text: result.reply! }]
+          .map((message) => `${message.from === "user" ? "Customer" : "Assistant"}: ${message.text}`)
+          .join("\n");
+        const ticketMessage = (result.ticketMessage?.trim() || transcript).slice(0, 5000);
         pendingTicketRef.current = {
           subject: result.subject || "AI Support Request",
           message: ticketMessage,
         };
         setFlow("pending");
-        setMessages((current) => [...current, { from: "bot", text: "আপনার তথ্য নেওয়া হয়েছে। ৫ মিনিটের মধ্যে সমাধান না হলে আপনার ID দিয়ে Support Request তৈরি হবে।" }]);
+        setMessages((current) => [...current, { from: "bot", text: "আপনার তথ্য নেওয়া হয়েছে। ৫ মিনিটের মধ্যে সমাধান না হলে আপনার ID দিয়ে Support Request স্বয়ংক্রিয়ভাবে তৈরি হবে।" }]);
       }
     } catch {
       setMessages((current) => [...current, { from: "bot", text: "ইন্টারনেট বা সার্ভারের সমস্যার কারণে উত্তর আনা যায়নি। আবার চেষ্টা করুন অথবা Normal Support ব্যবহার করুন।" }]);
