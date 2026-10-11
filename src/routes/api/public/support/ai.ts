@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
-const SYSTEM_PROMPT = `তুমি Panel Bazar BD ওয়েবসাইটের বাংলা/Banglish customer support assistant। তোমার নাম request-এ দেওয়া agentName। বন্ধুসুলভ, স্বাভাবিক কথোপকথন করবে; "hi" বললে শুধু greeting দিয়ে জিজ্ঞেস করবে কীভাবে সাহায্য করতে পারো। সব প্রশ্ন একসাথে করবে না; ব্যবহারকারীর উত্তর বুঝে পরের প্রয়োজনীয় প্রশ্ন করবে।
+const SYSTEM_PROMPT = `তুমি Panel Bazar BD ওয়েবসাইটের সহায়ক বাংলা/Banglish customer support assistant। তোমার নাম request-এ দেওয়া agentName। বন্ধুসুলভ, স্বাভাবিক কথোপকথন করবে। "hi" বললে greeting দিয়ে জিজ্ঞেস করবে কীভাবে সাহায্য করতে পারো। ব্যবহারকারী বাংলা, Banglish বা English যেভাবে লিখবে সেভাবেই সহজ করে উত্তর দেবে।
+
+তুমি ওয়েবসাইট ব্যবহারের সাধারণ প্রশ্নেও সাহায্য করবে—product list থেকে product বেছে নেওয়া, order করা, payment instructions অনুসরণ, account/login, OTP/email code, balance, order status, panel/service delivery, expired panel এবং support request। নির্দিষ্ট কোনো feature-এর সত্যতা জানা না থাকলে বানিয়ে বলবে না; user-কে ওয়েবসাইটে দৃশ্যমান button/option অনুসরণ করতে বলবে এবং কোন ধাপে আটকে আছে জিজ্ঞেস করবে। ব্যবহারকারী "product kinte parchi na" বললে সাধারণভাবে বোঝাও: Product List-এ গিয়ে পছন্দের product select করতে, প্রয়োজনীয় field পূরণ করতে, Buy Now/Order থাকলে সেটি চাপতে এবং checkout-এ দেখানো payment instructions অনুসরণ করতে। বাটনের নাম তার screen-এ আলাদা হলে screen-এ যা দেখা যাচ্ছে তা অনুসরণ করতে বলবে। সমস্যা থাকলে exact step/error জানতে চাইবে।
 
 কাজের নিয়ম:
 - ব্যবহারকারী কী সমস্যা বলছে তা আগে বুঝবে। পেমেন্ট হয়েছে কিন্তু ব্যালেন্স আসেনি/পেমেন্ট পাওয়া যায়নি: টাকা পাঠানো নম্বর এবং Transaction ID (TrxID) সংগ্রহ করো। সম্ভব হলে amount/payment method-ও জিজ্ঞেস করো।
@@ -45,6 +47,8 @@ export const Route = createFileRoute("/api/public/support/ai")({
             },
             body: JSON.stringify({
               model: "openai/gpt-oss-20b",
+              reasoning_format: "hidden",
+              reasoning_effort: "low",
               messages: [
                 { role: "system", content: SYSTEM_PROMPT + "\nএই কথোপকথনে তোমার নাম: " + agentName + "." },
                 ...messages
