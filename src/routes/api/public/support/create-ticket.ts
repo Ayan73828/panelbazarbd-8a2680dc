@@ -67,24 +67,33 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
       }
       const ticket = { id: activeTicket.ticket_id, created_at: activeTicket.ticket_created_at };
       const isNewTicket = activeTicket.created;
-      const profileRes = await fetch(`${url}/rest/v1/profiles?select=email&id=eq.${user.id}`, { headers: { apikey: service, Authorization: `Bearer ${service}` } });
-      const profile = await profileRes.json() as Array<{ email?: string | null }>;
-      const email = user.email || profile?.[0]?.email || undefined;
+      const profileRes = await fetch(`${url}/rest/v1/profiles?select=name,username,email,phone,balance&id=eq.${user.id}`, { headers: { apikey: service, Authorization: `Bearer ${service}` } });
+      const profile = await profileRes.json() as Array<{ name?: string | null; username?: string | null; email?: string | null; phone?: string | null; balance?: number | string | null }>;
+      const customerProfile = profile?.[0];
+      const email = user.email || customerProfile?.email || undefined;
       const emailResult = isNewTicket ? await sendEmail(process.env["RESEND_API_KEY"], email, `Support request created: ${subject}`,
         `Hello,\n\nYour Panel Bazar BD support request has been created.\nTicket ID: ${ticket.id}\nSubject: ${subject}\n\nDetails:\n${message}\n\nWe will review your request.\nPanel Bazar BD Support`) : { sent: false };
       let telegramNotified = false;
-      if (isNewTicket && body.source === "customer_agent") {
+      if (isNewTicket && (requestedSource === "customer_agent" || requestedSource === "website_ai_timeout" || requestedSource === "customer")) {
         const botToken = process.env["TELEGRAM_SUPPORT_BOT_TOKEN"] || process.env["SUPPORT_TELEGRAM_BOT_TOKEN"] || process.env["TELEGRAM_BOT_TOKEN"];
         const chatId = process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"];
         if (botToken && chatId) {
           const telegramText = [
-            "🟢 NEW CUSTOMER AGENT CHAT",
+            requestedSource === "customer_agent" ? "🟢 NEW CUSTOMER AGENT CHAT" : "🚨 NEW AI SUPPORT TICKET",
             `Ticket: ${ticket.id}`,
-            `Customer: ${email || user.id}`,
+            `Customer name: ${customerProfile?.name || customerProfile?.username || "Not set"}`,
+            `Username: ${customerProfile?.username || "Not set"}`,
+            `User ID: ${user.id}`,
+            `Email: ${email || "Not set"}`,
+            `Account phone: ${customerProfile?.phone || "Not set"}`,
+            `Balance: ${customerProfile?.balance ?? "Not available"}`,
             `Subject: ${subject}`,
             "",
-            "Customer requested a live representative. Reply from the website Customer Agent inbox.",
-          ].join("\n");
+            "Customer details / conversation:",
+            message.slice(0, 3500),
+            "",
+            requestedSource === "customer_agent" ? "Reply from the website Customer Agent inbox." : "Please review this ticket in the admin/support panel.",
+          ].join("\\n");
           try {
             const telegramRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
               method: "POST",
@@ -93,12 +102,12 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
             });
             const telegramBody = await telegramRes.json() as { ok?: boolean; description?: string };
             telegramNotified = telegramRes.ok && telegramBody.ok === true;
-            if (!telegramNotified) console.error("Customer agent Telegram notification failed", telegramRes.status, telegramBody.description || "Telegram API rejected the message");
+            if (!telegramNotified) console.error("Support Telegram notification failed", telegramRes.status, telegramBody.description || "Telegram API rejected the message");
           } catch (telegramError) {
-            console.error("Customer agent Telegram notification failed", telegramError);
+            console.error("Support Telegram notification failed", telegramError);
           }
         } else {
-          console.error("Customer agent Telegram notification skipped: bot token or chat ID is missing");
+          console.error("Support Telegram notification skipped: bot token or chat ID is missing");
         }
       }
       return Response.json({ ok: true, ticketId: ticket.id, emailSent: emailResult.sent, telegramNotified, reused: !isNewTicket, ticketSource: activeTicket.ticket_source, createdAt: activeTicket.ticket_created_at });
