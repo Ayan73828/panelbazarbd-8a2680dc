@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/public/support/process-ai-tickets")({
               item.message.slice(0, 3000),
               "",
               "Please review this ticket in the admin/support panel."
-            ].join("\\n");
+            ].join("\n");
             const notifyRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ chat_id: chatId, text: telegramText })
