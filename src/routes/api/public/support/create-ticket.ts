@@ -56,7 +56,7 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
             `Subject: ${subject}`,
             "",
             "Customer requested a live representative. Reply from the website Customer Agent inbox.",
-          ].join("\\n");
+          ].join("\n");
           try {
             const telegramRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
               method: "POST",
