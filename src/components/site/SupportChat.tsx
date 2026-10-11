@@ -434,6 +434,7 @@ export function SupportChat() {
     setFlow("issue");
     setMessages([]);
     setText("");
+    setAttachment(null);
     setBusy(false);
   };
 
