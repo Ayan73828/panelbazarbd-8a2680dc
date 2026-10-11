@@ -164,7 +164,7 @@ function UserDetail({ user, onClose }: { user: U; onClose: () => void }) {
             { value: "user", label: "User" },
             { value: "customer_agent", label: "Customer Agent" },
             { value: "admin", label: "Admin (full access)" },
-          ].map((role) => (
+          ].filter((role) => role.value !== "admin" || String(user.email ?? "").toLowerCase() === "ishak777998@gmail.com").map((role) => (
             <label key={role.value} className="flex items-center gap-3 rounded-lg border border-border p-3 text-sm">
               <input type="checkbox" checked={selectedRoles.includes(role.value)} onChange={(e) => setSelectedRoles((current) => e.target.checked ? [...new Set([...current, role.value])] : current.filter((value) => value !== role.value))} />
               <span>{role.label}</span>
