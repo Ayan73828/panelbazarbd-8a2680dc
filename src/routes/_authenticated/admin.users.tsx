@@ -74,8 +74,25 @@ function UserDetail({ user, onClose }: { user: U; onClose: () => void }) {
       setSelectedRoles(roles);
       setInitialRoles(roles);
     });
+    void supabase.from("admin_subadmins").select("permissions").eq("user_id", user.id).maybeSingle().then(({ data, error }) => {
+      if (!active) return;
+      if (error) { toast.error("Could not load user permissions: " + error.message); return; }
+      const values = (data?.permissions ?? []) as string[];
+      setPermissions(values);
+      setInitialPermissions(values);
+    });
     return () => { active = false; };
   }, [user.id]);
+  const savePermissions = async () => {
+    setPermissionsBusy(true);
+    try {
+      await saveUserPermissions({ data: { userId: user.id, permissions } });
+      setInitialPermissions(permissions);
+      toast.success("User permissions saved");
+      invalidate();
+    } catch (e) { toast.error(errMsg(e)); }
+    finally { setPermissionsBusy(false); }
+  };
   const saveRoles = async () => {
     setRoleBusy(true);
     try {
@@ -150,6 +167,26 @@ function UserDetail({ user, onClose }: { user: U; onClose: () => void }) {
             </label>
           ))}
           <Button size="sm" disabled={roleBusy || JSON.stringify([...selectedRoles].sort()) === JSON.stringify([...initialRoles].sort())} onClick={() => void saveRoles()}>{roleBusy ? "Saving…" : "Save Roles"}</Button>
+        </div>
+
+        <div className="mt-5 grid gap-3 border-t border-border pt-4">
+          <h3 className="font-semibold">Admin Permissions</h3>
+          <p className="text-xs text-muted-foreground">Choose exactly which admin sections this user can access. Permissions are enforced on the server and by database policies.</p>
+          {[
+            { value: "products", label: "Products" }, { value: "categories", label: "Categories" },
+            { value: "keys", label: "Packages & Keys" }, { value: "orders", label: "Orders" },
+            { value: "users", label: "Users" }, { value: "payments", label: "Payments" },
+            { value: "wallet", label: "Wallet" }, { value: "support", label: "Support Inbox" },
+            { value: "customer_agents", label: "Customer Agents" }, { value: "announcements", label: "Announcements" },
+            { value: "telegram_broadcast", label: "Telegram Broadcast" }, { value: "homepage", label: "Homepage" },
+            { value: "settings", label: "Settings" },
+          ].map((permission) => (
+            <label key={permission.value} className="flex items-center gap-3 rounded-lg border border-border p-3 text-sm">
+              <input type="checkbox" checked={permissions.includes(permission.value)} onChange={(e) => setPermissions((current) => e.target.checked ? [...new Set([...current, permission.value])] : current.filter((value) => value !== permission.value))} />
+              <span>{permission.label}</span>
+            </label>
+          ))}
+          <Button size="sm" disabled={permissionsBusy || JSON.stringify([...permissions].sort()) === JSON.stringify([...initialPermissions].sort())} onClick={() => void savePermissions()}>{permissionsBusy ? "Saving…" : "Save Permissions"}</Button>
         </div>
 
         <div className="mt-5 grid gap-2 border-t border-border pt-4">
