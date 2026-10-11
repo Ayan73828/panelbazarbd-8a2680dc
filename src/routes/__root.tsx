@@ -90,6 +90,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: "Premium digital products and reseller panel services at reseller prices.",
       },
       { property: "og:site_name", content: "PANEL BAZAR BD" },
+      { property: "og:url", content: "https://panelbazarbd.shop/" },
+      { name: "application-name", content: "PANEL BAZAR BD" },
+      { name: "theme-color", content: "#111827" },
       { property: "og:type", content: "website" },
       { property: "og:image", content: brandLogoUrl },
       { name: "twitter:card", content: "summary_large_image" },
@@ -97,6 +100,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "canonical", href: "https://panelbazarbd.shop/" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
