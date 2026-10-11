@@ -24,14 +24,14 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
       const userRes = await fetch(`${url}/auth/v1/user`, { headers: { apikey: anon, Authorization: auth } });
       if (!userRes.ok) return Response.json({ error: "Your login session expired. Please log in again." }, { status: 401 });
       const user = await userRes.json() as { id: string; email?: string };
-      const body = await request.json() as { subject?: string; message?: string };
+      const body = await request.json() as { subject?: string; message?: string; source?: string };
       const subject = String(body.subject || "AI Support Request").slice(0, 160);
       const message = String(body.message || "").slice(0, 5000);
       if (!message.trim()) return Response.json({ error: "Ticket details are required." }, { status: 400 });
       const insertRes = await fetch(`${url}/rest/v1/support_tickets`, {
         method: "POST",
         headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json", Prefer: "return=representation" },
-        body: JSON.stringify({ user_id: user.id, subject, message, source: "website_ai_timeout", status: "open" }),
+        body: JSON.stringify({ user_id: user.id, subject, message, source: body.source === "customer" ? "customer" : "website_ai_timeout", status: "open" }),
       });
       const inserted = await insertRes.json() as Array<{ id: string; created_at: string }> | { message?: string };
       if (!insertRes.ok || !Array.isArray(inserted) || !inserted[0]?.id) {
