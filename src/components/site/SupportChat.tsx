@@ -200,6 +200,22 @@ export function SupportChat() {
       setText(value);
     } else {
       setMessages((current) => [...current, { from: "user", text: value }]);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (accessToken) {
+          const notifyResponse = await fetch("/api/public/support/agent-notify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+            body: JSON.stringify({ ticketId: agentTicketId, message: value }),
+          });
+          if (!notifyResponse.ok) {
+            setMessages((current) => [...current, { from: "agent", text: "মেসেজ ওয়েবসাইটে পাঠানো হয়েছে, কিন্তু Telegram-এ notification পাঠানো যায়নি।" }]);
+          }
+        }
+      } catch {
+        setMessages((current) => [...current, { from: "agent", text: "মেসেজ ওয়েবসাইটে পাঠানো হয়েছে, কিন্তু Telegram notification ব্যর্থ হয়েছে।" }]);
+      }
     }
     setBusy(false);
   };
