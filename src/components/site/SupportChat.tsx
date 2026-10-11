@@ -104,6 +104,7 @@ export function SupportChat() {
   };
 
   const startHumanAgent = async () => {
+    primeReplySound();
     if (!user?.id) {
       setMessages([{ from: "bot", text: "সরাসরি Customer Agent-এর সঙ্গে কথা বলতে আগে Login করুন। এরপর আবার Customer Agent নির্বাচন করুন।" }]);
       setMode("agent");
@@ -148,6 +149,22 @@ export function SupportChat() {
 
   useEffect(() => {
     if (mode !== "agent" || !agentTicketId || !user?.id) return;
+    let active = true;
+    void supabase.from("support_replies")
+      .select("id,user_id,message")
+      .eq("ticket_id", agentTicketId)
+      .order("created_at", { ascending: true })
+      .then(({ data }) => {
+        if (!active || !data) return;
+        setMessages((current) => {
+          const known = new Set(current.map((message) => message.id).filter(Boolean));
+          const incoming = data
+            .filter((row) => row.user_id !== user.id && !known.has(row.id))
+            .map((row) => ({ from: "agent" as const, text: row.message, id: row.id }));
+          if (incoming.length) playPremiumReplySound();
+          return [...current, ...incoming];
+        });
+      });
     const channel = supabase
       .channel(`support-agent-${agentTicketId}`)
       .on("postgres_changes", {
@@ -163,13 +180,14 @@ export function SupportChat() {
         }
       })
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => { active = false; void supabase.removeChannel(channel); };
   }, [mode, agentTicketId, user?.id]);
   
   const sendAgentMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = text.trim();
     if (!value || !agentTicketId || !user?.id || busy) return;
+    primeReplySound();
     setText("");
     setBusy(true);
     const { error } = await supabase.from("support_replies").insert({
