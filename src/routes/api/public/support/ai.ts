@@ -64,15 +64,18 @@ export const Route = createFileRoute("/api/public/support/ai")({
 
         try {
           const body = await request.json() as { messages?: ChatMessage[]; agentName?: string };
-          if (!Array.isArray(body.messages) || body.messages.length === 0 || body.messages.length > 30) {
-            return Response.json({ error: "Invalid chat messages." }, { status: 400 });
+          if (!Array.isArray(body.messages) || body.messages.length === 0) {
+            return Response.json({ error: "Please send a message to continue the support chat." }, { status: 400 });
           }
 
+          // Long-running chats can exceed the provider's context window. Keep the latest
+          // valid turns instead of rejecting the user's message as "Invalid chat messages".
           const messages = body.messages
-            .filter((m): m is ChatMessage => !!m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+            .filter((m): m is ChatMessage => !!m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim().length > 0)
+            .slice(-20)
             .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
           if (!messages.length || messages[messages.length - 1]?.role !== "user") {
-            return Response.json({ error: "A user message is required." }, { status: 400 });
+            return Response.json({ error: "আপনার সর্বশেষ মেসেজটি পাওয়া যায়নি। আবার লিখে Send করুন।" }, { status: 400 });
           }
 
           const agentName = typeof body.agentName === "string" && /^[\u0980-\u09FF]{2,20}$/.test(body.agentName) ? body.agentName : "রাকিব";
