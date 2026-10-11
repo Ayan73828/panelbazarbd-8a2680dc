@@ -169,8 +169,20 @@ export function SupportChat() {
       }, (payload) => {
         const row = payload.new as { id: string; user_id: string; message: string };
         if (row.user_id !== user.id) {
-          setMessages((current) => [...current, { from: "agent", text: row.message, id: row.id }]);
+          setMessages((current) => current.some((message) => message.id === row.id) ? current : [...current, { from: "agent", text: row.message, id: row.id }]);
           playPremiumReplySound();
+        }
+      })
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "support_tickets",
+        filter: `id=eq.${agentTicketId}`,
+      }, (payload) => {
+        const ticket = payload.new as { status?: string };
+        if (ticket.status === "closed" || ticket.status === "resolved") {
+          setAgentChatClosed(true);
+          setMessages((current) => current.some((message) => message.id === "agent-chat-closed") ? current : [...current, { from: "agent", id: "agent-chat-closed", text: "Customer Representative এই chat বন্ধ করেছেন। প্রয়োজনে নতুন Customer Agent request খুলতে পারবেন।" }]);
         }
       })
       .subscribe();
