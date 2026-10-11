@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
       const ticketRows = await ticketRes.json() as Array<{ ticket_id: string; created: boolean; ticket_source: string; ticket_created_at: string }> | { message?: string };
       if (!ticketRes.ok || !Array.isArray(ticketRows) || !ticketRows[0]?.ticket_id) {
         const dbMessage = ticketRows && !Array.isArray(ticketRows) ? String(ticketRows.message || "") : "";
-        const cooldown = dbMessage.match(/SUPPORT_COOLDOWN:(\\d+):(support|agent)/);
+        const cooldown = dbMessage.match(/SUPPORT_COOLDOWN:(\d+):(support|agent)/);
         if (cooldown) {
           const seconds = Number(cooldown[1]);
           const minutes = Math.ceil(seconds / 60);
@@ -47,8 +47,8 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
             cooldown: true,
             retryAfterSeconds: seconds,
             error: cooldown[2] === "agent"
-              ? `আপনার আগের Customer Agent request বন্ধ হওয়ার পর ১ ঘণ্টা পূর্ণ না হওয়া পর্যন্ত নতুন Customer Agent request করা যাবে না। আরও প্রায় ${minutes} মিনিট অপেক্ষা করুন।`
-              : `আপনার আগের Support ticket বন্ধ হওয়ার পর ৩০ মিনিট পূর্ণ না হওয়া পর্যন্ত নতুন Support request করা যাবে না। আরও প্রায় ${minutes} মিনিট অপেক্ষা করুন।`,
+              ? `আপনি ইতিমধ্যেই Customer Agent সাপোর্ট সেবা নিয়েছেন। পরবর্তী Agent Support Request করার জন্য অনুগ্রহ করে ১ ঘণ্টা অপেক্ষা করুন। বাকি সময়: প্রায় ${minutes} মিনিট।`
+              : `আপনি ইতিমধ্যেই একবার সাপোর্ট সেবা নিয়েছেন। পরবর্তী Support Ticket খোলার জন্য অনুগ্রহ করে ৩০ মিনিট অপেক্ষা করুন। বাকি সময়: প্রায় ${minutes} মিনিট।`,
           }, { status: 429 });
         }
         console.error("Support ticket create/reuse failed", JSON.stringify(ticketRows).slice(0, 300));
