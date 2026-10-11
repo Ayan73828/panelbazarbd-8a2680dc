@@ -55,6 +55,8 @@ export function SupportChat() {
   const [mode, setMode] = useState<ChatMode>("chooser");
   const [agentTicketId, setAgentTicketId] = useState<string | null>(null);
   const [agentStarting, setAgentStarting] = useState(false);
+  const [agentChatClosed, setAgentChatClosed] = useState(false);
+  const [agentStartedAt, setAgentStartedAt] = useState<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const [flow, setFlow] = useState<Flow>("issue");
   const [text, setText] = useState("");
@@ -127,6 +129,8 @@ export function SupportChat() {
       const result = await response.json() as { ok?: boolean; ticketId?: string; emailSent?: boolean; error?: string };
       if (!response.ok || !result.ok || !result.ticketId) throw new Error(result.error || "Could not create support ticket");
       setAgentTicketId(result.ticketId);
+      setAgentChatClosed(false);
+      setAgentStartedAt(Date.now());
       setMode("agent");
       setMessages([{ from: "agent", text: `আমাদের Customer Representative এই মুহূর্তে ব্যস্ত আছেন। অনুগ্রহ করে অপেক্ষা করুন, প্রতিনিধি শিগগিরই আপনার সঙ্গে কথা বলবেন।${result.emailSent ? " আপনার ইমেইলেও confirmation পাঠানো হয়েছে।" : ""}` }]);
     } catch {
@@ -172,11 +176,38 @@ export function SupportChat() {
       .subscribe();
     return () => { active = false; void supabase.removeChannel(channel); };
   }, [mode, agentTicketId, user?.id]);
+
+  useEffect(() => {
+    if (!agentTicketId || !agentStartedAt || !user?.id || agentChatClosed) return;
+    const remaining = Math.max(0, agentStartedAt + 10 * 60 * 1000 - Date.now());
+    const timer = setTimeout(async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) return;
+        const response = await fetch("/api/public/support/expire-agent-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ ticketId: agentTicketId }),
+        });
+        const result = await response.json() as { ok?: boolean; closed?: boolean; agentReplied?: boolean; emailSent?: boolean };
+        if (result.closed) {
+          setAgentChatClosed(true);
+          setMessages((current) => [...current, { from: "agent", text: `১০ মিনিটের মধ্যে Customer Representative উত্তর দিতে পারেননি, তাই এই chat স্বয়ংক্রিয়ভাবে বন্ধ করা হয়েছে।${result.emailSent ? " এ বিষয়ে আপনার ইমেইলেও জানানো হয়েছে।" : ""} প্রয়োজনে নতুন Customer Agent request খুলুন।` }]);
+        } else if (result.agentReplied) {
+          // A representative has replied, so keep this conversation open.
+        }
+      } catch (error) {
+        console.error("Customer Agent auto-close check failed", error);
+      }
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [agentTicketId, agentStartedAt, user?.id, agentChatClosed]);
   
   const sendAgentMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = text.trim();
-    if (!value || !agentTicketId || !user?.id || busy) return;
+    if (!value || !agentTicketId || !user?.id || busy || agentChatClosed) return;
     primeReplySound();
     setText("");
     setBusy(true);
@@ -247,6 +278,8 @@ export function SupportChat() {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setMode("chooser");
     setAgentTicketId(null);
+    setAgentChatClosed(false);
+    setAgentStartedAt(null);
     setFlow("issue");
     setMessages([]);
     setText("");
@@ -344,11 +377,12 @@ export function SupportChat() {
           </div></div>
         </div> : mode === "agent" ? <>
           <div className="flex-1 space-y-3 overflow-y-auto p-3" aria-live="polite">
-            <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-[11px] text-muted-foreground">Customer Agent Chat {agentTicketId ? "• Request: " + agentTicketId.slice(0, 8) : ""}</div>
+            <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-[11px] text-muted-foreground">Customer Agent Chat {agentTicketId ? "• Request: " + agentTicketId.slice(0, 8) : ""}{agentChatClosed ? " • Closed" : " • First reply deadline: 10 minutes"}</div>
             {messages.map((message, index) => <div key={message.id || index} className={`flex ${message.from === "user" ? "justify-end" : "justify-start"}`}><p className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${message.from === "user" ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm bg-muted text-foreground"}`}>{message.text}</p></div>)}
             <div ref={bottomRef} />
           </div>
-          {agentTicketId ? <form onSubmit={sendAgentMessage} className="flex items-center gap-2 border-t border-border p-3"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="এজেন্টকে মেসেজ লিখুন…" maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary" aria-label="Message customer agent" /><button type="submit" disabled={!text.trim() || busy} aria-label="Send message to agent" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button></form> : <div className="border-t border-border p-3"><button type="button" onClick={resetChat} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">Back to Support options</button></div>}
+          {agentTicketId && !agentChatClosed ? <form onSubmit={sendAgentMessage} className="flex items-center gap-2 border-t border-border p-3"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="এজেন্টকে মেসেজ লিখুন…" maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary" aria-label="Message customer agent" /><button type="submit" disabled={!text.trim() || busy} aria-label="Send message to agent" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button></form> : <div className="border-t border-border p-3"><button type="button" onClick={resetChat} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">Back to Support options</button></div>}
+          {agentChatClosed && <div className="border-t border-border p-3 text-sm text-muted-foreground">এই chat বন্ধ হয়েছে। নতুন request করতে Back to Support options চাপুন।</div>}
           <button type="button" onClick={resetChat} className="border-t border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground">← Support options</button>
         </> : <>
           <div className="flex-1 space-y-3 overflow-y-auto p-3" aria-live="polite">
