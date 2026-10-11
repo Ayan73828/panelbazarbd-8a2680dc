@@ -10,7 +10,6 @@ import { SupportThread, StatusBadge } from "@/components/site/SupportThread";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard/support")({
   head: () => ({ meta: [{ title: "Support — PANEL BAZAR BD" }, { name: "description", content: "Open a support ticket and chat with the admin." }] }),
@@ -39,13 +38,25 @@ function SupportPage() {
     const { data: existing, error: existingError } = await supabase.from("support_tickets").select("id").eq("user_id", user.id).eq("status", "open").limit(1).maybeSingle();
     if (existingError) { setBusy(false); toast.error(existingError.message); return; }
     if (existing) { setBusy(false); toast.error("আপনার আগের টিকিটে admin উত্তর দেওয়া পর্যন্ত নতুন টিকিট করা যাবে না"); setOpenId(existing.id); return; }
-    const { data, error } = await supabase.from("support_tickets").insert({ user_id: user.id, subject: subject.trim().slice(0, 150), message: message.trim().slice(0, 2000) }).select("id").single();
-    setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    setSubject(""); setMessage(""); setOpenId(data.id);
-    void telegramNotifyEvent({ data: { event: "support", recordId: data.id } }).catch((notifyError) => console.error("Telegram support notification failed", notifyError));
-    toast.success("টিকিট তৈরি হয়েছে");
-    void qc.invalidateQueries({ queryKey: ["tickets"] });
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Login session expired. আবার Login করুন।");
+      const response = await fetch("/api/public/support/create-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ subject: subject.trim().slice(0, 150), message: message.trim().slice(0, 2000), source: "customer" }),
+      });
+      const result = await response.json() as { ok?: boolean; ticketId?: string; emailSent?: boolean; error?: string };
+      if (!response.ok || !result.ok || !result.ticketId) throw new Error(result.error || "টিকিট তৈরি করা যায়নি");
+      setSubject(""); setMessage(""); setOpenId(result.ticketId);
+      toast.success(result.emailSent ? "টিকিট তৈরি হয়েছে এবং ইমেইলে confirmation পাঠানো হয়েছে" : "টিকিট তৈরি হয়েছে; email notification পাঠানো যায়নি");
+      void qc.invalidateQueries({ queryKey: ["tickets"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "টিকিট তৈরি করা যায়নি");
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <div className="space-y-6">
