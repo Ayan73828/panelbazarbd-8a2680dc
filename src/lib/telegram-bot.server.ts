@@ -300,7 +300,7 @@ export async function handleUpdate(u: any) {
 
   if (!user) {
     const account = await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
-    return welcome(chatId, account);
+    return welcome(chatId, account, undefined, m.from.id);
   }
   if (text === "/logout") {
     const db = await admin();
