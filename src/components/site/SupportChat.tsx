@@ -81,7 +81,8 @@ export function SupportChat() {
         const saved = JSON.parse(raw) as { messages?: ChatMessage[]; lastUserTextAt?: number; flow?: Flow; pendingTicket?: { subject: string; message: string } | null; pendingDueAt?: number | null };
         const lastUserTextAt = Number(saved.lastUserTextAt ?? 0);
         const savedMessages = Array.isArray(saved.messages) ? saved.messages : [];
-        if (lastUserTextAt > 0 && Date.now() - lastUserTextAt < AI_SESSION_TIMEOUT_MS && savedMessages.length > 0) {
+        const hasPendingTicket = saved.flow === "pending" && !!saved.pendingTicket && !!saved.pendingDueAt;
+        if ((hasPendingTicket || (lastUserTextAt > 0 && Date.now() - lastUserTextAt < AI_SESSION_TIMEOUT_MS)) && savedMessages.length > 0) {
           setMessages(savedMessages);
           setAiLastUserTextAt(lastUserTextAt);
           setMode("ai");
@@ -377,7 +378,8 @@ export function SupportChat() {
       } catch {
         setMessages((current) => [...current, { from: "bot", text: "৫ মিনিট পার হয়েছে, কিন্তু Support Request তৈরি করা যায়নি। অনুগ্রহ করে Login status পরীক্ষা করে আবার চেষ্টা করুন অথবা Normal Support-এ যোগাযোগ করুন।" }]);
       } finally {
-        pendingTicketRef.current = null;
+        setPendingTicket(null);
+        setPendingDueAt(null);
         setFlow("done");
       }
     }, Math.max(0, pendingDueAt - Date.now()));
