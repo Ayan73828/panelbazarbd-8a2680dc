@@ -14,10 +14,11 @@ export const Route = createFileRoute("/api/telegram/support-webhook")({
       POST: async ({ request }) => {
         const secret = process.env["TELEGRAM_SUPPORT_WEBHOOK_SECRET"];
         const expectedChatId = process.env["TELEGRAM_SUPPORT_CHAT_ID"];
+        const expectedAdminUserId = process.env["TELEGRAM_SUPPORT_ADMIN_USER_ID"];
         const botToken = process.env["TELEGRAM_SUPPORT_BOT_TOKEN"];
         const supabaseUrl = process.env["SUPABASE_URL"]?.replace(/\/+$/, "");
         const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
-        if (!secret || !expectedChatId || !botToken || !supabaseUrl || !serviceKey) {
+        if (!secret || !expectedChatId || !expectedAdminUserId || !botToken || !supabaseUrl || !serviceKey) {
           return Response.json({ ok: false, error: "Telegram support webhook is not configured." }, { status: 503 });
         }
         if (request.headers.get("x-telegram-bot-api-secret-token") !== secret) {
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/api/telegram/support-webhook")({
           const update = await request.json() as TelegramUpdate;
           const message = update.message;
           const text = message?.text?.trim() || "";
-          if (!message?.chat?.id || String(message.chat.id) !== expectedChatId || !text) {
+          if (!message?.chat?.id || String(message.chat.id) !== expectedChatId || String(message.from?.id || "") !== expectedAdminUserId || !text) {
             return Response.json({ ok: true });
           }
           const match = text.match(/^\/reply\s+([0-9a-f-]{36})\s+([\s\S]+)$/i);
