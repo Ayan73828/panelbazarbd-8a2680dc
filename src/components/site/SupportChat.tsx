@@ -354,33 +354,42 @@ export function SupportChat() {
   useEffect(() => {
     if (flow !== "pending" || !pendingTicket || !pendingDueAt) return;
     timeoutRef.current = setTimeout(async () => {
-      const ticket = pendingTicket;
-      if (!ticket) return;
-      if (!user?.id) {
-        setMessages((current) => [...current, { from: "bot", text: "৫ মিনিট পার হয়েছে, কিন্তু Support Request তৈরি করতে আপনার Login দরকার। Login করে আবার Support-এ আসুন, অথবা Normal Support-এ যোগাযোগ করুন।" }]);
-        setPendingTicket(null);
-        setPendingDueAt(null);
-        setFlow("done");
-        return;
-      }
+      if (!user?.id) return;
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
-        if (!accessToken) throw new Error("LOGIN_REQUIRED");
-        const response = await fetch("/api/public/support/create-ticket", {
+        if (!accessToken) return;
+        const response = await fetch("/api/public/support/schedule-ai-ticket", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ subject: ticket.subject, message: ticket.message }),
+          body: JSON.stringify({ action: "status" }),
         });
-        const result = await response.json() as { ok?: boolean; ticketId?: string; emailSent?: boolean; error?: string };
-        if (!response.ok || !result.ok || !result.ticketId) throw new Error(result.error || "TICKET_CREATE_FAILED");
-        setMessages((current) => [...current, { from: "bot", text: `৫ মিনিটের মধ্যে সমাধান না হওয়ায় আপনার Support Request তৈরি হয়েছে। Ticket ID: ${result.ticketId}${result.emailSent ? "। আপনার ইমেইলেও confirmation পাঠানো হয়েছে।" : "। ইমেইল পাঠানো যায়নি—অ্যাডমিনের কাছে request তৈরি হয়েছে।"}` }]);
+        const result = await response.json() as { ok?: boolean; status?: string; ticketId?: string; error?: string };
+        if (result.status === "processed" && result.ticketId) {
+          setMessages((current) => [...current, { from: "bot", text: `৫ মিনিটের মধ্যে সমস্যার সমাধান না হওয়ায় আপনার Support Ticket তৈরি হয়েছে। Ticket ID: ${result.ticketId}। Support Team-কে জানানো হয়েছে।` }]);
+          setFlow("done");
+          setPendingTicket(null);
+          setPendingDueAt(null);
+        } else if (result.status === "pending") {
+          setMessages((current) => [...current, { from: "bot", text: "Support Ticket সার্ভারে schedule করা আছে। প্রসেস হতে সামান্য দেরি হতে পারে; Support Team review করবে।" }]);
+          setFlow("done");
+          setPendingTicket(null);
+          setPendingDueAt(null);
+        } else if (result.status === "cancelled") {
+          setFlow("issue");
+          setPendingTicket(null);
+          setPendingDueAt(null);
+        } else {
+          setMessages((current) => [...current, { from: "bot", text: result.error || "Support Ticket-এর status যাচাই করা যায়নি। Support request server-এ schedule করা ছিল; Normal Support-এ যোগাযোগ করতে পারেন।" }]);
+          setFlow("done");
+          setPendingTicket(null);
+          setPendingDueAt(null);
+        }
       } catch {
-        setMessages((current) => [...current, { from: "bot", text: "৫ মিনিট পার হয়েছে, কিন্তু Support Request তৈরি করা যায়নি। অনুগ্রহ করে Login status পরীক্ষা করে আবার চেষ্টা করুন অথবা Normal Support-এ যোগাযোগ করুন।" }]);
-      } finally {
+        setMessages((current) => [...current, { from: "bot", text: "Support Ticket server-এ schedule করা হয়েছে। Status এখন যাচাই করা যাচ্ছে না, তবে ticket timer browser-এর উপর নির্ভর করে না।" }]);
+        setFlow("done");
         setPendingTicket(null);
         setPendingDueAt(null);
-        setFlow("done");
       }
     }, Math.max(0, pendingDueAt - Date.now()));
     return () => {
@@ -421,6 +430,21 @@ export function SupportChat() {
     const nextMessages: ChatMessage[] = [...messages, { from: "user", text: value }];
     setAiLastUserTextAt(Date.now());
     if (flow === "pending") {
+      void (async () => {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData.session?.access_token;
+          if (accessToken) {
+            await fetch("/api/public/support/schedule-ai-ticket", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+              body: JSON.stringify({ action: "cancel" }),
+            });
+          }
+        } catch (error) {
+          console.error("Could not cancel pending AI support ticket", error);
+        }
+      })();
       setPendingTicket(null);
       setPendingDueAt(null);
       setFlow("issue");
@@ -466,10 +490,28 @@ export function SupportChat() {
           .join("\n");
         const ticketMessage = (result.ticketMessage?.trim() || transcript).slice(0, 5000);
         const preparedTicket = { subject: result.subject || "AI Support Request", message: ticketMessage };
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) {
+          setFlow("done");
+          setMessages((current) => [...current, { from: "bot", text: "আপনার তথ্য নেওয়া হয়েছে, কিন্তু Login session পাওয়া যায়নি। দয়া করে আবার Login করে Normal Support-এ যোগাযোগ করুন।" }]);
+          return;
+        }
+        const scheduleResponse = await fetch("/api/public/support/schedule-ai-ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify(preparedTicket),
+        });
+        const scheduleResult = await scheduleResponse.json() as { ok?: boolean; dueAt?: string; error?: string };
+        if (!scheduleResponse.ok || !scheduleResult.ok || !scheduleResult.dueAt) {
+          setFlow("done");
+          setMessages((current) => [...current, { from: "bot", text: scheduleResult.error || "Support Ticket schedule করা যায়নি। অনুগ্রহ করে Normal Support ব্যবহার করুন।" }]);
+          return;
+        }
         setPendingTicket(preparedTicket);
-        setPendingDueAt(Date.now() + 5 * 60 * 1000);
+        setPendingDueAt(Date.parse(scheduleResult.dueAt));
         setFlow("pending");
-        setMessages((current) => [...current, { from: "bot", text: "আপনার তথ্য নেওয়া হয়েছে। ৫ মিনিটের মধ্যে সমাধান না হলে আপনার ID দিয়ে Support Request স্বয়ংক্রিয়ভাবে তৈরি হবে।" }]);
+        setMessages((current) => [...current, { from: "bot", text: "আপনার দেওয়া তথ্যগুলো নিরাপদে সংরক্ষণ করা হয়েছে। আগামী ৫ মিনিটের মধ্যে সমস্যার সমাধান না হলে সার্ভার থেকে স্বয়ংক্রিয়ভাবে Support Ticket তৈরি হবে এবং Telegram-এ Support Team-কে জানানো হবে। সমস্যার সমাধান হলে এখানে জানাবেন।" }]);
       }
     } catch {
       setMessages((current) => [...current, { from: "bot", text: "ইন্টারনেট বা সার্ভারের সমস্যার কারণে উত্তর আনা যায়নি। আবার চেষ্টা করুন অথবা Normal Support ব্যবহার করুন।" }]);
