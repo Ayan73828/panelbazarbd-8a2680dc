@@ -14,6 +14,13 @@ export const Route = createFileRoute("/api/public/support/schedule-ai-ticket")({
       const user = await authRes.json() as { id: string };
       const body = await request.json() as { action?: string; subject?: string; message?: string };
       const headers = { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" };
+      if (body.action === "status") {
+        const statusRes = await fetch(`${url}/rest/v1/ai_support_pending_tickets?user_id=eq.${user.id}&select=id,status,ticket_id,due_at&order=created_at.desc&limit=1`, { headers });
+        const rows = await statusRes.json() as Array<{ id: string; status: string; ticket_id?: string | null; due_at: string }>;
+        if (!statusRes.ok || !Array.isArray(rows)) return Response.json({ error: "Could not check ticket status." }, { status: 502 });
+        if (!rows[0]) return Response.json({ ok: true, status: "missing" });
+        return Response.json({ ok: true, status: rows[0].status, ticketId: rows[0].ticket_id || undefined, dueAt: rows[0].due_at });
+      }
       if (body.action === "cancel") {
         const cancelRes = await fetch(`${url}/rest/v1/ai_support_pending_tickets?user_id=eq.${user.id}&status=eq.pending`, {
           method: "PATCH", headers: { ...headers, Prefer: "return=minimal" },
