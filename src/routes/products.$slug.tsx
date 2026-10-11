@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSite";
 import { effectivePrice, money, statusLabel } from "@/lib/site";
 import { playMoneyDeduct } from "@/lib/sounds";
+import { addCartItem } from "@/lib/cart";
 import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 
 const productQuery = (slug: string) =>
@@ -258,6 +259,26 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     onOpenChange(v);
     if (!v) { setStep(1); setError(""); setQty(1); }
   }
+  function addSelectedToCart() {
+    if (hasPk && !sel) { setError("আগে Validation / Duration নির্বাচন করুন।"); return; }
+    if (unit <= 0 || maxQty < 1) { setError("এই অপশনটি এখন কেনা যাবে না।"); return; }
+    addCartItem({
+      id: sel ? product.id + ":" + sel.id : product.id,
+      productId: product.id,
+      slug: product.slug,
+      name: product.name,
+      price: unit,
+      image_url: null,
+      packageId: sel?.id ?? null,
+      variantName: sel?.name ?? null,
+      duration: sel?.duration ?? null,
+      quantity: qty,
+      stock: maxQty,
+    });
+    toast.success("Cart-এ যোগ হয়েছে");
+    close(false);
+  }
+
   function goAddMoney() {
     sessionStorage.setItem("kr_return_to", `/products/${product.slug}`);
     close(false);
@@ -360,6 +381,11 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
         {user && (
           <DialogFooter className="gap-2">
             <Button variant="secondary" onClick={() => (step === 1 ? close(false) : setStep(step - 1))}>{step === 1 ? "Cancel" : "Back"}</Button>
+            {step === 1 && (
+              <Button variant="outline" onClick={addSelectedToCart} disabled={(hasPk && !sel) || unit <= 0 || busy}>
+                <ShoppingCart className="mr-2 h-4 w-4" /> Add to Cart
+              </Button>
+            )}
             {step < 3 ? (
               <Button disabled={(hasPk && !sel) || unit <= 0} onClick={() => setStep(step + 1)}>Next</Button>
             ) : (
