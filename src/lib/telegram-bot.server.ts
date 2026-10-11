@@ -305,7 +305,7 @@ export async function handleUpdate(u: any) {
       return send(chatId, message, MENU);
     }
     await setState(chatId, "guest_auth", { phone_shared: true });
-    return send(chatId, "✅ Account unlink হয়েছে।\n\nTelegram Guest balance: " + tk(Number(split?.guest_balance ?? 0)) + "\nWebsite balance: " + tk(Number(split?.website_balance ?? 0)) + "\n\nমূল balance ratio অনুযায়ী অবশিষ্ট টাকা ভাগ করা হয়েছে।", GUEST_AUTH);
+    return send(chatId, "<b>Website Successfully Unlinked ‼️</b>", GUEST_AUTH);
   }
   switch (text) {
     case "🛍 Products": return showProducts(chatId);
