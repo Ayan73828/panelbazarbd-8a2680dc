@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/public/support/ai")({
 
           const agentName = typeof body.agentName === "string" && /^[\u0980-\u09FF]{2,20}$/.test(body.agentName) ? body.agentName : "রাকিব";
           // Prefer Flash-Lite for broad availability, then fall back to Flash if the first model is busy.
-          const modelCandidates = ["gemini-3.5-flash-lite", "gemini-3.8-flash"];
+          const modelCandidates = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
           let data: { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> } | null = null;
           for (const model of modelCandidates) {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
