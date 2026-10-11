@@ -44,7 +44,7 @@ export const Route = createFileRoute("/api/public/support/ai")({
               Authorization: `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-              model: "llama-3.3-70b-versatile",
+              model: "llama-3.1-8b-instant",
               messages: [
                 { role: "system", content: SYSTEM_PROMPT + "\\nএই কথোপকথনে তোমার নাম: " + agentName + "." },
                 ...messages
