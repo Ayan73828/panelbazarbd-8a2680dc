@@ -73,6 +73,11 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
       const email = user.email || customerProfile?.email || undefined;
       const emailResult = isNewTicket ? await sendEmail(process.env["RESEND_API_KEY"], email, `Support request created: ${subject}`,
         `Hello,\n\nYour Panel Bazar BD support request has been created.\nTicket ID: ${ticket.id}\nSubject: ${subject}\n\nDetails:\n${message}\n\nWe will review your request.\nPanel Bazar BD Support`) : { sent: false };
+      const supportInbox = process.env["SUPPORT_EMAIL_TO"] || "support@panelbazarbd.shop";
+      const supportEmailResult = isNewTicket && supportInbox.toLowerCase() !== String(email || "").toLowerCase()
+        ? await sendEmail(process.env["RESEND_API_KEY"], supportInbox, `[Support Ticket] ${subject}`,
+            `New Panel Bazar BD support ticket\\nTicket ID: ${ticket.id}\\nCustomer: ${email || user.id}\\nSubject: ${subject}\\n\\nDetails:\\n${message}\\n\\nPlease review this ticket in the support/admin panel.`)
+        : { sent: false };
       let telegramNotified = false;
       if (isNewTicket && (requestedSource === "customer_agent" || requestedSource === "website_ai_timeout" || requestedSource === "customer")) {
         const botToken = process.env["TELEGRAM_SUPPORT_BOT_TOKEN"] || process.env["SUPPORT_TELEGRAM_BOT_TOKEN"] || process.env["TELEGRAM_BOT_TOKEN"];
@@ -110,7 +115,7 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
           console.error("Support Telegram notification skipped: bot token or chat ID is missing");
         }
       }
-      return Response.json({ ok: true, ticketId: ticket.id, emailSent: emailResult.sent, telegramNotified, reused: !isNewTicket, ticketSource: activeTicket.ticket_source, createdAt: activeTicket.ticket_created_at });
+      return Response.json({ ok: true, ticketId: ticket.id, emailSent: emailResult.sent, supportEmailSent: supportEmailResult.sent, telegramNotified, reused: !isNewTicket, ticketSource: activeTicket.ticket_source, createdAt: activeTicket.ticket_created_at });
     } catch (error) {
       console.error("Create support ticket failed", error);
       return Response.json({ error: "Could not create support ticket." }, { status: 500 });
