@@ -501,37 +501,40 @@ export function SupportChat() {
       }
       if (ticketFlowRequested) {
         if (!user?.id) {
+          setMessages((current) => [...current, { from: "bot", text: "Support Ticket খোলার জন্য আগে Login করুন। আপনার তথ্য কপি করে Normal Support-এ পাঠাতে পারেন।" }]);
           setFlow("done");
-          setMessages((current) => [...current, { from: "bot", text: "Support Request তৈরি করার আগে অনুগ্রহ করে Login করুন। আপনার তথ্য কপি করে Normal Support-এ পাঠাতে পারেন।" }]);
           return;
         }
         const transcript = [...nextMessages, { from: "bot" as const, text: result.reply! }]
           .map((message) => `${message.from === "user" ? "Customer" : "Assistant"}: ${message.text}`)
           .join("\n");
         const ticketMessage = (result.ticketMessage?.trim() || transcript).slice(0, 5000);
-        const preparedTicket = { subject: result.subject || "AI Support Request", message: ticketMessage };
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
         if (!accessToken) {
+          setMessages((current) => [...current, { from: "bot", text: "আপনার Login session শেষ হয়েছে। আবার Login করে Support Chat-এ চেষ্টা করুন।" }]);
           setFlow("done");
-          setMessages((current) => [...current, { from: "bot", text: "আপনার তথ্য নেওয়া হয়েছে, কিন্তু Login session পাওয়া যায়নি। দয়া করে আবার Login করে Normal Support-এ যোগাযোগ করুন।" }]);
           return;
         }
-        const scheduleResponse = await fetch("/api/public/support/schedule-ai-ticket", {
+        const ticketResponse = await fetch("/api/public/support/create-ticket", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify(preparedTicket),
+          body: JSON.stringify({
+            subject: result.subject || "AI Support Request",
+            message: ticketMessage,
+            source: "customer",
+          }),
         });
-        const scheduleResult = await scheduleResponse.json() as { ok?: boolean; dueAt?: string; error?: string };
-        if (!scheduleResponse.ok || !scheduleResult.ok || !scheduleResult.dueAt) {
-          setFlow("done");
-          setMessages((current) => [...current, { from: "bot", text: scheduleResult.error || "Support Ticket schedule করা যায়নি। অনুগ্রহ করে Normal Support ব্যবহার করুন।" }]);
+        const ticketResult = await ticketResponse.json() as { ok?: boolean; ticketId?: string; error?: string; reused?: boolean };
+        if (!ticketResponse.ok || !ticketResult.ok || !ticketResult.ticketId) {
+          setMessages((current) => [...current, { from: "bot", text: ticketResult.error || "Support Ticket এখন খোলা যায়নি। আপনার তথ্য রয়ে গেছে—অনুগ্রহ করে আবার চেষ্টা করুন অথবা Normal Support ব্যবহার করুন।" }]);
           return;
         }
-        setPendingTicket(preparedTicket);
-        setPendingDueAt(Date.parse(scheduleResult.dueAt));
-        setFlow("pending");
-        setMessages([...nextMessages, { from: "bot", text: "ধন্যবাদ! আপনার দেওয়া তথ্য দিয়ে আমাদের সাহায্য করার জন্য। Kindly কিছু সময় অপেক্ষা করুন, আপনার সমস্যাটি সমাধান করার চেষ্টা করছি।" }]);
+        setMessages([...nextMessages, { from: "bot", text: `ধন্যবাদ! আপনার Support Ticket এখনই খোলা হয়েছে। Ticket ID: ${ticketResult.ticketId}। আপনার তথ্য Support Team-এর কাছে পাঠানো হয়েছে। এই AI chat বন্ধ করা হচ্ছে।` }]);
+        setFlow("done");
+        setPendingTicket(null);
+        setPendingDueAt(null);
+        setAiLastUserTextAt(Date.now());
       }
     } catch {
       setMessages((current) => [...current, { from: "bot", text: "ইন্টারনেট বা সার্ভারের সমস্যার কারণে উত্তর আনা যায়নি। আবার চেষ্টা করুন অথবা Normal Support ব্যবহার করুন।" }]);
