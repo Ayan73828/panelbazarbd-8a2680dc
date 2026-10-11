@@ -43,3 +43,11 @@ export function playMoneyDeduct() {
   tone(ac, 1046.5, 0.09, 0.18, "sine", 0.12);
   setTimeout(() => void ac.close().catch(() => {}), 700);
 }
+
+/** Quiet premium tap feedback for ordinary UI interactions. */
+export function playUiClick() {
+  const ac = ctx();
+  if (!ac) return;
+  tone(ac, 620, 0, 0.035, "sine", 0.025);
+  setTimeout(() => void ac.close().catch(() => {}), 160);
+}
