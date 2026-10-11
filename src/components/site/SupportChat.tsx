@@ -197,8 +197,11 @@ export function SupportChat() {
       setActiveSupportSource("customer_agent");
       setMode("agent");
       setMessages([{ from: "agent", text: result.reused ? "আপনার আগের Customer Agent chat এখনও খোলা আছে। আগের request-এই কথোপকথন চলবে।" : `আমাদের Customer Representative এই মুহূর্তে ব্যস্ত আছেন। অনুগ্রহ করে অপেক্ষা করুন, প্রতিনিধি শিগগিরই আপনার সঙ্গে কথা বলবেন।${result.emailSent ? " আপনার ইমেইলেও confirmation পাঠানো হয়েছে।" : ""}` }]);
-    } catch {
-      setMessages([{ from: "agent", text: "Customer Agent request তৈরি করা যায়নি। অনুগ্রহ করে Login আছে কি না দেখুন, তারপর আবার চেষ্টা করুন।" }]);
+    } catch (error) {
+      const message = error instanceof Error && error.message && error.message !== "Could not create support ticket"
+        ? error.message
+        : "Customer Agent request তৈরি করা যায়নি। অনুগ্রহ করে Login আছে কি না দেখুন, তারপর আবার চেষ্টা করুন।";
+      setMessages([{ from: "agent", text: message }]);
       setMode("agent");
     } finally {
       setAgentStarting(false);
