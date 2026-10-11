@@ -95,6 +95,27 @@ function AdminSupportPage() {
 
   const selected = tickets.find((ticket) => ticket.id === selectedId);
 
+  const closeTicket = async () => {
+    if (!selected || selected.status === "closed") return;
+    setError("");
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Admin login session expired.");
+      const response = await fetch("/api/public/support/close-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ticketId: selected.id }),
+      });
+      const result = await response.json() as { ok?: boolean; emailSent?: boolean; error?: string };
+      if (!response.ok || !result.ok) throw new Error(result.error || "Could not close ticket.");
+      setTickets((current) => current.map((ticket) => ticket.id === selected.id ? { ...ticket, status: "closed" } : ticket));
+      setError(result.emailSent ? "Ticket বন্ধ হয়েছে এবং customer-এর email-এ notification পাঠানো হয়েছে।" : "Ticket বন্ধ হয়েছে, তবে email পাঠানো যায়নি। Render-এ RESEND_API_KEY ও verified sender configure করুন।");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ticket বন্ধ করা যায়নি।");
+    }
+  };
+
   const sendReply = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const message = draft.trim();
@@ -139,7 +160,7 @@ function AdminSupportPage() {
           </section>
           <section className="flex min-h-[60vh] flex-col overflow-hidden rounded-xl border border-border">
             {selected ? <>
-              <div className="border-b border-border p-4"><h2 className="font-semibold">{selected.subject || "Support request"}</h2><p className="mt-1 break-all text-xs text-muted-foreground">Ticket: {selected.id}</p><p className="mt-2 whitespace-pre-wrap text-sm">{selected.message}</p></div>
+              <div className="border-b border-border p-4"><div className="flex flex-wrap items-start justify-between gap-2"><h2 className="font-semibold">{selected.subject || "Support request"}</h2>{selected.status !== "closed" && <button type="button" onClick={() => void closeTicket()} className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted">Close ticket</button>}</div><p className="mt-1 break-all text-xs text-muted-foreground">Ticket: {selected.id}</p><p className="mt-2 whitespace-pre-wrap text-sm">{selected.message}</p></div>
               <div className="flex-1 space-y-3 overflow-y-auto bg-muted/20 p-4">
                 {replies.length === 0 ? <p className="text-sm text-muted-foreground">এখনো কোনো রিপ্লাই নেই। নিচে উত্তর লিখুন।</p> : replies.map((reply) => <div key={reply.id} className={"flex " + (reply.user_id === adminId ? "justify-end" : "justify-start")}><div className={"max-w-[90%] rounded-xl px-3 py-2 text-sm " + (reply.user_id === adminId ? "bg-primary text-primary-foreground" : "bg-muted")}><p className="mb-1 text-[10px] font-semibold opacity-75">{reply.user_id === adminId ? "Admin reply" : "Customer message"}</p><p className="whitespace-pre-wrap">{reply.message}</p><p className="mt-1 text-right text-[10px] opacity-70">{new Date(reply.created_at).toLocaleString()}</p></div></div>)}
               </div>
