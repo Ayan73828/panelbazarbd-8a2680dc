@@ -6,6 +6,7 @@ import {
   LifeBuoy,
   LogOut,
   ShoppingBag,
+  ShoppingCart,
   LayoutDashboard,
   LogIn,
   Package,
@@ -22,6 +23,8 @@ import { SupportChat } from "@/components/site/SupportChat";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSite";
 import { money, tgLink, telLink, waLink } from "@/lib/site";
+import { useEffect, useState } from "react";
+import { getCartCount } from "@/lib/cart";
 
 const bottomNav = [
   { to: "/", label: "Home", icon: Home },
@@ -36,6 +39,14 @@ export function SiteLayout({ children }: { children: ReactNode }) {
   const { user, profile, isAdmin } = useAuth();
   const wa = waLink(settings.whatsapp_number);
   const tg = tgLink(settings.telegram_username);
+  const [cartCount, setCartCount] = useState(0);
+  useEffect(() => {
+    const update = () => setCartCount(getCartCount());
+    update();
+    window.addEventListener("cart-updated", update);
+    window.addEventListener("storage", update);
+    return () => { window.removeEventListener("cart-updated", update); window.removeEventListener("storage", update); };
+  }, []);
 
   return (
     <div className="mx-auto flex min-h-screen w-full min-w-0 max-w-lg flex-col overflow-x-hidden border-x border-border/60">
@@ -50,6 +61,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
             </Button>
           )}
           <div className="flex shrink-0 items-center gap-1.5">
+            <Button asChild variant="ghost" size="icon" className="relative" aria-label="Shopping cart"><Link to="/cart"><ShoppingCart className="h-5 w-5" />{cartCount > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">{cartCount}</span>}</Link></Button>
             {user ? (
               <>
                 <span className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
