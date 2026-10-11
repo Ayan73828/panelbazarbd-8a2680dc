@@ -5,7 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSite";
 import { tgLink, waLink } from "@/lib/site";
 
-type ChatMessage = { from: "bot" | "user"; text: string };
+type ChatMessage = { from: "bot" | "user" | "agent"; text: string; id?: string };
+type ChatMode = "chooser" | "ai" | "agent";
 type Flow = "issue" | "payment_details" | "expired_details" | "general_details" | "pending" | "done";
 const agents = ["রাকিব", "মিরাজ", "মীরা", "মাহি"];
 const greeting = (name: string) => `আসসালামু ওয়ালাইকুম! আমি ${name}, Panel Bazar BD-এর AI Support Assistant। আপনার কী সমস্যা হয়েছে, একটু দয়া করে বিস্তারিত খুলে বলুন।`;
@@ -51,7 +52,10 @@ export function SupportChat() {
   const { settings } = useSettings();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"chooser" | "ai">("chooser");
+  const [mode, setMode] = useState<ChatMode>("chooser");
+  const [agentTicketId, setAgentTicketId] = useState<string | null>(null);
+  const [agentStarting, setAgentStarting] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const [flow, setFlow] = useState<Flow>("issue");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,6 +64,100 @@ export function SupportChat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingTicketRef = useRef<{ subject: string; message: string } | null>(null);
+  const playPremiumReplySound = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const context = audioContextRef.current || new AudioContextClass();
+      audioContextRef.current = context;
+      if (context.state === "suspended") void context.resume();
+      const now = context.currentTime;
+      // A soft, premium two-note chime; no external audio file or download required.
+      [659.25, 987.77].forEach((frequency, index) => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(frequency, now + index * 0.11);
+        gain.gain.setValueAtTime(0.0001, now + index * 0.11);
+        gain.gain.exponentialRampToValueAtTime(0.12, now + index * 0.11 + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.11 + 0.32);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start(now + index * 0.11);
+        oscillator.stop(now + index * 0.11 + 0.34);
+      });
+    } catch {
+      // Browsers may block audio until the visitor interacts with the page.
+    }
+  };
+
+  const startHumanAgent = async () => {
+    if (!user?.id) {
+      setMessages([{ from: "bot", text: "সরাসরি Customer Agent-এর সঙ্গে কথা বলতে আগে Login করুন। এরপর আবার Customer Agent নির্বাচন করুন।" }]);
+      setMode("agent");
+      return;
+    }
+    setAgentStarting(true);
+    try {
+      const { data, error } = await supabase.from("support_tickets").insert({
+        user_id: user.id,
+        subject: "Live Customer Agent Chat",
+        message: "Customer requested a live human support chat.",
+        source: "customer",
+        status: "open",
+      }).select("id").single();
+      if (error || !data?.id) throw error || new Error("Could not create support ticket");
+      setAgentTicketId(data.id);
+      setMode("agent");
+      setMessages([{ from: "agent", text: "আপনার Customer Agent chat request তৈরি হয়েছে। একজন এজেন্ট উত্তর দিলে এখানে দেখা যাবে।" }]);
+    } catch {
+      setMessages([{ from: "agent", text: "Customer Agent request তৈরি করা যায়নি। অনুগ্রহ করে Login আছে কি না দেখুন, তারপর আবার চেষ্টা করুন অথবা Normal Support ব্যবহার করুন।" }]);
+      setMode("agent");
+    } finally {
+      setAgentStarting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mode !== "agent" || !agentTicketId || !user?.id) return;
+    const channel = supabase
+      .channel(`support-agent-${agentTicketId}`)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "support_replies",
+        filter: `ticket_id=eq.${agentTicketId}`,
+      }, (payload) => {
+        const row = payload.new as { id: string; user_id: string; message: string };
+        if (row.user_id !== user.id) {
+          setMessages((current) => [...current, { from: "agent", text: row.message, id: row.id }]);
+          playPremiumReplySound();
+        }
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [mode, agentTicketId, user?.id]);
+  
+  const sendAgentMessage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const value = text.trim();
+    if (!value || !agentTicketId || !user?.id || busy) return;
+    setText("");
+    setBusy(true);
+    const { error } = await supabase.from("support_replies").insert({
+      ticket_id: agentTicketId,
+      user_id: user.id,
+      message: value,
+    });
+    if (error) {
+      setMessages((current) => [...current, { from: "agent", text: "মেসেজ পাঠানো যায়নি। আবার চেষ্টা করুন।" }]);
+      setText(value);
+    } else {
+      setMessages((current) => [...current, { from: "user", text: value }]);
+    }
+    setBusy(false);
+  };
+
   const wa = waLink(settings.whatsapp_number, `Hello ${settings.site_name}, I need support.`);
   const tg = tgLink(settings.telegram_username);
 
@@ -103,6 +201,7 @@ export function SupportChat() {
   const resetChat = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setMode("chooser");
+    setAgentTicketId(null);
     setFlow("issue");
     setMessages([]);
     setText("");
@@ -144,6 +243,7 @@ export function SupportChat() {
       }
 
       setMessages((current) => [...current, { from: "bot", text: result.reply! }]);
+      playPremiumReplySound();
       if (result.readyForTicket) {
         if (!user?.id) {
           setFlow("done");
@@ -185,12 +285,21 @@ export function SupportChat() {
           <button type="button" onClick={startAI} className="flex w-full items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary"><Bot className="h-6 w-6" /></span><span><span className="block font-semibold">AI Support</span><span className="block text-xs text-muted-foreground">চ্যাটে সমস্যার তথ্য দিন</span></span>
           </button>
+          <button type="button" onClick={() => void startHumanAgent()} disabled={agentStarting} className="flex w-full items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-left transition-colors hover:bg-emerald-500/10 disabled:opacity-60"><span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600"><UserRound className="h-6 w-6" /></span><span><span className="block font-semibold">{agentStarting ? "Connecting…" : "Customer Agent"}</span><span className="block text-xs text-muted-foreground">মানুষের সঙ্গে সরাসরি চ্যাট করুন (Login required)</span></span></button>
           <div className="rounded-xl border border-border p-4"><div className="mb-3 flex items-center gap-2"><UserRound className="h-5 w-5" /><span className="font-semibold">Normal Support</span></div><div className="grid grid-cols-2 gap-2">
             {wa && <a href={wa} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-lg bg-success px-3 py-3 text-sm font-semibold text-background"><MessageCircle className="h-4 w-4" /> WhatsApp</a>}
             {tg && <a href={tg} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-3 text-sm font-semibold text-accent-foreground"><Send className="h-4 w-4" /> Telegram</a>}
             {!wa && !tg && <p className="col-span-2 text-xs text-muted-foreground">Admin Panel থেকে WhatsApp/Telegram contact সেট করতে হবে।</p>}
           </div></div>
-        </div> : <>
+        </div> : mode === "agent" ? <>
+          <div className="flex-1 space-y-3 overflow-y-auto p-3" aria-live="polite">
+            <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-[11px] text-muted-foreground">Customer Agent Chat {agentTicketId ? "• Request: " + agentTicketId.slice(0, 8) : ""}</div>
+            {messages.map((message, index) => <div key={message.id || index} className={`flex ${message.from === "user" ? "justify-end" : "justify-start"}`}><p className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${message.from === "user" ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm bg-muted text-foreground"}`}>{message.text}</p></div>)}
+            <div ref={bottomRef} />
+          </div>
+          {agentTicketId ? <form onSubmit={sendAgentMessage} className="flex items-center gap-2 border-t border-border p-3"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="এজেন্টকে মেসেজ লিখুন…" maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary" aria-label="Message customer agent" /><button type="submit" disabled={!text.trim() || busy} aria-label="Send message to agent" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button></form> : <div className="border-t border-border p-3"><button type="button" onClick={resetChat} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">Back to Support options</button></div>}
+          <button type="button" onClick={resetChat} className="border-t border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground">← Support options</button>
+        </> : <>
           <div className="flex-1 space-y-3 overflow-y-auto p-3" aria-live="polite">
             <div className="rounded-lg bg-muted/70 px-3 py-2 text-[11px] text-muted-foreground">আপনি AI Support Assistant-এর সঙ্গে কথা বলছেন।</div>
             {messages.map((message, index) => <div key={index} className={`flex ${message.from === "user" ? "justify-end" : "justify-start"}`}><p className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${message.from === "user" ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm bg-muted text-foreground"}`}>{message.text}</p></div>)}
