@@ -57,6 +57,8 @@ export function SupportChat() {
   const [agentStarting, setAgentStarting] = useState(false);
   const [agentChatClosed, setAgentChatClosed] = useState(false);
   const [agentStartedAt, setAgentStartedAt] = useState<number | null>(null);
+  const [activeSupportSource, setActiveSupportSource] = useState<string | null>(null);
+  const [restoringActiveTicket, setRestoringActiveTicket] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const [flow, setFlow] = useState<Flow>("issue");
   const [text, setText] = useState("");
@@ -126,13 +128,23 @@ export function SupportChat() {
           source: "customer_agent",
         }),
       });
-      const result = await response.json() as { ok?: boolean; ticketId?: string; emailSent?: boolean; error?: string };
-      if (!response.ok || !result.ok || !result.ticketId) throw new Error(result.error || "Could not create support ticket");
+      const result = await response.json() as { ok?: boolean; ticketId?: string; emailSent?: boolean; error?: string; reused?: boolean; ticketSource?: string; createdAt?: string; activeSource?: string };
+      if (!response.ok || !result.ok || !result.ticketId) {
+        if (response.status === 409 && result.activeSource) {
+          setActiveSupportSource(result.activeSource);
+          setMessages([{ from: "agent", text: result.error || "আপনার একটি Support request খোলা আছে। সেটি বন্ধ হওয়া পর্যন্ত নতুন Customer Agent chat খোলা যাবে না।" }]);
+          setMode(result.activeSource === "customer_agent" ? "agent" : "chooser");
+          if (result.activeSource === "customer_agent") setAgentTicketId(result.ticketId || null);
+          return;
+        }
+        throw new Error(result.error || "Could not create support ticket");
+      }
       setAgentTicketId(result.ticketId);
       setAgentChatClosed(false);
-      setAgentStartedAt(Date.now());
+      setAgentStartedAt(result.createdAt ? Date.parse(result.createdAt) : Date.now());
+      setActiveSupportSource("customer_agent");
       setMode("agent");
-      setMessages([{ from: "agent", text: `আমাদের Customer Representative এই মুহূর্তে ব্যস্ত আছেন। অনুগ্রহ করে অপেক্ষা করুন, প্রতিনিধি শিগগিরই আপনার সঙ্গে কথা বলবেন।${result.emailSent ? " আপনার ইমেইলেও confirmation পাঠানো হয়েছে।" : ""}` }]);
+      setMessages([{ from: "agent", text: result.reused ? "আপনার আগের Customer Agent chat এখনও খোলা আছে। আগের request-এই কথোপকথন চলবে।" : `আমাদের Customer Representative এই মুহূর্তে ব্যস্ত আছেন। অনুগ্রহ করে অপেক্ষা করুন, প্রতিনিধি শিগগিরই আপনার সঙ্গে কথা বলবেন।${result.emailSent ? " আপনার ইমেইলেও confirmation পাঠানো হয়েছে।" : ""}` }]);
     } catch {
       setMessages([{ from: "agent", text: "Customer Agent request তৈরি করা যায়নি। অনুগ্রহ করে Login আছে কি না দেখুন, তারপর আবার চেষ্টা করুন।" }]);
       setMode("agent");
@@ -140,6 +152,39 @@ export function SupportChat() {
       setAgentStarting(false);
     }
   };
+
+  useEffect(() => {
+    if (!user?.id) {
+      setActiveSupportSource(null);
+      return;
+    }
+    let active = true;
+    setRestoringActiveTicket(true);
+    void (async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) return;
+        const response = await fetch("/api/public/support/active-ticket", { headers: { Authorization: `Bearer ${token}` } });
+        const result = await response.json() as { ok?: boolean; ticket?: { id: string; subject: string; message: string; source: string; created_at: string } | null };
+        if (!active || !response.ok || !result.ok || !result.ticket) return;
+        const ticket = result.ticket;
+        setActiveSupportSource(ticket.source);
+        if (ticket.source === "customer_agent") {
+          setAgentTicketId(ticket.id);
+          setAgentChatClosed(false);
+          setAgentStartedAt(Date.parse(ticket.created_at));
+          setMode("agent");
+          setMessages([{ from: "agent", text: "আপনার আগের Customer Agent chat এখনও খোলা আছে। আগের request-এই কথোপকথন চলবে।" }]);
+        }
+      } catch (error) {
+        console.error("Could not restore active support chat", error);
+      } finally {
+        if (active) setRestoringActiveTicket(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     if (mode !== "agent" || !agentTicketId || !user?.id) return;
@@ -292,6 +337,7 @@ export function SupportChat() {
     setAgentTicketId(null);
     setAgentChatClosed(false);
     setAgentStartedAt(null);
+    setActiveSupportSource(null);
     setFlow("issue");
     setMessages([]);
     setText("");
@@ -378,10 +424,12 @@ export function SupportChat() {
 
         {mode === "chooser" ? <div className="space-y-3 p-4">
           <p className="text-sm text-muted-foreground">আপনি কীভাবে সাপোর্ট নিতে চান?</p>
+           {activeSupportSource && activeSupportSource !== "customer_agent" && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">আপনার একটি Support request ইতিমধ্যে খোলা আছে। সেটি বন্ধ হওয়া পর্যন্ত Customer Agent খোলা যাবে না।</p>}
+           {restoringActiveTicket && <p className="text-xs text-muted-foreground">আপনার আগের Support request খোঁজা হচ্ছে…</p>}
           <button type="button" onClick={startAI} className="flex w-full items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary"><Bot className="h-6 w-6" /></span><span><span className="block font-semibold">AI Support</span><span className="block text-xs text-muted-foreground">চ্যাটে সমস্যার তথ্য দিন</span></span>
           </button>
-          <button type="button" onClick={() => void startHumanAgent()} disabled={agentStarting} className="flex w-full items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-left transition-colors hover:bg-emerald-500/10 disabled:opacity-60"><span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600"><UserRound className="h-6 w-6" /></span><span><span className="block font-semibold">{agentStarting ? "Connecting…" : "Customer Agent"}</span><span className="block text-xs text-muted-foreground">মানুষের সঙ্গে সরাসরি চ্যাট করুন (Login required)</span></span></button>
+          <button type="button" onClick={() => void startHumanAgent()} disabled={agentStarting || restoringActiveTicket || (!!activeSupportSource && activeSupportSource !== "customer_agent")} className="flex w-full items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-left transition-colors hover:bg-emerald-500/10 disabled:opacity-60"><span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600"><UserRound className="h-6 w-6" /></span><span><span className="block font-semibold">{agentStarting ? "Connecting…" : "Customer Agent"}</span><span className="block text-xs text-muted-foreground">মানুষের সঙ্গে সরাসরি চ্যাট করুন (Login required)</span></span></button>
           <div className="rounded-xl border border-border p-4"><div className="mb-3 flex items-center gap-2"><UserRound className="h-5 w-5" /><span className="font-semibold">Normal Support</span></div><div className="grid grid-cols-2 gap-2">
             {wa && <a href={wa} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-lg bg-success px-3 py-3 text-sm font-semibold text-background"><MessageCircle className="h-4 w-4" /> WhatsApp</a>}
             {tg && <a href={tg} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-3 text-sm font-semibold text-accent-foreground"><Send className="h-4 w-4" /> Telegram</a>}
