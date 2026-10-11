@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS public.referrals (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   referrer_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   referred_user_id uuid NOT NULL UNIQUE REFERENCES public.profiles(id) ON DELETE CASCADE,
-  reward_amount numeric(12,2) NOT NULL DEFAULT 2 CHECK (reward_amount = 2),
+  reward_amount numeric(12,2) NOT NULL DEFAULT 5 CHECK (reward_amount = 5),
   created_at timestamptz NOT NULL DEFAULT now(),
   CHECK (referrer_id <> referred_user_id)
 );
@@ -30,14 +30,14 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = new_user) THEN RETURN false; END IF;
   IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = referrer AND is_active = true) THEN RETURN false; END IF;
   INSERT INTO public.referrals(referrer_id, referred_user_id, reward_amount)
-  VALUES (referrer, new_user, 2)
+  VALUES (referrer, new_user, 5)
   ON CONFLICT (referred_user_id) DO NOTHING;
   IF NOT FOUND THEN RETURN false; END IF;
   SELECT balance INTO current_balance FROM public.profiles WHERE id = referrer FOR UPDATE;
   PERFORM set_config('app.bypass_profile_guard','on',true);
-  UPDATE public.profiles SET balance = balance + 2 WHERE id = referrer;
+  UPDATE public.profiles SET balance = balance + 0.05 WHERE id = referrer;
   INSERT INTO public.wallet_transactions(user_id, amount, type, description, balance_after)
-  VALUES (referrer, 2, 'referral_reward', 'Referral reward', current_balance + 2);
+  VALUES (referrer, 0.05, 'referral_reward', 'Referral reward ৳5', current_balance + 0.05);
   RETURN true;
 END;
 $$;
