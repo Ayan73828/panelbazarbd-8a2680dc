@@ -56,6 +56,7 @@ export const adminSetUserRoles = createServerFn({ method: "POST" })
     if (String(context.claims?.email ?? "").toLowerCase() !== "ishak777998@gmail.com") {
       throw new Error("Only the main admin can assign roles");
     }
+    if (data.userId !== context.userId && data.roles.includes("admin")) throw new Error("Only the protected main admin account may hold the full admin role");
     if (data.userId === context.userId && !data.roles.includes("admin")) throw new Error("You cannot remove your own admin role");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: target, error: targetError } = await supabaseAdmin.from("profiles").select("email").eq("id", data.userId).maybeSingle();
