@@ -35,7 +35,7 @@ function ReferralPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Referral Program" description="Invite new customers and earn ৳2 for every successful new referral." />
+      <PageHeader title="Referral Program" description="Invite new customers and earn ৳5 for every successful new referral." />
       <section className="panel space-y-3 p-5">
         <p className="text-sm text-muted-foreground">Your personal referral link</p>
         <div className="break-all rounded-xl border border-border bg-surface-2 p-3 text-sm">{referralLink || "Loading your referral link…"}</div>
