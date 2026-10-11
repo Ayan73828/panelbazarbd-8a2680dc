@@ -489,7 +489,7 @@ async function handleCallback(cq: any) {
         return screen(chatId, cq.message?.message_id, message, MENU);
       }
       await setState(chatId, "guest_auth", { phone_shared: true });
-      return screen(chatId, cq.message?.message_id, "✅ Account unlink হয়েছে।\n\nTelegram Guest balance: " + tk(Number(split?.guest_balance ?? 0)) + "\nWebsite balance: " + tk(Number(split?.website_balance ?? 0)) + "\n\nমূল balance ratio অনুযায়ী অবশিষ্ট টাকা ভাগ করা হয়েছে।", GUEST_AUTH);
+      return screen(chatId, cq.message?.message_id, "<b>Website Successfully Unlinked ‼️</b>", GUEST_AUTH);
     }
     if (id === "profile") {
       const [ordersResult, spentResult, referralResult] = await Promise.all([
@@ -502,7 +502,12 @@ async function handleCallback(cq: any) {
       const joined = user.created_at ? new Date(user.created_at).toLocaleString("sv-SE", { timeZone: "Asia/Dhaka" }).replace("T", " ") : "—";
       const account = user.is_admin ? "👑 Admin" : "🧑‍💼 Regular";
       const profileText = `👤 ━━ <b>YOUR PROFILE</b> ━━ 👤\n\n🆔 User ID: <code>${cq.from.id}</code>\n📛 Name: ${esc(user.name || user.username || "—")}\n📧 Email: ${esc(user.email || "Not added")}\n📱 Number: ${esc(user.phone || "Not added")}\n👑 Account: ${account}\n\n💰 ━ <b>Balance</b> ━\n   💳 Current: ${dualMoney(user.balance)}\n\n📊 ━ <b>Statistics</b> ━\n   📦 Orders: ${orderCount}\n   💸 Spent: ${dualMoney(spent)}\n   👥 Referrals: ${referralResult.count ?? 0}\n\n📅 Joined: ${joined}`;
-      return screen(chatId, cq.message?.message_id, profileText, { inline_keyboard: [[{ text: "🚪 Logout", callback_data: "menu:logout" }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
+      const { data: linkedAccount } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
+      const profileKeyboard = [
+        ...(linkedAccount ? [[{ text: "🚪 Logout", callback_data: "menu:logout" }]] : []),
+        [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }],
+      ];
+      return screen(chatId, cq.message?.message_id, profileText, { inline_keyboard: profileKeyboard });
     }
     if (id === "home") return welcome(chatId, user, cq.message?.message_id);
   }
