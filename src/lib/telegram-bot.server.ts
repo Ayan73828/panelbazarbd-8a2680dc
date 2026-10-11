@@ -499,7 +499,7 @@ async function handleCallback(cq: any) {
       const { data: rows, error } = await db.from("referrals").select("id").eq("referrer_id", user.id);
       const referralCount = error ? 0 : (rows ?? []).length;
       const referralLink = `https://t.me/${"panelbazarbd_bot"}?start=ref_${encodeURIComponent(user.id)}`;
-      const text = `🤝 <b>REFERRAL PROGRAM</b>\n\n👥 Successful referrals: <b>${referralCount}</b>\n\n🔗 <b>Your personal Telegram link:</b>\n${esc(referralLink)}\n\nবন্ধুকে এই link পাঠান। সে link দিয়ে bot-এ Start চাপবে, নিজের নম্বর share করবে এবং website account তৈরি করে email verify করলে referral গণনা হবে।`;
+      const text = `🤝 <b>REFERRAL PROGRAM</b>\n\n🎁 প্রতি সফল রেফারেলে পুরস্কার: <b>৳5</b>\n👥 Successful referrals: <b>${referralCount}</b>\n\n🔗 <b>Your personal Telegram link:</b>\n${esc(referralLink)}\n\nবন্ধুকে এই link পাঠান। সে link দিয়ে bot-এ Start চাপবে, তারপর এই link-এর মাধ্যমে website account তৈরি করে email verify করলে একবারই ৳5 reward যোগ হবে.`;
       return screen(chatId, cq.message?.message_id, text, { inline_keyboard: [[{ text: "📋 Open Website Referral Page", url: "https://panelbazarbd.shop/dashboard/referral" }], [{ text: "🌐 Open Website", url: "https://panelbazarbd.shop" }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
     }
     if (id === "supportticket") {
