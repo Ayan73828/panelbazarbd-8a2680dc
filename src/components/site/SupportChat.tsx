@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Bot, CheckCircle2, MessageCircle, Send, UserRound, X } from "lucide-react";
+import { Bot, CheckCircle2, MessageCircle, Paperclip, Send, UserRound, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSite";
@@ -62,6 +62,7 @@ export function SupportChat() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const [flow, setFlow] = useState<Flow>("issue");
   const [text, setText] = useState("");
+  const [attachment, setAttachment] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [agent] = useState(() => agents[Math.floor(Math.random() * agents.length)] || "রাকিব");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -508,13 +509,28 @@ export function SupportChat() {
         const transcript = [...nextMessages, { from: "bot" as const, text: result.reply! }]
           .map((message) => `${message.from === "user" ? "Customer" : "Assistant"}: ${message.text}`)
           .join("\n");
-        const ticketMessage = (result.ticketMessage?.trim() || transcript).slice(0, 5000);
+        let ticketMessage = (result.ticketMessage?.trim() || transcript).slice(0, 5000);
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
         if (!accessToken) {
           setMessages((current) => [...current, { from: "bot", text: "আপনার Login session শেষ হয়েছে। আবার Login করে Support Chat-এ চেষ্টা করুন।" }]);
           setFlow("done");
           return;
+        }
+        if (attachment) {
+          const uploadForm = new FormData();
+          uploadForm.append("file", attachment);
+          const uploadResponse = await fetch("/api/public/support/upload-attachment", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: uploadForm,
+          });
+          const uploadResult = await uploadResponse.json() as { ok?: boolean; url?: string; error?: string };
+          if (!uploadResponse.ok || !uploadResult.ok || !uploadResult.url) {
+            setMessages((current) => [...current, { from: "bot", text: uploadResult.error || "ছবিটি আপলোড করা যায়নি। আবার চেষ্টা করুন অথবা ছবি ছাড়া টিকিট খুলুন।" }]);
+            return;
+          }
+          ticketMessage = `${ticketMessage}\\n\\nCustomer photo attachment (private link): ${uploadResult.url}`.slice(0, 5000);
         }
         const ticketResponse = await fetch("/api/public/support/create-ticket", {
           method: "POST",
@@ -587,13 +603,17 @@ export function SupportChat() {
             {busy && <div className="flex justify-start" role="status" aria-label="AI is typing"><div className="flex items-center gap-1.5 rounded-2xl rounded-bl-sm bg-muted px-4 py-3 text-muted-foreground"><span className="sr-only">উত্তর তৈরি হচ্ছে</span><span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" /><span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" /><span className="h-2 w-2 animate-bounce rounded-full bg-current" /></div></div>}<div ref={bottomRef} />
           </div>
           {flow === "done" ? <div className="space-y-2 border-t border-border p-3">
-            <div className="flex items-center gap-2 text-sm"><CheckCircle2 className="h-4 w-4" /> কথোপকথন সম্পন্ন</div>
-            <button type="button" onClick={resetChat} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">Back to Support options</button>
-            <div className="grid grid-cols-2 gap-2">{wa && <a href={wa} target="_blank" rel="noreferrer" className="rounded-lg bg-success px-3 py-2 text-center text-sm font-semibold text-background">WhatsApp</a>}{tg && <a href={tg} target="_blank" rel="noreferrer" className="rounded-lg bg-accent px-3 py-2 text-center text-sm font-semibold text-accent-foreground">Telegram</a>}</div>
-          </div> : flow === "pending" ? <form onSubmit={submitMessage} className="flex items-center gap-2 border-t border-border p-3"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="সমস্যার সমাধান হয়েছে বা আরও তথ্য লিখুন…" maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary" aria-label="Continue support chat" /><button type="submit" disabled={!text.trim() || busy} aria-label="Send message" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button></form> : <form onSubmit={submitMessage} className="flex items-center gap-2 border-t border-border p-3">
-            <input value={text} onChange={(event) => setText(event.target.value)} placeholder="আপনার মেসেজ লিখুন…" maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary" aria-label="Your message" />
-            <button type="submit" disabled={!text.trim() || busy} aria-label="Send message" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button>
-          </form>}
+             <div className="flex items-center gap-2 text-sm"><CheckCircle2 className="h-4 w-4" /> কথোপকথন সম্পন্ন</div>
+             <button type="button" onClick={resetChat} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">Back to Support options</button>
+             <div className="grid grid-cols-2 gap-2">{wa && <a href={wa} target="_blank" rel="noreferrer" className="rounded-lg bg-success px-3 py-2 text-center text-sm font-semibold text-background">WhatsApp</a>}{tg && <a href={tg} target="_blank" rel="noreferrer" className="rounded-lg bg-accent px-3 py-2 text-center text-sm font-semibold text-accent-foreground">Telegram</a>}</div>
+           </div> : <form onSubmit={submitMessage} className="border-t border-border p-3">
+             {attachment && <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span className="truncate">Photo: {attachment.name}</span><button type="button" onClick={() => setAttachment(null)} className="px-2 py-1 underline">Remove</button></div>}
+             <div className="flex items-center gap-2">
+               <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-input hover:bg-muted" aria-label="Attach photo"><Paperclip className="h-4 w-4" /><input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => setAttachment(event.target.files?.[0] ?? null)} /></label>
+               <input value={text} onChange={(event) => setText(event.target.value)} placeholder={flow === "pending" ? "সমস্যার সমাধান হয়েছে বা আরও তথ্য লিখুন…" : "আপনার মেসেজ লিখুন…"} maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary" aria-label="Your message" />
+               <button type="submit" disabled={(!text.trim() && !attachment) || busy} aria-label="Send message" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button>
+             </div>
+           </form>}
           {flow !== "pending" && <button type="button" onClick={resetChat} className="border-t border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground">← Support options</button>}
         </>}
       </section>}
