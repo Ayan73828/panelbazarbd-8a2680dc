@@ -22,6 +22,30 @@ export const adminResetPassword = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminSetCustomerAgentRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ userId: z.string().uuid(), enabled: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existing, error: readError } = await supabaseAdmin
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", data.userId)
+      .eq("role", "customer_agent");
+    if (readError) throw new Error(readError.message);
+    if (data.enabled) {
+      if (!existing?.length) {
+        const { error } = await supabaseAdmin.from("user_roles").insert({ user_id: data.userId, role: "customer_agent" });
+        if (error) throw new Error(error.message);
+      }
+    } else if (existing?.length) {
+      const { error } = await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId).eq("role", "customer_agent");
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true, enabled: data.enabled };
+  });
+
 export const adminDeleteUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ userId: z.string().uuid() }).parse(d))
