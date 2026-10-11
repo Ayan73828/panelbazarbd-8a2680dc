@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/public/support/agent-notify")({
         }
 
         try {
-          const body = await request.json() as { ticketId?: string };
+          const body = await request.json() as { ticketId?: string; message?: string };
           if (!body.ticketId || !/^[0-9a-f-]{36}$/i.test(body.ticketId)) {
             return Response.json({ error: "Invalid support request." }, { status: 400 });
           }
@@ -44,10 +44,11 @@ export const Route = createFileRoute("/api/public/support/agent-notify")({
             `User ID: ${user.id}`,
             `Subject: ${ticket.subject}`,
             "",
-            "Reply from the Telegram admin chat using:",
-            `/reply ${ticket.id} Your message here`,
+            body.message ? "New customer message:" : "Initial request:",
+            (body.message || ticket.message).slice(0, 1800),
             "",
-            ticket.message.slice(0, 1800)
+            "Reply from the Telegram admin chat using:",
+            `/reply ${ticket.id} Your reply here`
           ].join("\n");
           const telegramResponse = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
             method: "POST",
