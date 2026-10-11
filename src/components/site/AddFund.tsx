@@ -13,11 +13,9 @@ export function AddFund({ initialAmount, autoStart }: { initialAmount?: number |
   const [amount, setAmount] = useState(initialAmount ? String(Math.max(1, Math.ceil(initialAmount))) : "");
   const started = useRef(false);
   const [busy, setBusy] = useState(false);
-  const [method, setMethod] = useState<"local" | "binance">("local");
 
   const pay = async (value: number, allowAny = false) => {
     if (!(value >= (allowAny ? 1 : MIN))) { toast.error(`কমপক্ষে ৳${MIN} দিন`); return; }
-    if (method === "binance") { toast.error("Binance Pay এখনো সংযুক্ত করা হয়নি; merchant/API configuration প্রয়োজন।"); return; }
     setBusy(true);
     try {
       const r = await uddoktapayCreateCharge({ data: { amount: value, origin: window.location.origin } });
@@ -39,9 +37,7 @@ export function AddFund({ initialAmount, autoStart }: { initialAmount?: number |
   return (
     <div className="panel w-full min-w-0 space-y-3 overflow-hidden p-4">
       <h2 className="font-semibold">Add fund</h2>
-      <p className="text-sm text-muted-foreground">পেমেন্ট সফলভাবে যাচাই হলে ব্যালেন্স অটো যোগ হবে।</p>
-      {!fromProduct && <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setMethod("local")} className={`rounded-xl border p-3 text-sm font-semibold transition-colors ${method === "local" ? "border-primary bg-primary/10 text-primary" : "border-border"}`}>bKash / Nagad</button><button type="button" onClick={() => setMethod("binance")} className={`rounded-xl border p-3 text-sm font-semibold transition-colors ${method === "binance" ? "border-primary bg-primary/10 text-primary" : "border-border"}`}>Binance Pay</button></div>}
-      {method === "binance" && !fromProduct && <p className="rounded-lg bg-amber-500/10 p-3 text-xs text-muted-foreground">Binance Pay চালু করতে merchant/API credentials ও server-side verification যুক্ত করতে হবে।</p>}
+      <p className="text-sm text-muted-foreground">bKash / Nagad / Binance Pay দিয়ে পেমেন্ট করুন — ব্যালেন্স অটো যোগ হবে।</p>
       {fromProduct ? (
         <p className="rounded-lg bg-primary/10 p-3 text-sm text-primary">প্রোডাক্ট কিনতে ৳{Math.ceil(initialAmount!)} প্রয়োজন — পেমেন্ট পেজ খুলছে…</p>
       ) : (
