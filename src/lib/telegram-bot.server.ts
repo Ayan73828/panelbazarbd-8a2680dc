@@ -181,7 +181,8 @@ export async function handleUpdate(u: any) {
     return welcome(chatId, account);
   }
   if (st.state === "admin_support_reply" && text) {
-    if (String(chatId) !== String(process.env["TELEGRAM_OWNER_CHAT_ID"] ?? "")) return;
+    const supportOperatorChatId = process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+    if (String(chatId) !== String(supportOperatorChatId)) return;
     if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Reply বাতিল করা হয়েছে।"); }
     const ticketId = String(st.data?.support_ticket_id ?? "");
     const db = await admin();
@@ -424,8 +425,8 @@ async function handleCallback(cq: any) {
   let user = await linkedUser(cq.from.id);
   if (!user) user = await ensureTelegramAccount(cq.from.id, chatId, cq.from.username, cq.from.first_name);
   const [kind, id] = String(cq.data ?? "").split(":");
-  const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"];
-  if ((kind === "supportreply" || kind === "supportclose") && String(chatId) === String(ownerChatId ?? "")) {
+  const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+  if ((kind === "supportreply" || kind === "supportclose") && String(chatId) === String(ownerChatId)) {
     const db = await admin();
     const { data: ticket } = await db.from("support_tickets").select("id,user_id,subject,telegram_chat_id,status").eq("id", id).eq("status", "open").maybeSingle();
     if (!ticket) return screen(chatId, cq.message?.message_id, "টিকিটটি আগেই বন্ধ হয়েছে বা পাওয়া যায়নি।");
