@@ -45,41 +45,26 @@ export function playMoneyDeduct() {
 
 }
 
-/** Premium deep tactile UI click: a single muted low thock with a subtle warm body. */
+/** Minimal premium tap: a quick, soft finger-on-glass tick, single hit, no bass thump or ringing. */
 export function playUiClick() {
   const ac = ctx();
   if (!ac) return;
   const t = ac.currentTime;
 
-  // Short low body — gives the click weight without sounding like a bird/chime.
-  const body = ac.createOscillator();
-  const bodyGain = ac.createGain();
-  const bodyFilter = ac.createBiquadFilter();
-  body.type = "sine";
-  body.frequency.setValueAtTime(190, t);
-  body.frequency.exponentialRampToValueAtTime(112, t + 0.075);
-  bodyFilter.type = "lowpass";
-  bodyFilter.frequency.setValueAtTime(520, t);
-  bodyGain.gain.setValueAtTime(0.0001, t);
-  bodyGain.gain.exponentialRampToValueAtTime(0.085, t + 0.004);
-  bodyGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.095);
-  body.connect(bodyFilter).connect(bodyGain).connect(ac.destination);
-  body.start(t);
-  body.stop(t + 0.1);
-
-  // Very brief, quiet attack for definition; no high-pitched ringing or double tone.
-  const attack = ac.createOscillator();
-  const attackGain = ac.createGain();
-  const attackFilter = ac.createBiquadFilter();
-  attack.type = "triangle";
-  attack.frequency.setValueAtTime(430, t);
-  attack.frequency.exponentialRampToValueAtTime(250, t + 0.018);
-  attackFilter.type = "lowpass";
-  attackFilter.frequency.value = 900;
-  attackGain.gain.setValueAtTime(0.0001, t);
-  attackGain.gain.exponentialRampToValueAtTime(0.018, t + 0.002);
-  attackGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.028);
-  attack.connect(attackFilter).connect(attackGain).connect(ac.destination);
-  attack.start(t);
-  attack.stop(t + 0.03);
+  // Tiny, dry click transient with restrained high-mid energy.
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  const filter = ac.createBiquadFilter();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(1150, t);
+  osc.frequency.exponentialRampToValueAtTime(720, t + 0.014);
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(1450, t);
+  filter.Q.setValueAtTime(0.7, t);
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.022, t + 0.0015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.022);
+  osc.connect(filter).connect(gain).connect(ac.destination);
+  osc.start(t);
+  osc.stop(t + 0.025);
 }
