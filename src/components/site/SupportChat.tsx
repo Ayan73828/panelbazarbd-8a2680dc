@@ -194,7 +194,7 @@ export function SupportChat() {
           <div className="flex-1 space-y-3 overflow-y-auto p-3" aria-live="polite">
             <div className="rounded-lg bg-muted/70 px-3 py-2 text-[11px] text-muted-foreground">আপনি AI Support Assistant-এর সঙ্গে কথা বলছেন।</div>
             {messages.map((message, index) => <div key={index} className={`flex ${message.from === "user" ? "justify-end" : "justify-start"}`}><p className={`max-w-[88%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${message.from === "user" ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm bg-muted text-foreground"}`}>{message.text}</p></div>)}
-            {busy && <p className="text-xs text-muted-foreground">তথ্য জমা হচ্ছে…</p>}<div ref={bottomRef} />
+            {busy && <div className="flex justify-start" role="status" aria-label="AI is typing"><div className="flex items-center gap-1.5 rounded-2xl rounded-bl-sm bg-muted px-4 py-3 text-muted-foreground"><span className="sr-only">উত্তর তৈরি হচ্ছে</span><span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" /><span className="h-2 w-2 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" /><span className="h-2 w-2 animate-bounce rounded-full bg-current" /></div></div>}<div ref={bottomRef} />
           </div>
           {flow === "done" ? <div className="space-y-2 border-t border-border p-3">
             <div className="flex items-center gap-2 text-sm"><CheckCircle2 className="h-4 w-4" /> কথোপকথন সম্পন্ন</div>
