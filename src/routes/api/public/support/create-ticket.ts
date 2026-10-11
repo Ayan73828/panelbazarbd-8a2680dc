@@ -28,24 +28,38 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
       const subject = String(body.subject || "AI Support Request").slice(0, 160);
       const message = String(body.message || "").slice(0, 5000);
       if (!message.trim()) return Response.json({ error: "Ticket details are required." }, { status: 400 });
-      const insertRes = await fetch(`${url}/rest/v1/support_tickets`, {
+      const requestedSource = body.source === "customer_agent" ? "customer_agent" : body.source === "customer" ? "customer" : "website_ai_timeout";
+      const ticketRes = await fetch(`${url}/rest/v1/rpc/create_or_get_support_ticket`, {
         method: "POST",
-        headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json", Prefer: "return=representation" },
-        body: JSON.stringify({ user_id: user.id, subject, message, source: body.source === "customer_agent" ? "customer_agent" : body.source === "customer" ? "customer" : "website_ai_timeout", status: "open" }),
+        headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_user_id: user.id, p_subject: subject, p_message: message, p_source: requestedSource }),
       });
-      const inserted = await insertRes.json() as Array<{ id: string; created_at: string }> | { message?: string };
-      if (!insertRes.ok || !Array.isArray(inserted) || !inserted[0]?.id) {
-        console.error("Support ticket insert failed", JSON.stringify(inserted).slice(0, 300));
+      const ticketRows = await ticketRes.json() as Array<{ ticket_id: string; created: boolean; ticket_source: string; ticket_created_at: string }> | { message?: string };
+      if (!ticketRes.ok || !Array.isArray(ticketRows) || !ticketRows[0]?.ticket_id) {
+        console.error("Support ticket create/reuse failed", JSON.stringify(ticketRows).slice(0, 300));
         return Response.json({ error: "Could not create support ticket." }, { status: 500 });
       }
+      const activeTicket = ticketRows[0];
+      if (activeTicket.ticket_source !== requestedSource) {
+        return Response.json({
+          ok: false,
+          error: activeTicket.ticket_source === "customer_agent"
+            ? "আপনার একটি Customer Agent chat ইতিমধ্যে open আছে। সেটি শেষ না হওয়া পর্যন্ত অন্য Support request খোলা যাবে না।"
+            : "আপনার একটি Support request ইতিমধ্যে open আছে। সেটি শেষ না হওয়া পর্যন্ত Customer Agent খোলা যাবে না।",
+          activeSource: activeTicket.ticket_source,
+          ticketId: activeTicket.ticket_id,
+        }, { status: 409 });
+      }
+      const ticket = { id: activeTicket.ticket_id, created_at: activeTicket.ticket_created_at };
+      const isNewTicket = activeTicket.created;
       const profileRes = await fetch(`${url}/rest/v1/profiles?select=email&id=eq.${user.id}`, { headers: { apikey: service, Authorization: `Bearer ${service}` } });
       const profile = await profileRes.json() as Array<{ email?: string | null }>;
       const email = user.email || profile?.[0]?.email || undefined;
       const ticket = inserted[0];
-      const emailResult = await sendEmail(process.env["RESEND_API_KEY"], email, `Support request created: ${subject}`,
+      const emailResult = isNewTicket ? await sendEmail(process.env["RESEND_API_KEY"], email, `Support request created: ${subject}`,
         `Hello,\n\nYour Panel Bazar BD support request has been created.\nTicket ID: ${ticket.id}\nSubject: ${subject}\n\nDetails:\n${message}\n\nWe will review your request.\nPanel Bazar BD Support`);
       let telegramNotified = false;
-      if (body.source === "customer_agent") {
+      if (isNewTicket && body.source === "customer_agent") {
         const botToken = process.env["TELEGRAM_SUPPORT_BOT_TOKEN"] || process.env["SUPPORT_TELEGRAM_BOT_TOKEN"] || process.env["TELEGRAM_BOT_TOKEN"];
         const chatId = process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"];
         if (botToken && chatId) {
@@ -73,7 +87,7 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
           console.error("Customer agent Telegram notification skipped: bot token or chat ID is missing");
         }
       }
-      return Response.json({ ok: true, ticketId: ticket.id, emailSent: emailResult.sent, telegramNotified });
+      return Response.json({ ok: true, ticketId: ticket.id, emailSent: emailResult.sent, telegramNotified, reused: !isNewTicket, ticketSource: activeTicket.ticket_source, createdAt: activeTicket.ticket_created_at });
     } catch (error) {
       console.error("Create support ticket failed", error);
       return Response.json({ error: "Could not create support ticket." }, { status: 500 });
