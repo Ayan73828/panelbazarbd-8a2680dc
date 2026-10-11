@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 
 type Ticket = { id: string; user_id: string; subject: string; message: string; status: string; created_at: string };
 
@@ -25,31 +24,52 @@ export function SupportThread({ ticket, admin }: { ticket: Ticket; admin?: boole
   const send = async () => {
     if (!text.trim() || !user) return;
     setBusy(true);
-    if (admin) {
-      try {
-        await telegramNotifyEvent({ data: { event: "support_reply", recordId: ticket.id, message: text.trim().slice(0, 2000) } });
-      } catch (e) {
-        console.error("Telegram support reply notification failed", e);
-        setBusy(false);
-        toast.error("Telegram-এ reply পাঠানো যায়নি। Ticket খোলা থাকবে; আবার চেষ্টা করুন।");
-        return;
-      }
-    }
     const { error } = await supabase.from("support_replies").insert({ ticket_id: ticket.id, user_id: user.id, message: text.trim().slice(0, 2000) });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     setText("");
     if (admin) {
-      const { error: closeErr } = await supabase.from("support_tickets").update({ status: "resolved" }).eq("id", ticket.id);
-      if (closeErr) toast.error(closeErr.message);
-      else toast.success("রিপ্লাই পাঠানো হয়েছে, টিকিট বন্ধ করা হয়েছে");
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error("Admin login session expired.");
+        const response = await fetch("/api/public/support/close-ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ ticketId: ticket.id }),
+        });
+        const result = await response.json() as { ok?: boolean; emailSent?: boolean; error?: string };
+        if (!response.ok || !result.ok) throw new Error(result.error || "Could not close ticket.");
+        toast.success(result.emailSent ? "রিপ্লাই পাঠানো হয়েছে, টিকিট বন্ধ এবং customer-কে email করা হয়েছে" : "রিপ্লাই পাঠানো হয়েছে ও টিকিট বন্ধ হয়েছে; email পাঠানো যায়নি");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Reply পাঠানো হয়েছে, তবে ticket close/email notification হয়নি।");
+      }
       void qc.invalidateQueries({ queryKey: ["tickets"] });
     }
     void qc.invalidateQueries({ queryKey: ["ticket-replies", ticket.id] });
   };
   const setStatus = async (status: string) => {
-    const { error } = await supabase.from("support_tickets").update({ status }).eq("id", ticket.id);
-    if (error) { toast.error(error.message); return; }
+    if (admin && (status === "resolved" || status === "closed")) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error("Admin login session expired.");
+        const response = await fetch("/api/public/support/close-ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ ticketId: ticket.id }),
+        });
+        const result = await response.json() as { ok?: boolean; emailSent?: boolean; error?: string };
+        if (!response.ok || !result.ok) throw new Error(result.error || "Could not close ticket.");
+        toast.success(result.emailSent ? "Ticket বন্ধ; customer email notification পাঠানো হয়েছে" : "Ticket বন্ধ হয়েছে, কিন্তু email পাঠানো যায়নি");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Ticket close করা যায়নি");
+        return;
+      }
+    } else {
+      const { error } = await supabase.from("support_tickets").update({ status }).eq("id", ticket.id);
+      if (error) { toast.error(error.message); return; }
+    }
     void qc.invalidateQueries({ queryKey: ["tickets"] });
   };
   return (
