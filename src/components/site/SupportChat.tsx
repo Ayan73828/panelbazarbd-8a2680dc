@@ -121,14 +121,14 @@ export function SupportChat() {
         body: JSON.stringify({
           subject: "Live Customer Agent Chat",
           message: "Customer requested a live human support chat.",
-          source: "customer",
+          source: "customer_agent",
         }),
       });
       const result = await response.json() as { ok?: boolean; ticketId?: string; emailSent?: boolean; error?: string };
       if (!response.ok || !result.ok || !result.ticketId) throw new Error(result.error || "Could not create support ticket");
       setAgentTicketId(result.ticketId);
       setMode("agent");
-      setMessages([{ from: "agent", text: `আপনার Customer Agent chat request তৈরি হয়েছে। একজন এজেন্ট ওয়েবসাইট থেকেই উত্তর দেবেন।${result.emailSent ? " আপনার ইমেইলেও confirmation পাঠানো হয়েছে।" : ""}` }]);
+      setMessages([{ from: "agent", text: `আমাদের Customer Representative এই মুহূর্তে ব্যস্ত আছেন। অনুগ্রহ করে অপেক্ষা করুন, প্রতিনিধি শিগগিরই আপনার সঙ্গে কথা বলবেন।${result.emailSent ? " আপনার ইমেইলেও confirmation পাঠানো হয়েছে।" : ""}` }]);
     } catch {
       setMessages([{ from: "agent", text: "Customer Agent request তৈরি করা যায়নি। অনুগ্রহ করে Login আছে কি না দেখুন, তারপর আবার চেষ্টা করুন।" }]);
       setMode("agent");
