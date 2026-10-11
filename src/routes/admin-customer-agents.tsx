@@ -17,7 +17,8 @@ function CustomerAgentInbox() {
   const [selectedId, setSelectedId] = useState("");
   const [replies, setReplies] = useState<Reply[]>([]);
   const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);\n  const [closing, setClosing] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,7 +51,21 @@ function CustomerAgentInbox() {
     setReplies((data || []) as Reply[]);
   }, []);
 
-  useEffect(() => { void load(); }, [load]);\n  useEffect(() => {\n    if (!allowed) return;\n    const channel = supabase.channel("customer-agent-ticket-list")\n      .on("postgres_changes", { event: "*", schema: "public", table: "support_tickets" }, (payload) => {\n        const row = payload.new as Ticket;\n        if (row?.source !== "customer_agent") return;\n        setTickets((current) => {\n          const exists = current.some((ticket) => ticket.id === row.id);\n          const next = exists ? current.map((ticket) => ticket.id === row.id ? { ...ticket, ...row } : ticket) : [row, ...current];\n          return next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());\n        });\n      }).subscribe();\n    return () => { void supabase.removeChannel(channel); };\n  }, [allowed]);
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!allowed) return;
+    const channel = supabase.channel("customer-agent-ticket-list")
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_tickets" }, (payload) => {
+        const row = payload.new as Ticket;
+        if (row?.source !== "customer_agent") return;
+        setTickets((current) => {
+          const exists = current.some((ticket) => ticket.id === row.id);
+          const next = exists ? current.map((ticket) => ticket.id === row.id ? { ...ticket, ...row } : ticket) : [row, ...current];
+          return next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        });
+      }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [allowed]);
   useEffect(() => {
     if (!selectedId || !allowed) return;
     void loadReplies(selectedId);
