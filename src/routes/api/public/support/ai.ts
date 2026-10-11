@@ -11,15 +11,16 @@ const SYSTEM_PROMPT = `তুমি Panel Bazar BD ওয়েবসাইটে�
 - ব্যবহারকারী প্রয়োজনীয় তথ্য না দিলে আরও প্রশ্ন করবে। শুধু "hi", "ok", "কি", "হুম" ইত্যাদিতে কখনো টিকিট ready বলবে না।
 - প্রয়োজনীয় তথ্য পেলে বলবে: তথ্য পেয়েছ এবং support team-কে পাঠানোর জন্য প্রস্তুত করছ। তুমি নিজে সমাধান, refund বা balance credit হয়েছে বলে দাবি করবে না।
 - টিকিট প্রস্তুত বলে শুধু তখনই চিহ্নিত করবে যখন সমস্যার বিবরণ এবং ঐ সমস্যার প্রয়োজনীয় তথ্য কথোপকথনে সত্যিই আছে।
-- তথ্য সংগ্রহ শেষ হলে reply-তে জানাবে যে support request তৈরি হবে এবং অ্যাডমিন দেখবেন। `;
+- তথ্য সংগ্রহ শেষ হলে reply-তে জানাবে যে support request তৈরি হবে এবং অ্যাডমিন দেখবেন।
+- সর্বদা শুধু বৈধ JSON object ফেরত দেবে, এই keys-সহ: reply (string), category ("payment" | "expired" | "general"), readyForTicket (boolean), subject (string), ticketMessage (string)। JSON-এর বাইরে কোনো লেখা দেবে না।`;
 
 export const Route = createFileRoute("/api/public/support/ai")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = process.env["GEMINI_API_KEY"];
+        const apiKey = process.env["GROQ_API_KEY"];
         if (!apiKey) {
-          return Response.json({ error: "AI support is not configured yet. Please set GEMINI_API_KEY in the server environment." }, { status: 503 });
+          return Response.json({ error: "AI support is not configured yet. Please set GROQ_API_KEY in the Render server environment." }, { status: 503 });
         }
 
         try {
@@ -30,55 +31,46 @@ export const Route = createFileRoute("/api/public/support/ai")({
 
           const messages = body.messages
             .filter((m): m is ChatMessage => !!m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-            .map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content.slice(0, 2000) }] }));
+            .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
           if (!messages.length || messages[messages.length - 1]?.role !== "user") {
             return Response.json({ error: "A user message is required." }, { status: 400 });
           }
 
           const agentName = typeof body.agentName === "string" && /^[\u0980-\u09FF]{2,20}$/.test(body.agentName) ? body.agentName : "রাকিব";
-          // Prefer Flash-Lite for broad availability, then fall back to Flash if the first model is busy.
-          const modelCandidates = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
-          let data: { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> } | null = null;
-          for (const model of modelCandidates) {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: SYSTEM_PROMPT + "\\nএই কথোপকথনে তোমার নাম: " + agentName + "." }] },
-                contents: messages,
-                generationConfig: {
-                  responseMimeType: "application/json",
-                  responseSchema: {
-                    type: "OBJECT",
-                    properties: {
-                      reply: { type: "STRING" },
-                      category: { type: "STRING", enum: ["payment", "expired", "general"] },
-                      readyForTicket: { type: "BOOLEAN" },
-                      subject: { type: "STRING" },
-                      ticketMessage: { type: "STRING" }
-                    },
-                    required: ["reply", "category", "readyForTicket", "subject", "ticketMessage"]
-                  }
-                }
-              })
-            });
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: "llama-3.3-70b-versatile",
+              messages: [
+                { role: "system", content: SYSTEM_PROMPT + "\\nএই কথোপকথনে তোমার নাম: " + agentName + "." },
+                ...messages
+              ],
+              response_format: { type: "json_object" },
+              temperature: 0.3,
+              max_tokens: 700
+            })
+          });
 
-            if (response.ok) {
-              data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-              break;
-            }
-
+          if (!response.ok) {
             const detail = await response.text();
-            console.error("Gemini support API error", model, response.status, detail.slice(0, 300));
-            // Try the next model when the current model is unavailable, rate-limited, or overloaded.
-            if (![400, 404, 429, 500, 502, 503, 504].includes(response.status)) break;
+            console.error("Groq support API error", response.status, detail.slice(0, 300));
+            if (response.status === 401 || response.status === 403) {
+              return Response.json({ error: "AI support API key is invalid or not authorized. Please check GROQ_API_KEY in Render." }, { status: 503 });
+            }
+            if (response.status === 429) {
+              return Response.json({ error: "AI support has reached its current usage limit. Please try again later or use Normal Support." }, { status: 503 });
+            }
+            return Response.json({ error: "AI support is temporarily busy. Please try again or use Normal Support." }, { status: 502 });
           }
 
-          if (!data) {
-            return Response.json({ error: "AI support is temporarily busy. Please wait a few seconds and try again, or use Normal Support." }, { status: 502 });
-          }
-
-          const raw = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
+          const data = await response.json() as {
+            choices?: Array<{ message?: { content?: string | null } }>;
+          };
+          const raw = data.choices?.[0]?.message?.content ?? "";
           const parsed = JSON.parse(raw) as { reply: string; category: string; readyForTicket: boolean; subject: string; ticketMessage: string };
           if (typeof parsed.reply !== "string" || typeof parsed.readyForTicket !== "boolean") {
             return Response.json({ error: "Invalid AI response." }, { status: 502 });
