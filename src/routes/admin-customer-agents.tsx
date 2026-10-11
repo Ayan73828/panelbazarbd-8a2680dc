@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { CheckCheck, MessageCircle, RefreshCw, Send, UserRound, XCircle } from "lucide-react";
+import { MessageCircle, RefreshCw, Send, UserRound, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type Ticket = { id: string; user_id: string; subject: string; message: string; status: string; created_at: string };
