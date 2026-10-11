@@ -12,7 +12,7 @@ const SYSTEM_PROMPT = `তুমি Panel Bazar BD ওয়েবসাইটে�
 - প্রয়োজনীয় তথ্য পেলে বলবে: তথ্য পেয়েছ এবং support team-কে পাঠানোর জন্য প্রস্তুত করছ। তুমি নিজে সমাধান, refund বা balance credit হয়েছে বলে দাবি করবে না।
 - টিকিট প্রস্তুত বলে শুধু তখনই চিহ্নিত করবে যখন সমস্যার বিবরণ এবং ঐ সমস্যার প্রয়োজনীয় তথ্য কথোপকথনে সত্যিই আছে।
 - তথ্য সংগ্রহ শেষ হলে reply-তে জানাবে যে support request তৈরি হবে এবং অ্যাডমিন দেখবেন।
-- সর্বদা শুধু বৈধ JSON object ফেরত দেবে, এই keys-সহ: reply (string), category ("payment" | "expired" | "general"), readyForTicket (boolean), subject (string), ticketMessage (string)। JSON-এর বাইরে কোনো লেখা দেবে না।`;
+- সর্বদা শুধু বৈধ JSON object ফেরত দেবে, এই keys-সহ: reply (string), category ("payment" | "expired" | "general"), readyForTicket (boolean), subject (string), ticketMessage (string)। JSON-এর বাইরে কোনো লেখা দেবে না。`;
 
 export const Route = createFileRoute("/api/public/support/ai")({
   server: {
@@ -44,9 +44,9 @@ export const Route = createFileRoute("/api/public/support/ai")({
               Authorization: `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-              model: "llama-3.1-8b-instant",
+              model: "openai/gpt-oss-20b",
               messages: [
-                { role: "system", content: SYSTEM_PROMPT + "\\nএই কথোপকথনে তোমার নাম: " + agentName + "." },
+                { role: "system", content: SYSTEM_PROMPT + "\nএই কথোপকথনে তোমার নাম: " + agentName + "." },
                 ...messages
               ],
               response_format: { type: "json_object" },
