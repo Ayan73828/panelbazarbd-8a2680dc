@@ -28,7 +28,7 @@ const MENU = {
     [{ text: "🧾 My Order", callback_data: "menu:orders" }, { text: "👑 Profile", callback_data: "menu:profile" }],
     [{ text: "💳 Add Balance", callback_data: "menu:fund" }, { text: "🤝 Referral", callback_data: "menu:referral" }],
     [{ text: "💬 Support", callback_data: "menu:support" }],
-    [{ text: "🌐 LOGIN INTO WEBSITE", url: `${SITE_URL}/auth` }],
+    [{ text: "🔗 Linked Website Account", callback_data: "menu:link_account" }],
   ],
 };
 const RESTART_KEYBOARD = {
@@ -78,10 +78,51 @@ async function getState(chatId: number) {
 }
 async function linkedUser(tgUserId: number) {
   const db = await admin();
-  const { data } = await db.from("telegram_links").select("user_id").eq("telegram_user_id", tgUserId).maybeSingle();
-  if (!data) return null;
-  const { data: p } = await db.from("profiles").select("*").eq("id", data.user_id).maybeSingle();
-  return p as any;
+  const { data: link } = await db.from("telegram_links").select("user_id").eq("telegram_user_id", tgUserId).maybeSingle();
+  if (link) {
+    const { data: linkedProfile } = await db.from("profiles").select("*").eq("id", link.user_id).maybeSingle();
+    if (linkedProfile) return linkedProfile as any;
+  }
+  const { data: account } = await db.from("telegram_accounts").select("user_id").eq("telegram_user_id", tgUserId).maybeSingle();
+  if (!account) return null;
+  const { data: profile } = await db.from("profiles").select("*").eq("id", account.user_id).maybeSingle();
+  return profile as any;
+}
+
+async function ensureTelegramAccount(tgUserId: number, chatId: number, telegramUsername?: string, firstName?: string) {
+  const existing = await linkedUser(tgUserId);
+  if (existing) {
+    const db = await admin();
+    const { data: link } = await db.from("telegram_links").select("id").eq("telegram_user_id", tgUserId).maybeSingle();
+    await db.from("telegram_accounts").upsert({
+      telegram_user_id: tgUserId, telegram_chat_id: chatId, user_id: existing.id,
+      telegram_username: telegramUsername ?? null, is_guest: !link,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "telegram_user_id" });
+    return existing;
+  }
+  const db = await admin();
+  const userId = crypto.randomUUID();
+  const { error: profileError } = await db.from("profiles").insert({
+    id: userId, name: String(firstName ?? "Telegram Customer").slice(0, 100),
+    username: `tg_${tgUserId}`, email: null, phone: null, balance: 0, is_active: true,
+  });
+  if (profileError) {
+    const retry = await linkedUser(tgUserId);
+    if (retry) return retry;
+    console.error("Telegram guest profile create failed", profileError);
+    throw new Error("Could not create Telegram account");
+  }
+  const { error: accountError } = await db.from("telegram_accounts").insert({
+    telegram_user_id: tgUserId, telegram_chat_id: chatId, user_id: userId,
+    telegram_username: telegramUsername ?? null, is_guest: true,
+  });
+  if (accountError) {
+    console.error("Telegram account create failed", accountError);
+    throw new Error("Could not create Telegram account");
+  }
+  const { data: profile } = await db.from("profiles").select("*").eq("id", userId).maybeSingle();
+  return profile as any;
 }
 const screen = async (chat_id: number, message_id: number | undefined, text: string, reply_markup?: unknown) => {
   if (typeof message_id === "number") {
@@ -109,12 +150,7 @@ async function welcome(chatId: number, user: any, messageId?: number) {
     else await send(chatId, welcomeText, MENU);
     if (typeof messageId !== "number") await send(chatId, " ", RESTART_KEYBOARD);
   } else {
-    const st = await getState(chatId);
-    if (st.data?.phone_shared) {
-      await send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nএখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
-    } else {
-      await send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nশুরু করতে নিচের SHARE MY NUMBER বাটনে চাপ দিন।", SHARE_NUMBER);
-    }
+    await send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nএখনই Telegram থেকেই Shop Now, Add Balance ও My Order ব্যবহার করতে পারবেন। Website account যুক্ত করা ঐচ্ছিক।", MENU);
   }
 }
 
@@ -130,10 +166,9 @@ export async function handleUpdate(u: any) {
   if (text === "Restart 🔁") {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
     await Promise.all(oldIds.map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)));
-    await setState(chatId, st.data?.phone_shared ? (user ? "" : "guest_auth") : (user ? "" : "guest_share_number"), { recent_bot_message_ids: [] });
-    if (user) return welcome(chatId, user);
-    if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
-    return send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nশুরু করতে নিচের SHARE MY NUMBER বাটনে চাপ দিন।", SHARE_NUMBER);
+    await setState(chatId, "", { recent_bot_message_ids: [] });
+    const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
+    return welcome(chatId, account);
   }
   if (text.startsWith("/start")) {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
@@ -141,10 +176,9 @@ export async function handleUpdate(u: any) {
     const payload = text.split(/\s+/)[1] ?? "";
     const referrerId = payload.startsWith("ref_") ? payload.slice(4) : st.data?.pending_referrer_id;
     const nextData = { recent_bot_message_ids: [], pending_referrer_id: referrerId || null };
-    await setState(chatId, st.data?.phone_shared ? (user ? "" : "guest_auth") : (user ? "" : "guest_share_number"), nextData);
-    if (user) return welcome(chatId, user);
-    if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
-    return send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nশুরু করতে নিচের SHARE MY NUMBER বাটনে চাপ দিন।", SHARE_NUMBER);
+    await setState(chatId, "", nextData);
+    const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
+    return welcome(chatId, account);
   }
   if (st.state === "admin_support_reply" && text) {
     if (String(chatId) !== String(process.env["TELEGRAM_OWNER_CHAT_ID"] ?? "")) return;
@@ -211,7 +245,7 @@ export async function handleUpdate(u: any) {
     });
   if (text === "🔐 LOGIN" || text === "/login") {
     await setState(chatId, "login_email");
-    return send(chatId, "ওয়েবসাইটে নিবন্ধিত <b>Email address</b> লিখুন। আপনার ইমেইলে verification code পাঠানো হবে:", { remove_keyboard: true });
+    return send(chatId, "আপনার website account-এর registered <b>Email address</b> লিখুন। নিরাপদে account link করতে email verification code পাঠানো হবে:", { remove_keyboard: true });
   }
   if (st.state === "login_email" && text) {
     const email = text.trim().toLowerCase();
@@ -241,16 +275,20 @@ export async function handleUpdate(u: any) {
     const { data, error } = await pub.auth.verifyOtp({ email, token: code, type: "email" });
     if (error || !data.user) { console.error("Telegram OTP verification failed", error?.message); return send(chatId, "❌ Code ভুল বা মেয়াদ শেষ। সঠিক code আবার দিন, অথবা /cancel লিখে নতুন code নিন।"); }
     const db = await admin();
-    await db.from("telegram_links").delete().or("user_id.eq." + data.user.id + ",telegram_user_id.eq." + m.from.id);
-    const { error: linkError } = await db.from("telegram_links").insert({ user_id: data.user.id, telegram_user_id: m.from.id, telegram_chat_id: chatId, telegram_username: m.from.username ?? null });
-    if (linkError) { console.error("Telegram account link failed", linkError); await setState(chatId, ""); return send(chatId, "❌ Email verify হয়েছে, কিন্তু Telegram account link করা যায়নি। Admin-কে জানান।"); }
+    const { error: linkError } = await db.rpc("bot_link_telegram_account", {
+      p_telegram_user_id: m.from.id, p_target_user_id: data.user.id,
+    });
+    if (linkError) { console.error("Telegram account link failed", linkError); await setState(chatId, ""); return send(chatId, "❌ Account link করা যায়নি। আপনার Telegram account আগে থেকেই অন্য website account-এর সঙ্গে linked থাকতে পারে। Support-এ যোগাযোগ করুন।", MENU); }
     await setState(chatId, "");
     const linked = await linkedUser(m.from.id);
     await notifyOwner("🔗 Telegram linked: <b>" + esc(linked?.username || email) + "</b> (@" + esc(m.from.username ?? m.from.id) + ")");
     return welcome(chatId, linked);
   }
 
-  if (!user) return welcome(chatId, null);
+  if (!user) {
+    const account = await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
+    return welcome(chatId, account);
+  }
   if (text === "/logout") {
     const db = await admin();
     await db.from("telegram_links").delete().eq("telegram_user_id", m.from.id);
@@ -370,7 +408,8 @@ async function handleCallback(cq: any) {
   const chatId = cq.message?.chat?.id as number;
   await tg("answerCallbackQuery", { callback_query_id: cq.id });
   if (!chatId) return;
-  const user = await linkedUser(cq.from.id);
+  let user = await linkedUser(cq.from.id);
+  if (!user) user = await ensureTelegramAccount(cq.from.id, chatId, cq.from.username, cq.from.first_name);
   const [kind, id] = String(cq.data ?? "").split(":");
   const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"];
   if ((kind === "supportreply" || kind === "supportclose") && String(chatId) === String(ownerChatId ?? "")) {
@@ -389,7 +428,6 @@ async function handleCallback(cq: any) {
   }
   if (kind === "guest") {
     const st = await getState(chatId);
-    if (st.data?.phone_shared !== true) return welcome(chatId, null);
     if (id === "login") {
       await setState(chatId, "login_email");
       return screen(chatId, cq.message?.message_id, "ওয়েবসাইটে নিবন্ধিত <b>Email address</b> লিখুন। আপনার ইমেইলে verification code পাঠানো হবে:");
@@ -404,6 +442,10 @@ async function handleCallback(cq: any) {
     if (id === "products") return showProducts(chatId, cq.message?.message_id);
     if (id === "wallet") return showWallet(chatId, user, cq.message?.message_id);
     if (id === "fund") return showFundAmounts(chatId, user, "", cq.message?.message_id);
+    if (id === "link_account") {
+      await setState(chatId, "login_email");
+      return screen(chatId, cq.message?.message_id, "🔗 <b>Linked Website Account</b>\n\nআপনার website account-এর registered email দিন। Verification code দিয়ে account ownership নিশ্চিত হলে আপনার Telegram purchase history ও অবশিষ্ট balance website account-এ যুক্ত হবে।", { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "menu:home" }]] });
+    }
     if (id.startsWith("fundmethod-")) return showFundAmounts(chatId, user, id.endsWith("bkash") ? "bKash / UddoktaPay" : id.endsWith("nagad") ? "Nagad / UddoktaPay" : "UddoktaPay", cq.message?.message_id);
     if (id === "orders") return showOrders(chatId, user, false, cq.message?.message_id);
     if (id === "keys") return showOrders(chatId, user, true, cq.message?.message_id);
