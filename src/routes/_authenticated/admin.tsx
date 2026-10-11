@@ -51,7 +51,7 @@ function AdminLayout() {
     return () => { active = false; };
   }, [user?.id]);
   const canEnterAdmin = isAdmin || adminPermissions.length > 0;
-  const visibleItems = isAdmin ? items : items.filter((item) => item.exact || adminPermissions.includes(({ "/admin/products": "products", "/admin/keys": "keys", "/admin/categories": "categories", "/admin/orders": "orders", "/admin/users": "users", "/admin/payments": "payments", "/admin/wallet": "wallet", "/admin/support": "support", "/admin-customer-agents": "customer_agents", "/admin/announcements": "announcements", "/admin-telegram-announcements": "telegram_broadcast", "/admin/homepage": "homepage", "/admin/settings": "settings" } as Record<string, string>)[item.to] ?? ""));
+  const visibleItems = isAdmin ? items : items.filter((item) => item.exact || adminPermissions.includes(({ "/admin/products": "products", "/admin/keys": "keys", "/admin/categories": "categories", "/admin/orders": "orders", "/admin/users": "users", "/admin/payments": "payments", "/admin/wallet": "wallet", "/admin/support": "support", "/admin-customer-agents": "customer_agents", "/admin/announcements": "announcements", "/admin/telegram-announcements": "telegram_broadcast", "/admin/homepage": "homepage", "/admin/settings": "settings" } as Record<string, string>)[item.to] ?? ""));
   if (loading || profileLoading || !permissionsLoaded) return <div className="mx-auto max-w-5xl p-6"><RowSkeleton rows={6} /></div>;
   if (!canEnterAdmin)
     return (
