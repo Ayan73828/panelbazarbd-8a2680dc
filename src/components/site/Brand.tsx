@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { Zap } from "lucide-react";
 import { useSettings } from "@/hooks/useSite";
 
 const OFFICIAL_LOGO_URL = "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png";
