@@ -69,7 +69,8 @@ export function SupportChat() {
   const aiSessionLoadedRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingTicketRef = useRef<{ subject: string; message: string } | null>(null);
+  const [pendingTicket, setPendingTicket] = useState<{ subject: string; message: string } | null>(null);
+  const [pendingDueAt, setPendingDueAt] = useState<number | null>(null);
   const AI_SESSION_KEY = "panelbazarbd_ai_support_session_v1";
   const AI_SESSION_TIMEOUT_MS = 8 * 60 * 1000;
 
@@ -77,14 +78,18 @@ export function SupportChat() {
     try {
       const raw = localStorage.getItem(AI_SESSION_KEY);
       if (raw) {
-        const saved = JSON.parse(raw) as { messages?: ChatMessage[]; lastUserTextAt?: number; flow?: Flow };
+        const saved = JSON.parse(raw) as { messages?: ChatMessage[]; lastUserTextAt?: number; flow?: Flow; pendingTicket?: { subject: string; message: string } | null; pendingDueAt?: number | null };
         const lastUserTextAt = Number(saved.lastUserTextAt ?? 0);
         const savedMessages = Array.isArray(saved.messages) ? saved.messages : [];
         if (lastUserTextAt > 0 && Date.now() - lastUserTextAt < AI_SESSION_TIMEOUT_MS && savedMessages.length > 0) {
           setMessages(savedMessages);
           setAiLastUserTextAt(lastUserTextAt);
           setMode("ai");
-          setFlow(saved.flow && saved.flow !== "pending" && saved.flow !== "done" ? saved.flow : "issue");
+          setFlow(saved.flow && saved.flow !== "done" ? saved.flow : "issue");
+          if (saved.flow === "pending" && saved.pendingTicket && saved.pendingDueAt) {
+            setPendingTicket(saved.pendingTicket);
+            setPendingDueAt(saved.pendingDueAt);
+          }
         } else {
           localStorage.removeItem(AI_SESSION_KEY);
         }
@@ -99,11 +104,11 @@ export function SupportChat() {
   useEffect(() => {
     if (!aiSessionLoadedRef.current || mode !== "ai" || messages.length === 0 || !aiLastUserTextAt) return;
     try {
-      localStorage.setItem(AI_SESSION_KEY, JSON.stringify({ messages, lastUserTextAt: aiLastUserTextAt, flow }));
+      localStorage.setItem(AI_SESSION_KEY, JSON.stringify({ messages, lastUserTextAt: aiLastUserTextAt, flow, pendingTicket, pendingDueAt }));
     } catch {
       // Keep the chat usable when browser storage is unavailable.
     }
-  }, [mode, messages, aiLastUserTextAt, flow]);
+  }, [mode, messages, aiLastUserTextAt, flow, pendingTicket, pendingDueAt]);
 
   useEffect(() => {
     if (mode !== "ai" || !aiLastUserTextAt) return;
@@ -346,13 +351,14 @@ export function SupportChat() {
   }, [messages, open, mode]);
 
   useEffect(() => {
-    if (flow !== "pending") return;
+    if (flow !== "pending" || !pendingTicket || !pendingDueAt) return;
     timeoutRef.current = setTimeout(async () => {
-      const ticket = pendingTicketRef.current;
+      const ticket = pendingTicket;
       if (!ticket) return;
       if (!user?.id) {
         setMessages((current) => [...current, { from: "bot", text: "৫ মিনিট পার হয়েছে, কিন্তু Support Request তৈরি করতে আপনার Login দরকার। Login করে আবার Support-এ আসুন, অথবা Normal Support-এ যোগাযোগ করুন।" }]);
-        pendingTicketRef.current = null;
+        setPendingTicket(null);
+        setPendingDueAt(null);
         setFlow("done");
         return;
       }
@@ -374,11 +380,11 @@ export function SupportChat() {
         pendingTicketRef.current = null;
         setFlow("done");
       }
-    }, 5 * 60 * 1000);
+    }, Math.max(0, pendingDueAt - Date.now()));
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [flow, user?.id]);
+  }, [flow, user?.id, pendingTicket, pendingDueAt]);
 
   const startAI = () => {
     setMode("ai");
@@ -405,13 +411,18 @@ export function SupportChat() {
   const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = text.trim();
-    if (!value || busy || flow === "done" || flow === "pending") return;
+    if (!value || busy || flow === "done") return;
     // Prime audio during the user's tap so iOS Safari can play the later reply chime.
     primeReplySound();
     setText("");
     setBusy(true);
     const nextMessages: ChatMessage[] = [...messages, { from: "user", text: value }];
     setAiLastUserTextAt(Date.now());
+    if (flow === "pending") {
+      setPendingTicket(null);
+      setPendingDueAt(null);
+      setFlow("issue");
+    }
     setMessages(nextMessages);
 
     try {
@@ -452,10 +463,9 @@ export function SupportChat() {
           .map((message) => `${message.from === "user" ? "Customer" : "Assistant"}: ${message.text}`)
           .join("\n");
         const ticketMessage = (result.ticketMessage?.trim() || transcript).slice(0, 5000);
-        pendingTicketRef.current = {
-          subject: result.subject || "AI Support Request",
-          message: ticketMessage,
-        };
+        const preparedTicket = { subject: result.subject || "AI Support Request", message: ticketMessage };
+        setPendingTicket(preparedTicket);
+        setPendingDueAt(Date.now() + 5 * 60 * 1000);
         setFlow("pending");
         setMessages((current) => [...current, { from: "bot", text: "আপনার তথ্য নেওয়া হয়েছে। ৫ মিনিটের মধ্যে সমাধান না হলে আপনার ID দিয়ে Support Request স্বয়ংক্রিয়ভাবে তৈরি হবে।" }]);
       }
@@ -513,7 +523,7 @@ export function SupportChat() {
             <div className="flex items-center gap-2 text-sm"><CheckCircle2 className="h-4 w-4" /> কথোপকথন সম্পন্ন</div>
             <button type="button" onClick={resetChat} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">Back to Support options</button>
             <div className="grid grid-cols-2 gap-2">{wa && <a href={wa} target="_blank" rel="noreferrer" className="rounded-lg bg-success px-3 py-2 text-center text-sm font-semibold text-background">WhatsApp</a>}{tg && <a href={tg} target="_blank" rel="noreferrer" className="rounded-lg bg-accent px-3 py-2 text-center text-sm font-semibold text-accent-foreground">Telegram</a>}</div>
-          </div> : flow === "pending" ? <div className="space-y-2 border-t border-border p-3"><p className="text-sm text-muted-foreground">৫ মিনিটের মধ্যে সমাধান না হলে আপনার Support Request তৈরি হবে। আপাতত চ্যাট খোলা রাখুন।</p><button type="button" onClick={() => setOpen(false)} className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold">চ্যাট মিনিমাইজ করুন</button></div> : <form onSubmit={submitMessage} className="flex items-center gap-2 border-t border-border p-3">
+          </div> : flow === "pending" ? <form onSubmit={submitMessage} className="flex items-center gap-2 border-t border-border p-3"><input value={text} onChange={(event) => setText(event.target.value)} placeholder="সমস্যার সমাধান হয়েছে বা আরও তথ্য লিখুন…" maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary" aria-label="Continue support chat" /><button type="submit" disabled={!text.trim() || busy} aria-label="Send message" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button></form> : <form onSubmit={submitMessage} className="flex items-center gap-2 border-t border-border p-3">
             <input value={text} onChange={(event) => setText(event.target.value)} placeholder="আপনার মেসেজ লিখুন…" maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary" aria-label="Your message" />
             <button type="submit" disabled={!text.trim() || busy} aria-label="Send message" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button>
           </form>}
