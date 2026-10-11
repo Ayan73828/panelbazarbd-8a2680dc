@@ -366,15 +366,14 @@ export function SupportChat() {
         });
         const result = await response.json() as { ok?: boolean; status?: string; ticketId?: string; error?: string };
         if (result.status === "processed" && result.ticketId) {
-          setMessages((current) => [...current, { from: "bot", text: `৫ মিনিটের মধ্যে সমস্যার সমাধান না হওয়ায় আপনার Support Ticket তৈরি হয়েছে। Ticket ID: ${result.ticketId}। Support Team-কে জানানো হয়েছে।` }]);
+          setMessages((current) => [...current, { from: "bot", text: "ধন্যবাদ আপনার মূল্যবান সময় দিয়ে অপেক্ষা করার জন্য। আপনার রিকোয়েস্টটি সাপোর্ট টিকেট বা অ্যাডমিন সাপোর্টের কাছে স্থানান্তরিত করা হলো। এই চ্যাটটি এখন বন্ধ করা হচ্ছে।" }]);
           setFlow("done");
           setPendingTicket(null);
           setPendingDueAt(null);
-        } else if (result.status === "pending") {
-          setMessages((current) => [...current, { from: "bot", text: "Support Ticket সার্ভারে schedule করা আছে। প্রসেস হতে সামান্য দেরি হতে পারে; Support Team review করবে।" }]);
-          setFlow("done");
-          setPendingTicket(null);
-          setPendingDueAt(null);
+          setAiLastUserTextAt(Date.now());
+        } else if (result.status === "pending" || result.status === "processed") {
+          // Ticket creation may be in progress; poll again rather than ending the chat early.
+          setPendingDueAt(Date.now() + 10_000);
         } else if (result.status === "cancelled") {
           setFlow("issue");
           setPendingTicket(null);
@@ -396,6 +395,24 @@ export function SupportChat() {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [flow, user?.id, pendingTicket, pendingDueAt]);
+
+  useEffect(() => {
+    const ticketTransferMessage = messages.some((message) =>
+      message.from === "bot" && message.text.includes("আপনার রিকোয়েস্টটি সাপোর্ট টিকেট বা অ্যাডমিন সাপোর্টের কাছে স্থানান্তরিত করা হলো")
+    );
+    if (flow !== "done" || !ticketTransferMessage) return;
+    const timer = setTimeout(() => {
+      try { localStorage.removeItem(AI_SESSION_KEY); } catch { /* storage is optional */ }
+      setMessages([]);
+      setAiLastUserTextAt(null);
+      setFlow("issue");
+      setPendingTicket(null);
+      setPendingDueAt(null);
+      setText("");
+      setMode("chooser");
+    }, 2 * 60 * 1000);
+    return () => clearTimeout(timer);
+  }, [flow, messages]);
 
   const startAI = () => {
     setMode("ai");
@@ -476,10 +493,13 @@ export function SupportChat() {
         return;
       }
 
-      setMessages((current) => [...current, { from: "bot", text: result.reply! }]);
-      playPremiumReplySound();
       const promisedFiveMinuteWait = /(?:5|৫)\s*(?:minutes?|minit|min|মিনিট)|wait.{0,20}(?:5|৫)|অপেক্ষা.{0,20}(?:5|৫)/i.test(result.reply);
-      if (result.readyForTicket || promisedFiveMinuteWait) {
+      const ticketFlowRequested = Boolean(result.readyForTicket || promisedFiveMinuteWait);
+      if (!ticketFlowRequested) {
+        setMessages((current) => [...current, { from: "bot", text: result.reply! }]);
+        playPremiumReplySound();
+      }
+      if (ticketFlowRequested) {
         if (!user?.id) {
           setFlow("done");
           setMessages((current) => [...current, { from: "bot", text: "Support Request তৈরি করার আগে অনুগ্রহ করে Login করুন। আপনার তথ্য কপি করে Normal Support-এ পাঠাতে পারেন।" }]);
@@ -511,7 +531,7 @@ export function SupportChat() {
         setPendingTicket(preparedTicket);
         setPendingDueAt(Date.parse(scheduleResult.dueAt));
         setFlow("pending");
-        setMessages((current) => [...current, { from: "bot", text: "আপনার দেওয়া তথ্যগুলো নিরাপদে সংরক্ষণ করা হয়েছে। আগামী ৫ মিনিটের মধ্যে সমস্যার সমাধান না হলে সার্ভার থেকে স্বয়ংক্রিয়ভাবে Support Ticket তৈরি হবে এবং Telegram-এ Support Team-কে জানানো হবে। সমস্যার সমাধান হলে এখানে জানাবেন।" }]);
+        setMessages([...nextMessages, { from: "bot", text: "ধন্যবাদ! আপনার দেওয়া তথ্য দিয়ে আমাদের সাহায্য করার জন্য। Kindly কিছু সময় অপেক্ষা করুন, আপনার সমস্যাটি সমাধান করার চেষ্টা করছি।" }]);
       }
     } catch {
       setMessages((current) => [...current, { from: "bot", text: "ইন্টারনেট বা সার্ভারের সমস্যার কারণে উত্তর আনা যায়নি। আবার চেষ্টা করুন অথবা Normal Support ব্যবহার করুন।" }]);
