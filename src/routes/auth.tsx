@@ -116,9 +116,13 @@ function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string
       if (error) throw error;
       sessionStorage.setItem("kr_alive", "1");
       if (pending.mode === "register") {
-        if (pending.referralCode) {
-          const { error: referralError } = await supabase.rpc("claim_referral_reward", { p_referral_code: pending.referralCode });
+        // Create the profile before claiming a referral; useAuth bootstraps it only after navigation.
+        const { error: profileError } = await supabase.rpc("ensure_profile");
+        if (profileError) console.error("Profile bootstrap after signup failed", profileError);
+        if (!profileError && pending.referralCode) {
+          const { data: claimed, error: referralError } = await supabase.rpc("claim_referral_reward", { p_referral_code: pending.referralCode });
           if (referralError) console.error("Referral reward claim failed", referralError);
+          else if (!claimed) console.warn("Referral reward not claimed (invalid referrer, self-referral, or duplicate).");
         }
         void telegramNotifyEvent({ data: { event: "signup" } }).catch((notifyError) => console.error("Telegram signup notification failed", notifyError));
         toast.success("Email verified and account created successfully!");
