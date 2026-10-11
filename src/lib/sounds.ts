@@ -1,14 +1,15 @@
 // Small WebAudio sound effects — no audio files needed.
 // Call after a user gesture (click) so browsers allow playback.
 
+let sharedContext: AudioContext | null = null;
 function ctx(): AudioContext | null {
   try {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AC) return null;
-    return new AC();
-  } catch {
-    return null;
-  }
+    if (!sharedContext || sharedContext.state === "closed") sharedContext = new AC();
+    if (sharedContext.state === "suspended") void sharedContext.resume();
+    return sharedContext;
+  } catch { return null; }
 }
 
 function tone(ac: AudioContext, freq: number, start: number, dur: number, type: OscillatorType = "sine", vol = 0.18) {
@@ -32,7 +33,7 @@ export function playMoneyAdd() {
   tone(ac, 880, 0, 0.11, "sine", 0.12);
   tone(ac, 1174.66, 0.09, 0.14, "sine", 0.13);
   tone(ac, 1567.98, 0.2, 0.24, "sine", 0.11);
-  setTimeout(() => void ac.close().catch(() => {}), 800);
+
 }
 
 /** Matching soft confirmation sound for a successful purchase/deduction. */
@@ -41,13 +42,26 @@ export function playMoneyDeduct() {
   if (!ac) return;
   tone(ac, 783.99, 0, 0.1, "sine", 0.1);
   tone(ac, 1046.5, 0.09, 0.18, "sine", 0.12);
-  setTimeout(() => void ac.close().catch(() => {}), 700);
+
 }
 
-/** Quiet premium tap feedback for ordinary UI interactions. */
+/** One short glass-like tap: single strike, not the doubled iPhone Glass tone. */
 export function playUiClick() {
   const ac = ctx();
   if (!ac) return;
-  tone(ac, 620, 0, 0.035, "sine", 0.025);
-  setTimeout(() => void ac.close().catch(() => {}), 160);
+  const t = ac.currentTime;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  const filter = ac.createBiquadFilter();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(1760, t);
+  osc.frequency.exponentialRampToValueAtTime(1180, t + 0.075);
+  filter.type = "highpass";
+  filter.frequency.value = 650;
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.055, t + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.115);
+  osc.connect(filter).connect(gain).connect(ac.destination);
+  osc.start(t);
+  osc.stop(t + 0.12);
 }
