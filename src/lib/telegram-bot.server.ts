@@ -304,8 +304,9 @@ export async function handleUpdate(u: any) {
         : "❌ নিরাপদে unlink করা যায়নি। কোনো balance পরিবর্তন করা হয়নি। Support-এ যোগাযোগ করুন।";
       return send(chatId, message, MENU);
     }
-    await setState(chatId, "guest_auth", { phone_shared: true });
-    return send(chatId, "<b>Website Successfully Unlinked ‼️</b>", GUEST_AUTH);
+    await setState(chatId, "", { phone_shared: true, recent_bot_message_ids: [] });
+    const guestAccount = await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
+    return welcome(chatId, guestAccount);
   }
   switch (text) {
     case "🛍 Products": return showProducts(chatId);
