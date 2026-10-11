@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, ImageIcon, Star } from "lucide-react";
+import { ExternalLink, ImageIcon, ShoppingCart, Star } from "lucide-react";
+import { toast } from "sonner";
+import { addCartItem } from "@/lib/cart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { money, statusLabel } from "@/lib/site";
@@ -90,8 +92,9 @@ export function ProductCard({
           )}
         </div>
 
-        <div className="flex gap-2 pt-1">
-          <Button asChild size="sm" className="flex-1 rounded-full">
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <Button size="sm" variant="secondary" className="rounded-full px-2" onClick={() => { addCartItem({ id: product.id, slug: product.slug, name: product.name, price: Number(hasDiscount ? product.discount_price : product.price), image_url: product.image_url }); toast.success("Added to cart"); }}><ShoppingCart className="mr-1 h-3.5 w-3.5" /> Add to Cart</Button>
+          <Button asChild size="sm" className="rounded-full">
             <Link to="/products/$slug" params={{ slug: product.slug }}>
               Buy Now
             </Link>
