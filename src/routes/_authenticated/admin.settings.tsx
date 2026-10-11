@@ -1,14 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { adminConnectTelegram } from "@/lib/admin.functions";
 import { AdminHeader, SettingsForm } from "@/components/admin/kit";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({ component: AdminSettings });
 
 function AdminSettings() {
   const [connectingTelegram, setConnectingTelegram] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoUrl, setLogoUrl] = useState("");
+  const queryClient = useQueryClient();
+  const logoQuery = useQuery({
+    queryKey: ["site-logo-setting"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("site_settings").select("value").eq("key", "logo_url").maybeSingle();
+      if (error) throw error;
+      return data?.value ?? "";
+    },
+  });
   async function connectTelegram() {
     setConnectingTelegram(true);
     try {
@@ -20,9 +34,44 @@ function AdminSettings() {
       setConnectingTelegram(false);
     }
   }
+  async function uploadLogo(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image file"); return; }
+    if (file.size > 8 * 1024 * 1024) { toast.error("Logo must be smaller than 8 MB"); return; }
+    setUploadingLogo(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+      const path = "branding/" + crypto.randomUUID() + "." + ext;
+      const { data, error } = await supabase.storage.from("product-images").upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+      if (error) throw error;
+      const url = supabase.storage.from("product-images").getPublicUrl(data.path).data.publicUrl;
+      setLogoUrl(url);
+      toast.success("Logo uploaded. Press Save logo to publish it.");
+    } catch (error) {
+      toast.error("Logo upload failed: " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
+  async function saveLogo() {
+    if (!logoUrl) { toast.error("Choose a logo image first"); return; }
+    const { error } = await supabase.from("site_settings").upsert({ key: "logo_url", value: logoUrl }, { onConflict: "key" });
+    if (error) { toast.error(error.message); return; }
+    await queryClient.invalidateQueries();
+    toast.success("Website logo updated");
+  }
+  const shownLogo = logoUrl || logoQuery.data || "";
   return (
     <div className="space-y-6">
       <AdminHeader title="Settings" description="Branding and contact shown on the website." />
+      <section className="panel space-y-3 p-4">
+        <h2 className="font-semibold">Website logo</h2>
+        <p className="text-sm text-muted-foreground">Choose the logo directly from your phone gallery. PNG, JPG, WEBP, GIF or AVIF, maximum 8 MB.</p>
+        <Input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" disabled={uploadingLogo} onChange={(event) => { void uploadLogo(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
+        {uploadingLogo && <p className="text-sm text-muted-foreground">Uploading logo…</p>}
+        {shownLogo && <div className="flex items-center gap-3 rounded-lg border p-3"><img src={shownLogo} alt="Logo preview" className="h-16 w-16 rounded-lg object-contain" /><Button type="button" variant="ghost" onClick={() => setLogoUrl("")}>Choose another</Button></div>}
+        <Button type="button" onClick={() => void saveLogo()} disabled={!logoUrl || uploadingLogo}>Save logo</Button>
+      </section>
       <section className="panel space-y-2 p-4">
         <h2 className="font-semibold">Telegram notifications</h2>
         <p className="text-sm text-muted-foreground">After adding TELEGRAM_BOT_TOKEN and TELEGRAM_OWNER_CHAT_ID in Render, connect the bot webhook here.</p>
@@ -32,7 +81,6 @@ function AdminSettings() {
       <SettingsForm fields={[
         { key: "site_name", label: "Site name" },
         { key: "currency_symbol", label: "Currency symbol" },
-        { key: "logo_url", label: "Logo URL", hint: "Paste an image link" },
         { key: "favicon_url", label: "Favicon URL" },
         { key: "primary_color", label: "Primary color", type: "color" },
         { key: "secondary_color", label: "Secondary color", type: "color" },
