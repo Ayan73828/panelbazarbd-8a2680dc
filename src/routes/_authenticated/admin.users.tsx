@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSettings } from "@/hooks/useSite";
 import { money } from "@/lib/site";
-import { adminDeleteUser, adminResetPassword } from "@/lib/admin.functions";
+import { adminDeleteUser, adminResetPassword, adminSetCustomerAgentRole } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({ component: AdminUsers });
 
@@ -61,7 +61,29 @@ function UserDetail({ user, onClose }: { user: U; onClose: () => void }) {
   const [pw, setPw] = useState("");
   const resetPw = useServerFn(adminResetPassword);
   const delUser = useServerFn(adminDeleteUser);
-  const [hist, setHist] = useState<{ orders: U[]; txs: U[] } | null>(null);
+  const setCustomerAgentRole = useServerFn(adminSetCustomerAgentRole);
+  const [customerAgentRole, setCustomerAgentRoleEnabled] = useState(false);
+  const [roleBusy, setRoleBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void supabase.from("user_roles").select("role").eq("user_id", user.id).then(({ data, error }) => {
+      if (!active) return;
+      if (error) { toast.error("Could not load user roles: " + error.message); return; }
+      setCustomerAgentRoleEnabled((data ?? []).some((row) => String(row.role).toLowerCase() === "customer_agent"));
+    });
+    return () => { active = false; };
+  }, [user.id]);
+  const toggleCustomerAgentRole = async () => {
+    setRoleBusy(true);
+    try {
+      await setCustomerAgentRole({ data: { userId: user.id, enabled: !customerAgentRole } });
+      setCustomerAgentRoleEnabled(!customerAgentRole);
+      toast.success(!customerAgentRole ? "Customer Agent role assigned" : "Customer Agent role removed");
+      invalidate();
+    } catch (e) { toast.error(errMsg(e)); }
+    finally { setRoleBusy(false); }
+  };
+  const [hist, setHist = useState<{ orders: U[]; txs: U[] } | null>(null);
 
   const loadHist = async () => {
     const [o, t] = await Promise.all([
@@ -110,6 +132,14 @@ function UserDetail({ user, onClose }: { user: U; onClose: () => void }) {
               check(r);
             }, "Balance updated").then(onClose);
           }}>Apply</Button>
+        </div>
+
+        <div className="mt-5 grid gap-2 border-t border-border pt-4">
+          <h3 className="font-semibold">Customer Agent Role</h3>
+          <p className="text-xs text-muted-foreground">এই role দিলে user আলাদা Customer Agent Inbox দেখতে এবং customer chat-এর উত্তর দিতে পারবে।</p>
+          <Button size="sm" variant={customerAgentRole ? "destructive" : "secondary"} disabled={roleBusy} onClick={() => void toggleCustomerAgentRole()}>
+            {roleBusy ? "Saving…" : customerAgentRole ? "Remove Customer Agent Role" : "Assign Customer Agent Role"}
+          </Button>
         </div>
 
         <div className="mt-5 grid gap-2 border-t border-border pt-4">
