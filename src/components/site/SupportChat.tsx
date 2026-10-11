@@ -65,9 +65,61 @@ export function SupportChat() {
   const [busy, setBusy] = useState(false);
   const [agent] = useState(() => agents[Math.floor(Math.random() * agents.length)] || "রাকিব");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [aiLastUserTextAt, setAiLastUserTextAt] = useState<number | null>(null);
+  const aiSessionLoadedRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingTicketRef = useRef<{ subject: string; message: string } | null>(null);
+  const AI_SESSION_KEY = "panelbazarbd_ai_support_session_v1";
+  const AI_SESSION_TIMEOUT_MS = 8 * 60 * 1000;
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(AI_SESSION_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as { messages?: ChatMessage[]; lastUserTextAt?: number; flow?: Flow };
+        const lastUserTextAt = Number(saved.lastUserTextAt ?? 0);
+        const savedMessages = Array.isArray(saved.messages) ? saved.messages : [];
+        if (lastUserTextAt > 0 && Date.now() - lastUserTextAt < AI_SESSION_TIMEOUT_MS && savedMessages.length > 0) {
+          setMessages(savedMessages);
+          setAiLastUserTextAt(lastUserTextAt);
+          setMode("ai");
+          setFlow(saved.flow && saved.flow !== "pending" && saved.flow !== "done" ? saved.flow : "issue");
+        } else {
+          localStorage.removeItem(AI_SESSION_KEY);
+        }
+      }
+    } catch {
+      localStorage.removeItem(AI_SESSION_KEY);
+    } finally {
+      aiSessionLoadedRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!aiSessionLoadedRef.current || mode !== "ai" || messages.length === 0 || !aiLastUserTextAt) return;
+    try {
+      localStorage.setItem(AI_SESSION_KEY, JSON.stringify({ messages, lastUserTextAt: aiLastUserTextAt, flow }));
+    } catch {
+      // Keep the chat usable when browser storage is unavailable.
+    }
+  }, [mode, messages, aiLastUserTextAt, flow]);
+
+  useEffect(() => {
+    if (mode !== "ai" || !aiLastUserTextAt) return;
+    const remaining = Math.max(0, aiLastUserTextAt + AI_SESSION_TIMEOUT_MS - Date.now());
+    const timer = setTimeout(() => {
+      try { localStorage.removeItem(AI_SESSION_KEY); } catch { /* storage is optional */ }
+      setMessages([]);
+      setAiLastUserTextAt(null);
+      setFlow("issue");
+      setText("");
+      setMode("chooser");
+      setOpen(false);
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [mode, aiLastUserTextAt]);
+
   const primeReplySound = () => {
     try {
       const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -327,7 +379,10 @@ export function SupportChat() {
 
   const startAI = () => {
     setMode("ai");
+    if (messages.length > 0 && aiLastUserTextAt && Date.now() - aiLastUserTextAt < AI_SESSION_TIMEOUT_MS) return;
+    const now = Date.now();
     setFlow("issue");
+    setAiLastUserTextAt(now);
     setMessages([{ from: "bot", text: greeting(agent) }]);
   };
 
@@ -353,6 +408,7 @@ export function SupportChat() {
     setText("");
     setBusy(true);
     const nextMessages: ChatMessage[] = [...messages, { from: "user", text: value }];
+    setAiLastUserTextAt(Date.now());
     setMessages(nextMessages);
 
     try {
@@ -413,7 +469,7 @@ export function SupportChat() {
         <button type="button" onClick={() => setOpen((value) => !value)} aria-label="Open support chat" className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl ring-4 ring-background/80 transition-transform hover:scale-105">
           {open ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
         </button>
-        {!open && <span className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold shadow-lg">Support Chat</span>}
+        {!open && <span className="rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold shadow-lg">Support</span>}
       </div>
 
       {open && <section className="fixed bottom-24 right-4 left-auto z-50 flex max-h-[min(65vh,560px)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl" aria-label="Support chat">
