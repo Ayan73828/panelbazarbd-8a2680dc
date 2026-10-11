@@ -46,8 +46,8 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
         `Hello,\n\nYour Panel Bazar BD support request has been created.\nTicket ID: ${ticket.id}\nSubject: ${subject}\n\nDetails:\n${message}\n\nWe will review your request.\nPanel Bazar BD Support`);
       let telegramNotified = false;
       if (body.source === "customer_agent") {
-        const botToken = process.env["TELEGRAM_SUPPORT_BOT_TOKEN"];
-        const chatId = process.env["TELEGRAM_SUPPORT_CHAT_ID"];
+        const botToken = process.env["TELEGRAM_SUPPORT_BOT_TOKEN"] || process.env["SUPPORT_TELEGRAM_BOT_TOKEN"] || process.env["TELEGRAM_BOT_TOKEN"];
+        const chatId = process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"];
         if (botToken && chatId) {
           const telegramText = [
             "🟢 NEW CUSTOMER AGENT CHAT",
@@ -63,11 +63,14 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ chat_id: chatId, text: telegramText }),
             });
-            telegramNotified = telegramRes.ok;
-            if (!telegramRes.ok) console.error("Customer agent Telegram notification failed", telegramRes.status);
+            const telegramBody = await telegramRes.json() as { ok?: boolean; description?: string };
+            telegramNotified = telegramRes.ok && telegramBody.ok === true;
+            if (!telegramNotified) console.error("Customer agent Telegram notification failed", telegramRes.status, telegramBody.description || "Telegram API rejected the message");
           } catch (telegramError) {
             console.error("Customer agent Telegram notification failed", telegramError);
           }
+        } else {
+          console.error("Customer agent Telegram notification skipped: bot token or chat ID is missing");
         }
       }
       return Response.json({ ok: true, ticketId: ticket.id, emailSent: emailResult.sent, telegramNotified });
