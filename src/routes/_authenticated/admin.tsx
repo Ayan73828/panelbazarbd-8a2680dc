@@ -1,4 +1,6 @@
 import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { CreditCard, FolderTree, KeyRound, Home, LayoutDashboard, LifeBuoy, LogOut, Megaphone, Package, ReceiptText, Settings, ShieldAlert, Users, UserRound, Wallet } from "lucide-react";
 import { Brand } from "@/components/site/Brand";
 import { EmptyState, RowSkeleton } from "@/components/site/States";
@@ -36,10 +38,22 @@ const items = [
 ] as const;
 
 function AdminLayout() {
-  const { isAdmin, profileLoading, loading, signOut } = useAuth();
+  const { isAdmin, user, profileLoading, loading, signOut } = useAuth();
+  const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const navigate = useNavigate();
-  if (loading || profileLoading) return <div className="mx-auto max-w-5xl p-6"><RowSkeleton rows={6} /></div>;
-  if (!isAdmin)
+  useEffect(() => {
+    let active = true;
+    if (!user?.id) { setAdminPermissions([]); setPermissionsLoaded(true); return; }
+    void supabase.from("admin_subadmins").select("permissions").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+      if (active) { setAdminPermissions((data?.permissions ?? []) as string[]); setPermissionsLoaded(true); }
+    });
+    return () => { active = false; };
+  }, [user?.id]);
+  const canEnterAdmin = isAdmin || adminPermissions.length > 0;
+  const visibleItems = isAdmin ? items : items.filter((item) => item.exact || adminPermissions.includes(({ "/admin/products": "products", "/admin/keys": "keys", "/admin/categories": "categories", "/admin/orders": "orders", "/admin/users": "users", "/admin/payments": "payments", "/admin/wallet": "wallet", "/admin/support": "support", "/admin-customer-agents": "customer_agents", "/admin/announcements": "announcements", "/admin-telegram-announcements": "telegram_broadcast", "/admin/homepage": "homepage", "/admin/settings": "settings" } as Record<string, string>)[item.to] ?? ""));
+  if (loading || profileLoading || !permissionsLoaded) return <div className="mx-auto max-w-5xl p-6"><RowSkeleton rows={6} /></div>;
+  if (!canEnterAdmin)
     return (
       <div className="mx-auto max-w-md p-6 pt-20">
         <EmptyState icon={<ShieldAlert className="h-6 w-6" />} title="Access denied" description="This area is for administrators only." action={<Button asChild size="sm"><Link to="/dashboard">Go to my dashboard</Link></Button>} />
@@ -53,7 +67,7 @@ function AdminLayout() {
           <Link to="/" className="text-xs text-muted-foreground hover:text-foreground">View site</Link>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2">
-          {items.map(({ to, label, icon: Icon, exact }) => (
+          {visibleItems.map(({ to, label, icon: Icon, exact }) => (
             <Link key={to} to={to} activeOptions={{ exact }} className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground data-[status=active]:bg-primary/10 data-[status=active]:text-primary">
               <Icon className="h-4 w-4" /> {label}
             </Link>
