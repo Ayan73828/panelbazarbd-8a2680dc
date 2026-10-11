@@ -304,9 +304,8 @@ export async function handleUpdate(u: any) {
         : "❌ নিরাপদে unlink করা যায়নি। কোনো balance পরিবর্তন করা হয়নি। Support-এ যোগাযোগ করুন।";
       return send(chatId, message, MENU);
     }
-    await setState(chatId, "", { phone_shared: true, recent_bot_message_ids: [] });
-    const guestAccount = await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
-    return welcome(chatId, guestAccount);
+    await setState(chatId, "", { recent_bot_message_ids: [] });
+    return handleUpdate({ message: { text: "/start", chat: { id: chatId }, from: m.from } });
   }
   switch (text) {
     case "🛍 Products": return showProducts(chatId);
@@ -490,10 +489,10 @@ async function handleCallback(cq: any) {
           : "❌ নিরাপদে unlink করা যায়নি। কোনো balance পরিবর্তন করা হয়নি। Support-এ যোগাযোগ করুন।";
         return screen(chatId, cq.message?.message_id, message, MENU);
       }
-      await setState(chatId, "", { phone_shared: true });
+      await setState(chatId, "", { recent_bot_message_ids: [] });
       await screen(chatId, cq.message?.message_id, "<b>Website Successfully Unlinked ‼️</b>", MENU);
-      // Return to the normal /start guest experience; do not show Login/Create Account buttons.
-      return welcome(chatId, null);
+      // Run the same guest start flow as /start; do not show Login/Create Account buttons.
+      return handleUpdate({ message: { text: "/start", chat: { id: chatId }, from: cq.from } });
     }
     if (id === "profile") {
       const [ordersResult, spentResult, referralResult] = await Promise.all([
