@@ -16,6 +16,9 @@ import { useSettings } from "@/hooks/useSite";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
+const brandLogoUrl =
+  "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png";
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -88,7 +91,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:site_name", content: "PANEL BAZAR BD" },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: brandLogoUrl },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: brandLogoUrl },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -98,7 +103,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: brandLogoUrl, type: "image/png" },
+      { rel: "shortcut icon", href: brandLogoUrl, type: "image/png" },
+      { rel: "apple-touch-icon", href: brandLogoUrl },
     ],
   }),
   shellComponent: RootShell,
@@ -131,15 +138,15 @@ function BrandTheme() {
     if (settings.primary_color) root.style.setProperty("--primary", settings.primary_color);
     if (settings.secondary_color) root.style.setProperty("--accent", settings.secondary_color);
 
-    if (settings.favicon_url) {
-      let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
-      if (!link) {
-        link = document.createElement("link");
-        link.rel = "icon";
-        document.head.appendChild(link);
-      }
-      link.href = settings.favicon_url;
+    // Keep the supplied official brand logo as the site favicon.
+    let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
     }
+    link.href = brandLogoUrl;
+    link.type = "image/png";
 
     if (isFetched) document.documentElement.classList.add("brand-theme-ready");
   }, [settings, isFetched]);
