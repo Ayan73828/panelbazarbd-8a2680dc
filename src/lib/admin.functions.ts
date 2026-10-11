@@ -70,6 +70,32 @@ export const adminSetUserRoles = createServerFn({ method: "POST" })
     return { ok: true, roles: [...new Set(data.roles)] };
   });
 
+export const adminSaveUserPermissions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    userId: z.string().uuid(),
+    permissions: z.array(z.enum(["products","categories","keys","orders","users","payments","wallet","support","customer_agents","announcements","homepage","settings","telegram_broadcast"])).max(13),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    if (String(context.claims?.email ?? "").toLowerCase() !== "ishak777998@gmail.com") throw new Error("Only the main admin can manage permissions");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: target, error: targetError } = await supabaseAdmin.from("profiles").select("email").eq("id", data.userId).maybeSingle();
+    if (targetError) throw new Error(targetError.message);
+    if (!target) throw new Error("User not found");
+    if (String(target.email ?? "").toLowerCase() === "ishak777998@gmail.com") throw new Error("Main admin permissions cannot be restricted here");
+    if (data.permissions.length === 0) {
+      const { error } = await supabaseAdmin.from("admin_subadmins").delete().eq("user_id", data.userId);
+      if (error) throw new Error(error.message);
+      return { ok: true, permissions: [] };
+    }
+    const { error } = await supabaseAdmin.from("admin_subadmins").upsert({
+      user_id: data.userId, email: String(target.email ?? "").toLowerCase(),
+      permissions: [...new Set(data.permissions)], created_by: context.userId, updated_at: new Date().toISOString()
+    }, { onConflict: "user_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true, permissions: [...new Set(data.permissions)] };
+  });
+
 export const adminDeleteUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ userId: z.string().uuid() }).parse(d))
