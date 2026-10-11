@@ -347,7 +347,7 @@ async function startTelegramPayment(chatId: number, user: any, amount: number, m
       email: user.email || "customer@example.com",
       amount: String(amount),
       metadata: { user_id: user.id, ref, source: "telegram", method },
-      redirect_url: `${origin}/payment/success`,
+      redirect_url: `${origin}/payment/telegram-success`,
       return_type: "GET",
       cancel_url: `${origin}/payment/cancel`,
       webhook_url: `${origin}/api/public/uddoktapay/webhook`,
@@ -361,7 +361,7 @@ async function startTelegramPayment(chatId: number, user: any, amount: number, m
   }
   await supabaseAdmin.from("uddoktapay_payments").update({ raw: body }).eq("id", ref);
   return screen(chatId, messageId, `🧾 <b>PAYMENT SUMMARY</b>\n\nAmount: <b>${tk(amount)}</b>\nPayment: <b>${esc(method)}</b>\nStatus: Pending\n\nনিচের বাটনে চাপ দিলে UddoktaPay checkout Telegram-এর ভেতরে খুলবে (Telegram client সমর্থন করলে)। Payment successful হলে wallet অটো credit হবে।`, {
-    inline_keyboard: [[{ text: "💳 Pay now", web_app: { url: body.payment_url } }], [{ text: "🔗 Open payment", url: body.payment_url }], [{ text: "⬅️ Back", callback_data: "menu:fund" }]],
+    inline_keyboard: [[{ text: "🔗 Open payment", url: body.payment_url }], [{ text: "⬅️ Back", callback_data: "menu:fund" }]],
   });
 }
 
