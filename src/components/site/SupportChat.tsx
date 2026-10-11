@@ -440,7 +440,7 @@ export function SupportChat() {
 
   const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const value = text.trim();
+    const value = text.trim() || (attachment ? "আমি সমস্যার একটি ছবি/স্ক্রিনশট সংযুক্ত করেছি। ছবিটি দেখে সাহায্য করুন।" : "");
     if (!value || busy || flow === "done") return;
     // Prime audio during the user's tap so iOS Safari can play the later reply chime.
     primeReplySound();
@@ -495,8 +495,9 @@ export function SupportChat() {
         return;
       }
 
-      const promisedFiveMinuteWait = /(?:5|৫)\s*(?:minutes?|minit|min|মিনিট)|wait.{0,20}(?:5|৫)|অপেক্ষা.{0,20}(?:5|৫)/i.test(result.reply);
-      const ticketFlowRequested = Boolean(result.readyForTicket || promisedFiveMinuteWait);
+      // A ticket is opened only when the AI confirms that the required details have been collected.
+      // Never create a ticket merely because a reply mentions a waiting period.
+      const ticketFlowRequested = Boolean(result.readyForTicket);
       if (!ticketFlowRequested) {
         setMessages((current) => [...current, { from: "bot", text: result.reply! }]);
         playPremiumReplySound();
