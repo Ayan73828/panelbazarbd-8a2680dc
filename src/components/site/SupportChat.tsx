@@ -112,20 +112,25 @@ export function SupportChat() {
     }
     setAgentStarting(true);
     try {
-      const { data, error } = await supabase.from("support_tickets").insert({
-        user_id: user.id,
-        subject: "Live Customer Agent Chat",
-        message: "Customer requested a live human support chat.",
-        source: "customer",
-        status: "open",
-      }).select("id").single();
-      if (error || !data?.id) throw error || new Error("Could not create support ticket");
-      setAgentTicketId(data.id);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Login session expired.");
+      const response = await fetch("/api/public/support/create-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          subject: "Live Customer Agent Chat",
+          message: "Customer requested a live human support chat.",
+          source: "customer",
+        }),
+      });
+      const result = await response.json() as { ok?: boolean; ticketId?: string; emailSent?: boolean; error?: string };
+      if (!response.ok || !result.ok || !result.ticketId) throw new Error(result.error || "Could not create support ticket");
+      setAgentTicketId(result.ticketId);
       setMode("agent");
-      setMessages([{ from: "agent", text: "আপনার Customer Agent chat request তৈরি হয়েছে। একজন এজেন্ট উত্তর দিলে এখানে দেখা যাবে।" }]);
-
+      setMessages([{ from: "agent", text: `আপনার Customer Agent chat request তৈরি হয়েছে। একজন এজেন্ট ওয়েবসাইট থেকেই উত্তর দেবেন।${result.emailSent ? " আপনার ইমেইলেও confirmation পাঠানো হয়েছে।" : ""}` }]);
     } catch {
-      setMessages([{ from: "agent", text: "Customer Agent request তৈরি করা যায়নি। অনুগ্রহ করে Login আছে কি না দেখুন, তারপর আবার চেষ্টা করুন অথবা Normal Support ব্যবহার করুন।" }]);
+      setMessages([{ from: "agent", text: "Customer Agent request তৈরি করা যায়নি। অনুগ্রহ করে Login আছে কি না দেখুন, তারপর আবার চেষ্টা করুন।" }]);
       setMode("agent");
     } finally {
       setAgentStarting(false);
