@@ -45,31 +45,41 @@ export function playMoneyDeduct() {
 
 }
 
-/** Soft, short glassy UI tick — one strike only. */
+/** Premium deep tactile UI click: a single muted low thock with a subtle warm body. */
 export function playUiClick() {
   const ac = ctx();
   if (!ac) return;
   const t = ac.currentTime;
-  const osc = ac.createOscillator();
-  const overtone = ac.createOscillator();
-  const gain = ac.createGain();
-  const filter = ac.createBiquadFilter();
-  osc.type = "sine";
-  overtone.type = "triangle";
-  osc.frequency.setValueAtTime(1320, t);
-  osc.frequency.exponentialRampToValueAtTime(980, t + 0.09);
-  overtone.frequency.setValueAtTime(2640, t);
-  overtone.frequency.exponentialRampToValueAtTime(1960, t + 0.055);
-  filter.type = "lowpass";
-  filter.frequency.setValueAtTime(3600, t);
-  gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.035, t + 0.006);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.105);
-  osc.connect(filter);
-  overtone.connect(filter);
-  filter.connect(gain).connect(ac.destination);
-  osc.start(t);
-  overtone.start(t);
-  osc.stop(t + 0.11);
-  overtone.stop(t + 0.07);
+
+  // Short low body — gives the click weight without sounding like a bird/chime.
+  const body = ac.createOscillator();
+  const bodyGain = ac.createGain();
+  const bodyFilter = ac.createBiquadFilter();
+  body.type = "sine";
+  body.frequency.setValueAtTime(190, t);
+  body.frequency.exponentialRampToValueAtTime(112, t + 0.075);
+  bodyFilter.type = "lowpass";
+  bodyFilter.frequency.setValueAtTime(520, t);
+  bodyGain.gain.setValueAtTime(0.0001, t);
+  bodyGain.gain.exponentialRampToValueAtTime(0.085, t + 0.004);
+  bodyGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.095);
+  body.connect(bodyFilter).connect(bodyGain).connect(ac.destination);
+  body.start(t);
+  body.stop(t + 0.1);
+
+  // Very brief, quiet attack for definition; no high-pitched ringing or double tone.
+  const attack = ac.createOscillator();
+  const attackGain = ac.createGain();
+  const attackFilter = ac.createBiquadFilter();
+  attack.type = "triangle";
+  attack.frequency.setValueAtTime(430, t);
+  attack.frequency.exponentialRampToValueAtTime(250, t + 0.018);
+  attackFilter.type = "lowpass";
+  attackFilter.frequency.value = 900;
+  attackGain.gain.setValueAtTime(0.0001, t);
+  attackGain.gain.exponentialRampToValueAtTime(0.018, t + 0.002);
+  attackGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.028);
+  attack.connect(attackFilter).connect(attackGain).connect(ac.destination);
+  attack.start(t);
+  attack.stop(t + 0.03);
 }
