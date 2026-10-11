@@ -2,21 +2,27 @@ import { Link } from "@tanstack/react-router";
 import { Zap } from "lucide-react";
 import { useSettings } from "@/hooks/useSite";
 
+const OFFICIAL_LOGO_URL = "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png";
+
 export function Brand({ compact = false }: { compact?: boolean }) {
   const { settings } = useSettings();
   return (
     <Link to="/" className="flex min-w-0 items-center gap-2">
-      {settings.logo_url ? (
-        <img
-          src={settings.logo_url}
-          alt={settings.site_name}
-          className="h-9 w-9 rounded-lg object-cover"
-        />
-      ) : (
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
-          <Zap className="h-5 w-5" />
-        </span>
-      )}
+      <img
+        src={(settings.logo_url || OFFICIAL_LOGO_URL).trim() + "?v=20261011"}
+        alt={settings.site_name || "PANEL BAZAR BD"}
+        width={36}
+        height={36}
+        loading="eager"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        className="h-9 w-9 shrink-0 rounded-lg object-contain"
+        onError={(event) => {
+          const image = event.currentTarget;
+          if (!image.src.includes("i.postimg.cc/rpr3MqDF")) image.src = OFFICIAL_LOGO_URL;
+          else image.style.visibility = "hidden";
+        }}
+      />
       <span
         className={`truncate font-semibold tracking-tight ${compact ? "text-sm" : "text-base sm:text-lg"}`}
       >
