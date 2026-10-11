@@ -1,1 +1,9 @@
 project_id = "oqwmuczfuurpkubuziyj"
+
+[auth.email.template.confirmation]
+subject = "Your PANEL BAZAR BD verification code"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "Your PANEL BAZAR BD login code"
+content_path = "./supabase/templates/magic_link.html"
