@@ -45,23 +45,31 @@ export function playMoneyDeduct() {
 
 }
 
-/** One short glass-like tap: single strike, not the doubled iPhone Glass tone. */
+/** Soft, short glassy UI tick — one strike only. */
 export function playUiClick() {
   const ac = ctx();
   if (!ac) return;
   const t = ac.currentTime;
   const osc = ac.createOscillator();
+  const overtone = ac.createOscillator();
   const gain = ac.createGain();
   const filter = ac.createBiquadFilter();
   osc.type = "sine";
-  osc.frequency.setValueAtTime(1760, t);
-  osc.frequency.exponentialRampToValueAtTime(1180, t + 0.075);
-  filter.type = "highpass";
-  filter.frequency.value = 650;
+  overtone.type = "triangle";
+  osc.frequency.setValueAtTime(1320, t);
+  osc.frequency.exponentialRampToValueAtTime(980, t + 0.09);
+  overtone.frequency.setValueAtTime(2640, t);
+  overtone.frequency.exponentialRampToValueAtTime(1960, t + 0.055);
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(3600, t);
   gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.055, t + 0.004);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.115);
-  osc.connect(filter).connect(gain).connect(ac.destination);
+  gain.gain.exponentialRampToValueAtTime(0.035, t + 0.006);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.105);
+  osc.connect(filter);
+  overtone.connect(filter);
+  filter.connect(gain).connect(ac.destination);
   osc.start(t);
-  osc.stop(t + 0.12);
+  overtone.start(t);
+  osc.stop(t + 0.11);
+  overtone.stop(t + 0.07);
 }
