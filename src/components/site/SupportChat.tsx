@@ -123,22 +123,7 @@ export function SupportChat() {
       setAgentTicketId(data.id);
       setMode("agent");
       setMessages([{ from: "agent", text: "আপনার Customer Agent chat request তৈরি হয়েছে। একজন এজেন্ট উত্তর দিলে এখানে দেখা যাবে।" }]);
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData.session?.access_token;
-        if (accessToken) {
-          const notifyResponse = await fetch("/api/public/support/agent-notify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-            body: JSON.stringify({ ticketId: data.id }),
-          });
-          if (!notifyResponse.ok) {
-            setMessages((current) => [...current, { from: "agent", text: "আপনার chat request ওয়েবসাইটে তৈরি হয়েছে, তবে Telegram agent notification এখনো configure করা নেই বা পাঠানো যায়নি।" }]);
-          }
-        }
-      } catch {
-        setMessages((current) => [...current, { from: "agent", text: "Chat request তৈরি হয়েছে, কিন্তু agent notification পাঠানো যায়নি।" }]);
-      }
+
     } catch {
       setMessages([{ from: "agent", text: "Customer Agent request তৈরি করা যায়নি। অনুগ্রহ করে Login আছে কি না দেখুন, তারপর আবার চেষ্টা করুন অথবা Normal Support ব্যবহার করুন।" }]);
       setMode("agent");
@@ -200,22 +185,7 @@ export function SupportChat() {
       setText(value);
     } else {
       setMessages((current) => [...current, { from: "user", text: value }]);
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData.session?.access_token;
-        if (accessToken) {
-          const notifyResponse = await fetch("/api/public/support/agent-notify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-            body: JSON.stringify({ ticketId: agentTicketId, message: value }),
-          });
-          if (!notifyResponse.ok) {
-            setMessages((current) => [...current, { from: "agent", text: "মেসেজ ওয়েবসাইটে পাঠানো হয়েছে, কিন্তু Telegram-এ notification পাঠানো যায়নি।" }]);
-          }
-        }
-      } catch {
-        setMessages((current) => [...current, { from: "agent", text: "মেসেজ ওয়েবসাইটে পাঠানো হয়েছে, কিন্তু Telegram notification ব্যর্থ হয়েছে।" }]);
-      }
+
     }
     setBusy(false);
   };
