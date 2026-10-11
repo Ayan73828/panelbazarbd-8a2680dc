@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
       const insertRes = await fetch(`${url}/rest/v1/support_tickets`, {
         method: "POST",
         headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json", Prefer: "return=representation" },
-        body: JSON.stringify({ user_id: user.id, subject, message, source: body.source === "customer" ? "customer" : "website_ai_timeout", status: "open" }),
+        body: JSON.stringify({ user_id: user.id, subject, message, source: body.source === "customer_agent" ? "customer_agent" : body.source === "customer" ? "customer" : "website_ai_timeout", status: "open" }),
       });
       const inserted = await insertRes.json() as Array<{ id: string; created_at: string }> | { message?: string };
       if (!insertRes.ok || !Array.isArray(inserted) || !inserted[0]?.id) {
@@ -44,7 +44,33 @@ export const Route = createFileRoute("/api/public/support/create-ticket")({
       const ticket = inserted[0];
       const emailResult = await sendEmail(process.env["RESEND_API_KEY"], email, `Support request created: ${subject}`,
         `Hello,\n\nYour Panel Bazar BD support request has been created.\nTicket ID: ${ticket.id}\nSubject: ${subject}\n\nDetails:\n${message}\n\nWe will review your request.\nPanel Bazar BD Support`);
-      return Response.json({ ok: true, ticketId: ticket.id, emailSent: emailResult.sent });
+      let telegramNotified = false;
+      if (body.source === "customer_agent") {
+        const botToken = process.env["TELEGRAM_SUPPORT_BOT_TOKEN"];
+        const chatId = process.env["TELEGRAM_SUPPORT_CHAT_ID"];
+        if (botToken && chatId) {
+          const telegramText = [
+            "🟢 NEW CUSTOMER AGENT CHAT",
+            `Ticket: ${ticket.id}`,
+            `Customer: ${email || user.id}`,
+            `Subject: ${subject}`,
+            "",
+            "Customer requested a live representative. Reply from the website Customer Agent inbox.",
+          ].join("\\n");
+          try {
+            const telegramRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: chatId, text: telegramText }),
+            });
+            telegramNotified = telegramRes.ok;
+            if (!telegramRes.ok) console.error("Customer agent Telegram notification failed", telegramRes.status);
+          } catch (telegramError) {
+            console.error("Customer agent Telegram notification failed", telegramError);
+          }
+        }
+      }
+      return Response.json({ ok: true, ticketId: ticket.id, emailSent: emailResult.sent, telegramNotified });
     } catch (error) {
       console.error("Create support ticket failed", error);
       return Response.json({ error: "Could not create support ticket." }, { status: 500 });
