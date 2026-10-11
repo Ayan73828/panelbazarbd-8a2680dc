@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSettings } from "@/hooks/useSite";
 import { money } from "@/lib/site";
-import { adminDeleteUser, adminResetPassword, adminSetCustomerAgentRole } from "@/lib/admin.functions";
+import { adminDeleteUser, adminResetPassword, adminSetUserRoles } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({ component: AdminUsers });
 
@@ -61,24 +61,27 @@ function UserDetail({ user, onClose }: { user: U; onClose: () => void }) {
   const [pw, setPw] = useState("");
   const resetPw = useServerFn(adminResetPassword);
   const delUser = useServerFn(adminDeleteUser);
-  const setCustomerAgentRole = useServerFn(adminSetCustomerAgentRole);
-  const [customerAgentRole, setCustomerAgentRoleEnabled] = useState(false);
+  const setUserRoles = useServerFn(adminSetUserRoles);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [initialRoles, setInitialRoles] = useState<string[]>([]);
   const [roleBusy, setRoleBusy] = useState(false);
   useEffect(() => {
     let active = true;
     void supabase.from("user_roles").select("role").eq("user_id", user.id).then(({ data, error }) => {
       if (!active) return;
       if (error) { toast.error("Could not load user roles: " + error.message); return; }
-      setCustomerAgentRoleEnabled((data ?? []).some((row) => String(row.role).toLowerCase() === "customer_agent"));
+      const roles = (data ?? []).map((row) => String(row.role).toLowerCase()).filter((role) => ["user", "customer_agent", "admin"].includes(role));
+      setSelectedRoles(roles);
+      setInitialRoles(roles);
     });
     return () => { active = false; };
   }, [user.id]);
-  const toggleCustomerAgentRole = async () => {
+  const saveRoles = async () => {
     setRoleBusy(true);
     try {
-      await setCustomerAgentRole({ data: { userId: user.id, enabled: !customerAgentRole } });
-      setCustomerAgentRoleEnabled(!customerAgentRole);
-      toast.success(!customerAgentRole ? "Customer Agent role assigned" : "Customer Agent role removed");
+      await setUserRoles({ data: { userId: user.id, roles: selectedRoles } });
+      setInitialRoles(selectedRoles);
+      toast.success("User roles updated");
       invalidate();
     } catch (e) { toast.error(errMsg(e)); }
     finally { setRoleBusy(false); }
@@ -134,12 +137,19 @@ function UserDetail({ user, onClose }: { user: U; onClose: () => void }) {
           }}>Apply</Button>
         </div>
 
-        <div className="mt-5 grid gap-2 border-t border-border pt-4">
-          <h3 className="font-semibold">Customer Agent Role</h3>
-          <p className="text-xs text-muted-foreground">এই role দিলে user আলাদা Customer Agent Inbox দেখতে এবং customer chat-এর উত্তর দিতে পারবে।</p>
-          <Button size="sm" variant={customerAgentRole ? "destructive" : "secondary"} disabled={roleBusy} onClick={() => void toggleCustomerAgentRole()}>
-            {roleBusy ? "Saving…" : customerAgentRole ? "Remove Customer Agent Role" : "Assign Customer Agent Role"}
-          </Button>
+        <div className="mt-5 grid gap-3 border-t border-border pt-4">
+          <h3 className="font-semibold">User Roles</h3>
+          {[
+            { value: "user", label: "User" },
+            { value: "customer_agent", label: "Customer Agent" },
+            { value: "admin", label: "Admin (full access)" },
+          ].map((role) => (
+            <label key={role.value} className="flex items-center gap-3 rounded-lg border border-border p-3 text-sm">
+              <input type="checkbox" checked={selectedRoles.includes(role.value)} onChange={(e) => setSelectedRoles((current) => e.target.checked ? [...new Set([...current, role.value])] : current.filter((value) => value !== role.value))} />
+              <span>{role.label}</span>
+            </label>
+          ))}
+          <Button size="sm" disabled={roleBusy || JSON.stringify([...selectedRoles].sort()) === JSON.stringify([...initialRoles].sort())} onClick={() => void saveRoles()}>{roleBusy ? "Saving…" : "Save Roles"}</Button>
         </div>
 
         <div className="mt-5 grid gap-2 border-t border-border pt-4">
