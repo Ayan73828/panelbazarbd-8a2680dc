@@ -201,23 +201,31 @@ export function SupportChat() {
     if (flow !== "pending") return;
     timeoutRef.current = setTimeout(async () => {
       const ticket = pendingTicketRef.current;
-      if (user?.id && ticket) {
-        const { error } = await supabase.from("support_tickets").insert({
-          user_id: user.id,
-          subject: ticket.subject,
-          message: ticket.message,
-          source: "website_ai_timeout",
-          status: "open",
-        });
-        setMessages((current) => [...current, { from: "bot", text: error
-          ? "৫ মিনিট পার হওয়ায় চ্যাটটি বন্ধ করা হয়েছে, তবে Support Request জমা হয়নি। অনুগ্রহ করে Normal Support-এ যোগাযোগ করুন।"
-          : "৫ মিনিটের মধ্যে সমাধান না হওয়ায় চ্যাটটি বন্ধ করা হয়েছে এবং আপনার ID দিয়ে Support Request অ্যাডমিনের কাছে তৈরি করা হয়েছে।" }]);
-      } else {
-        setMessages((current) => [...current, { from: "bot", text: "৫ মিনিটের মধ্যে সমাধান না হওয়ায় চ্যাটটি বন্ধ করা হয়েছে। Support Request তৈরি করতে অনুগ্রহ করে Login করুন, অথবা Normal Support-এ যোগাযোগ করুন।" }]);
+      if (!ticket) return;
+      if (!user?.id) {
+        setMessages((current) => [...current, { from: "bot", text: "৫ মিনিট পার হয়েছে, কিন্তু Support Request তৈরি করতে আপনার Login দরকার। Login করে আবার Support-এ আসুন, অথবা Normal Support-এ যোগাযোগ করুন।" }]);
+        pendingTicketRef.current = null;
+        setFlow("done");
+        return;
       }
-      pendingTicketRef.current = null;
-      setFlow("done");
-      setOpen(false);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) throw new Error("LOGIN_REQUIRED");
+        const response = await fetch("/api/public/support/create-ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ subject: ticket.subject, message: ticket.message }),
+        });
+        const result = await response.json() as { ok?: boolean; ticketId?: string; emailSent?: boolean; error?: string };
+        if (!response.ok || !result.ok || !result.ticketId) throw new Error(result.error || "TICKET_CREATE_FAILED");
+        setMessages((current) => [...current, { from: "bot", text: `৫ মিনিটের মধ্যে সমাধান না হওয়ায় আপনার Support Request তৈরি হয়েছে। Ticket ID: ${result.ticketId}${result.emailSent ? "। আপনার ইমেইলেও confirmation পাঠানো হয়েছে।" : "। ইমেইল পাঠানো যায়নি—অ্যাডমিনের কাছে request তৈরি হয়েছে।"}` }]);
+      } catch {
+        setMessages((current) => [...current, { from: "bot", text: "৫ মিনিট পার হয়েছে, কিন্তু Support Request তৈরি করা যায়নি। অনুগ্রহ করে Login status পরীক্ষা করে আবার চেষ্টা করুন অথবা Normal Support-এ যোগাযোগ করুন।" }]);
+      } finally {
+        pendingTicketRef.current = null;
+        setFlow("done");
+      }
     }, 5 * 60 * 1000);
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
