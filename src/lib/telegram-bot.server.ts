@@ -291,8 +291,21 @@ export async function handleUpdate(u: any) {
   }
   if (text === "/logout") {
     const db = await admin();
-    await db.from("telegram_links").delete().eq("telegram_user_id", m.from.id);
-    return send(chatId, "Logout হয়েছে।", GUEST_AUTH);
+    const { data: link } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", m.from.id).maybeSingle();
+    if (!link) {
+      await setState(chatId, "guest_auth", { phone_shared: true });
+      return send(chatId, "আপনার Telegram account কোনো website account-এর সঙ্গে linked নেই।", GUEST_AUTH);
+    }
+    const { data: split, error: unlinkError } = await db.rpc("bot_unlink_telegram_account", { p_telegram_user_id: m.from.id }).maybeSingle();
+    if (unlinkError) {
+      console.error("Telegram account unlink failed", unlinkError);
+      const message = String(unlinkError.message ?? "").includes("SPLIT_METADATA_MISSING")
+        ? "⚠️ এই account আগে link করা হয়েছিল, কিন্তু link করার সময়কার মূল balance ratio সংরক্ষিত নেই। ভুলভাবে টাকা ভাগ না করার জন্য auto-unlink বন্ধ রাখা হয়েছে। Admin Support-এ যোগাযোগ করুন।"
+        : "❌ নিরাপদে unlink করা যায়নি। কোনো balance পরিবর্তন করা হয়নি। Support-এ যোগাযোগ করুন।";
+      return send(chatId, message, MENU);
+    }
+    await setState(chatId, "guest_auth", { phone_shared: true });
+    return send(chatId, "✅ Account unlink হয়েছে।\n\nTelegram Guest balance: " + tk(Number(split?.guest_balance ?? 0)) + "\nWebsite balance: " + tk(Number(split?.website_balance ?? 0)) + "\n\nমূল balance ratio অনুযায়ী অবশিষ্ট টাকা ভাগ করা হয়েছে।", GUEST_AUTH);
   }
   switch (text) {
     case "🛍 Products": return showProducts(chatId);
@@ -462,9 +475,21 @@ async function handleCallback(cq: any) {
       return screen(chatId, cq.message?.message_id, "🎫 <b>OPEN SUPPORT TICKET</b>\n\nআপনার সমস্যার বিস্তারিত লিখে পাঠান। সম্ভব হলে একই মেসেজে photo/screenshot যোগ করুন। শুধু text বা photo caption-সহ photo পাঠালেও হবে।\n\nCancel করতে /cancel লিখুন।", { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "menu:support" }]] });
     }
     if (id === "logout") {
-      await db.from("telegram_links").delete().eq("telegram_user_id", cq.from.id);
+      const { data: link } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
+      if (!link) {
+        await setState(chatId, "guest_auth", { phone_shared: true });
+        return screen(chatId, cq.message?.message_id, "আপনার Telegram account কোনো website account-এর সঙ্গে linked নেই।", GUEST_AUTH);
+      }
+      const { data: split, error: unlinkError } = await db.rpc("bot_unlink_telegram_account", { p_telegram_user_id: cq.from.id }).maybeSingle();
+      if (unlinkError) {
+        console.error("Telegram account unlink failed", unlinkError);
+        const message = String(unlinkError.message ?? "").includes("SPLIT_METADATA_MISSING")
+          ? "⚠️ এই account আগে link করা হয়েছিল, কিন্তু link করার সময়কার মূল balance ratio সংরক্ষিত নেই। ভুলভাবে টাকা ভাগ না করার জন্য auto-unlink বন্ধ রাখা হয়েছে। Admin Support-এ যোগাযোগ করুন।"
+          : "❌ নিরাপদে unlink করা যায়নি। কোনো balance পরিবর্তন করা হয়নি। Support-এ যোগাযোগ করুন।";
+        return screen(chatId, cq.message?.message_id, message, MENU);
+      }
       await setState(chatId, "guest_auth", { phone_shared: true });
-      return screen(chatId, cq.message?.message_id, "✅ আপনার Telegram account থেকে Logout হয়েছে। আবার ব্যবহার করতে LOGIN করুন।", GUEST_AUTH);
+      return screen(chatId, cq.message?.message_id, "✅ Account unlink হয়েছে।\n\nTelegram Guest balance: " + tk(Number(split?.guest_balance ?? 0)) + "\nWebsite balance: " + tk(Number(split?.website_balance ?? 0)) + "\n\nমূল balance ratio অনুযায়ী অবশিষ্ট টাকা ভাগ করা হয়েছে।", GUEST_AUTH);
     }
     if (id === "profile") {
       const [ordersResult, spentResult, referralResult] = await Promise.all([
