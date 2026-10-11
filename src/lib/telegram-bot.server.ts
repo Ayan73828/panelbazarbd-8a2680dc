@@ -477,8 +477,9 @@ async function handleCallback(cq: any) {
     if (id === "logout") {
       const { data: link } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
       if (!link) {
-        await setState(chatId, "guest_auth", { phone_shared: true });
-        return screen(chatId, cq.message?.message_id, "আপনার Telegram account কোনো website account-এর সঙ্গে linked নেই।", GUEST_AUTH);
+        await setState(chatId, "", { phone_shared: true });
+        await screen(chatId, cq.message?.message_id, "আপনার Telegram account কোনো website account-এর সঙ্গে linked নেই।");
+        return welcome(chatId, null);
       }
       const { data: split, error: unlinkError } = await db.rpc("bot_unlink_telegram_account", { p_telegram_user_id: cq.from.id }).maybeSingle();
       if (unlinkError) {
@@ -488,8 +489,10 @@ async function handleCallback(cq: any) {
           : "❌ নিরাপদে unlink করা যায়নি। কোনো balance পরিবর্তন করা হয়নি। Support-এ যোগাযোগ করুন।";
         return screen(chatId, cq.message?.message_id, message, MENU);
       }
-      await setState(chatId, "guest_auth", { phone_shared: true });
-      return screen(chatId, cq.message?.message_id, "<b>Website Successfully Unlinked ‼️</b>", GUEST_AUTH);
+      await setState(chatId, "", { phone_shared: true });
+      await screen(chatId, cq.message?.message_id, "<b>Website Successfully Unlinked ‼️</b>", MENU);
+      // Return to the normal /start guest experience; do not show Login/Create Account buttons.
+      return welcome(chatId, null);
     }
     if (id === "profile") {
       const [ordersResult, spentResult, referralResult] = await Promise.all([
