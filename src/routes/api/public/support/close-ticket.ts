@@ -21,10 +21,10 @@ export const Route = createFileRoute("/api/public/support/close-ticket")({
       const tickets = await ticketRes.json() as Array<{ id: string; user_id: string; subject: string; status: string }>;
       const ticket = tickets[0];
       if (!ticket) return Response.json({ error: "Ticket not found." }, { status: 404 });
-      if (ticket.status === "closed") return Response.json({ ok: true, alreadyClosed: true });
+      if (ticket.status === "closed" || ticket.status === "resolved") return Response.json({ ok: true, alreadyClosed: true });
       const updateRes = await fetch(`${url}/rest/v1/support_tickets?id=eq.${ticket.id}`, {
         method: "PATCH", headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "closed", updated_at: new Date().toISOString() }),
+        body: JSON.stringify({ status: "resolved", updated_at: new Date().toISOString() }),
       });
       if (!updateRes.ok) return Response.json({ error: "Could not close ticket." }, { status: 500 });
       const profileRes = await fetch(`${url}/rest/v1/profiles?select=email&id=eq.${ticket.user_id}`, { headers: { apikey: service, Authorization: `Bearer ${service}` } });
@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/public/support/close-ticket")({
       let emailSent = false;
       if (process.env["RESEND_API_KEY"] && email) {
         const from = process.env["SUPPORT_EMAIL_FROM"] || "Panel Bazar BD Support <support@panelbazarbd.shop>";
-        const mailRes = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env["RESEND_API_KEY"]}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [email], subject: `Support ticket closed: ${ticket.subject}`, text: `Hello,\n\nYour Panel Bazar BD support request has been marked as closed.\nTicket ID: ${ticket.id}\nSubject: ${ticket.subject}\n\nIf the issue is not resolved, please contact support again.\nPanel Bazar BD Support` }) });
+        const mailRes = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${process.env["RESEND_API_KEY"]}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [email], subject: `Support ticket closed: ${ticket.subject}`, text: `Hello,\n\nYour Panel Bazar BD support request has been marked as resolved/closed.\nTicket ID: ${ticket.id}\nSubject: ${ticket.subject}\n\nIf the issue is not resolved, please contact support again.\nPanel Bazar BD Support` }) });
         emailSent = mailRes.ok;
         if (!mailRes.ok) console.error("Ticket closure email failed", mailRes.status, (await mailRes.text()).slice(0, 250));
       }
