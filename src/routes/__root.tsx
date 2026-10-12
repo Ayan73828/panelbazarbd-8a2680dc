@@ -13,6 +13,7 @@ import { playUiClick } from "@/lib/sounds";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSite";
+import { useAuth } from "@/hooks/useAuth";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -178,9 +179,46 @@ function RootComponent() {
       <AuthProvider>
         <BrandTheme />
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
+        <MaintenanceGate><Outlet /></MaintenanceGate>
         <Toaster position="top-center" />
       </AuthProvider>
     </QueryClientProvider>
+  );
+}
+
+
+function MaintenanceGate({ children }: { children: ReactNode }) {
+  const { settings, isLoading } = useSettings();
+  const { isAdmin, loading: authLoading, profileLoading } = useAuth();
+
+  if (isLoading || authLoading || profileLoading || settings.maintenance_mode !== "true" || isAdmin) {
+    return <>{children}</>;
+  }
+
+  return (
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-5 py-12 text-white">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-[-10rem] h-80 w-80 -translate-x-1/2 rounded-full bg-sky-500/20 blur-3xl" />
+        <div className="absolute bottom-[-12rem] right-[-5rem] h-80 w-80 rounded-full bg-indigo-500/20 blur-3xl" />
+      </div>
+      <section className="relative w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.06] p-7 text-center shadow-2xl backdrop-blur sm:p-10">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-sky-300/20 bg-sky-400/10">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-10 w-10 text-sky-300" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a5 5 0 0 0-6.9 6.9L3 18l3 3 4.8-4.8a5 5 0 0 0 6.9-6.9l-3 3-3-3 3-3Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="m14 4 2-2 6 6-2 2" />
+          </svg>
+        </div>
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-sky-300">Website Maintenance</p>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">আমাদের ওয়েবসাইটে আপডেট চলছে</h1>
+        <p className="mx-auto mt-4 max-w-sm text-sm leading-7 text-slate-300 sm:text-base">
+          PANEL BAZAR BD-তে আরও ভালো অভিজ্ঞতা দেওয়ার জন্য আমরা কিছু কাজ করছি। সাময়িক অসুবিধার জন্য দুঃখিত। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।
+        </p>
+        <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-300">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+          Update in progress
+        </div>
+        <p className="mt-8 text-xs text-slate-500">Thank you for your patience · PANEL BAZAR BD</p>
+      </section>
+    </main>
   );
 }
