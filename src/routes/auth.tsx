@@ -31,6 +31,12 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const { mode: routeMode = "login", ref: referralCode } = Route.useSearch();
+
+  useEffect(() => {
+    if (referralCode) {
+      try { sessionStorage.setItem("pending_website_referral_code", referralCode); } catch {}
+    }
+  }, [referralCode]);
   const [mode, setMode] = useState<Mode>(routeMode);
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -116,13 +122,29 @@ function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string
       if (error) throw error;
       sessionStorage.setItem("kr_alive", "1");
       if (pending.mode === "register") {
-        // Create the profile before claiming a referral; useAuth bootstraps it only after navigation.
+        // The reward is claimed only after the email OTP has been verified.
         const { error: profileError } = await supabase.rpc("ensure_profile");
         if (profileError) console.error("Profile bootstrap after signup failed", profileError);
-        if (!profileError && pending.referralCode) {
-          const { data: claimed, error: referralError } = await supabase.rpc("claim_referral_reward", { p_referral_code: pending.referralCode });
-          if (referralError) console.error("Referral reward claim failed", referralError);
-          else if (!claimed) console.warn("Referral reward not claimed (invalid referrer, self-referral, or duplicate).");
+
+        let savedReferralCode: string | null = pending.referralCode ?? null;
+        try {
+          savedReferralCode = savedReferralCode || sessionStorage.getItem("pending_website_referral_code");
+        } catch {}
+        if (savedReferralCode) {
+          const { data: claimed, error: referralError } = await supabase.rpc("claim_referral_reward", {
+            p_referral_code: savedReferralCode,
+          });
+          if (referralError) {
+            console.error("Website referral reward claim failed", referralError);
+            toast.error("Account verified, but the referral bonus could not be confirmed. Please contact Support before retrying.");
+          } else {
+            try { sessionStorage.removeItem("pending_website_referral_code"); } catch {}
+            if (claimed === true) {
+              toast.success("Referral successful! ৳৫ bonus added to your referrer.");
+            } else {
+              console.warn("Website referral reward not claimed (invalid referrer, self-referral, or already claimed).");
+            }
+          }
         }
         void telegramNotifyEvent({ data: { event: "signup" } }).catch((notifyError) => console.error("Telegram signup notification failed", notifyError));
         toast.success("Email verified and account created successfully!");
