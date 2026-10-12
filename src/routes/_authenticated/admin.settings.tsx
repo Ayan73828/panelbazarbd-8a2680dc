@@ -4,9 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { adminConnectTelegram } from "@/lib/admin.functions";
 import { AdminHeader, SettingsForm } from "@/components/admin/kit";
 import { supabase } from "@/integrations/supabase/client";
+import { useSettings } from "@/hooks/useSite";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({ component: AdminSettings });
 
@@ -15,6 +17,8 @@ function AdminSettings() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoUrl, setLogoUrl] = useState("");
   const queryClient = useQueryClient();
+  const { settings } = useSettings();
+  const [savingMaintenance, setSavingMaintenance] = useState(false);
   const logoQuery = useQuery({
     queryKey: ["site-logo-setting"],
     queryFn: async () => {
@@ -23,6 +27,19 @@ function AdminSettings() {
       return data?.value ?? "";
     },
   });
+  async function toggleMaintenance(enabled: boolean) {
+    setSavingMaintenance(true);
+    try {
+      const { error } = await supabase.from("site_settings").upsert({ key: "maintenance_mode", value: enabled ? "true" : "false" }, { onConflict: "key" });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["site_settings"] });
+      toast.success(enabled ? "Maintenance mode enabled" : "Maintenance mode disabled — website is live");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update maintenance mode");
+    } finally {
+      setSavingMaintenance(false);
+    }
+  }
   async function connectTelegram() {
     setConnectingTelegram(true);
     try {
