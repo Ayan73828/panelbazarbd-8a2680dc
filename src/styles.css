@@ -99,9 +99,9 @@
   --sidebar-ring: oklch(0.75 0.19 150 / 60%);
 }
 
-/* Avoid showing default colors before saved brand colors have loaded. */
+/* Keep the app visible while settings load; hiding body caused a black screen before maintenance mode rendered. */
 html:not(.brand-theme-ready) body {
-  visibility: hidden;
+  visibility: visible;
 }
 
 @layer base {
