@@ -217,6 +217,28 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
           <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
           Update in progress
         </div>
+        <div className="mt-7 grid grid-cols-2 gap-3">
+          {settings.whatsapp_number?.trim() && (
+            <a
+              href={`https://wa.me/${settings.whatsapp_number.replace(/\\D/g, "")}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-3 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20"
+            >
+              <span aria-hidden="true">◉</span> WhatsApp Support
+            </a>
+          )}
+          {settings.telegram_username?.trim() && (
+            <a
+              href={`https://t.me/${settings.telegram_username.trim().replace(/^@/, "")}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-3 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20"
+            >
+              <span aria-hidden="true">➤</span> Telegram Support
+            </a>
+          )}
+        </div>
         <p className="mt-8 text-xs text-slate-500">Thank you for your patience · PANEL BAZAR BD</p>
       </section>
     </main>
