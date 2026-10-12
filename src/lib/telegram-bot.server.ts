@@ -186,10 +186,23 @@ export async function handleUpdate(u: any) {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
     for (const message_id of oldIds) await tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined);
     const payload = text.split(/\s+/)[1] ?? "";
-    const referrerId = payload.startsWith("ref_") ? payload.slice(4) : st.data?.pending_referrer_id;
-    const nextData = { recent_bot_message_ids: [], pending_referrer_id: referrerId || null };
+    const rawReferrerId = payload.startsWith("ref_") ? payload.slice(4) : "";
+    const validReferrerId = /^\d+$/.test(rawReferrerId) && Number(rawReferrerId) !== m.from.id
+      ? Number(rawReferrerId) : null;
+    // Telegram referrals are intentionally independent of the website referral system.
+    const nextData = {
+      recent_bot_message_ids: [],
+      pending_referrer_id: null,
+      pending_telegram_referrer_id: validReferrerId,
+      phone_shared: Boolean(st.data?.phone_shared),
+    };
     await setState(chatId, "", nextData);
     const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
+    if (validReferrerId && !st.data?.phone_shared) {
+      return send(chatId,
+        "🎁 <b>বন্ধুর Referral Link দিয়ে এসেছেন!</b>\n\nReferral নিশ্চিত করতে নিচের <b>📱 SHARE MY NUMBER</b> বাটনে নিজের Telegram নম্বর শেয়ার করুন। সফল হলে আপনার বন্ধুর account-এ ৳৫ bonus যোগ হবে।",
+        SHARE_NUMBER);
+    }
     return welcome(chatId, account, undefined, m.from.id);
   }
   if (st.state === "admin_support_reply" && text) {
@@ -246,15 +259,53 @@ export async function handleUpdate(u: any) {
     return send(chatId, "✅ আপনার Support Ticket জমা হয়েছে।\nTicket ID: <code>" + esc(ticket.id) + "</code>\nAdmin-কে জানানো হয়েছে।", { inline_keyboard: [[{ text: "⬅️ Main Menu", callback_data: "menu:home" }]] });
   }
   if (m.contact) {
-    if (st.data?.phone_shared) return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
     if (!m.contact.user_id || m.contact.user_id !== m.from.id) return send(chatId, "⚠️ নিজের নম্বর SHARE MY NUMBER বাটন দিয়ে শেয়ার করুন।", SHARE_NUMBER);
-    await setState(chatId, "guest_auth", { phone_shared: true, phone: String(m.contact.phone_number ?? "").slice(0, 30) });
+    const referrerTelegramId = Number(st.data?.pending_telegram_referrer_id ?? 0);
+    if (st.data?.phone_shared && !referrerTelegramId) {
+      return send(chatId, "✅ নম্বর আগে থেকেই শেয়ার করা আছে। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
+    }
+    await setState(chatId, "guest_auth", {
+      phone_shared: true,
+      phone: String(m.contact.phone_number ?? "").slice(0, 30),
+    });
     await tg("sendMessage", { chat_id: chatId, text: "✅ নম্বর শেয়ার হয়েছে।", reply_markup: { remove_keyboard: true } });
+
+    if (referrerTelegramId) {
+      const db = await admin();
+      const { data: awarded, error: referralError } = await db.rpc("bot_award_telegram_referral", {
+        p_referrer_telegram_user_id: referrerTelegramId,
+        p_referred_telegram_user_id: m.from.id,
+      });
+      if (referralError) {
+        console.error("Telegram referral reward failed", referralError);
+        return send(chatId, "✅ নম্বর শেয়ার হয়েছে, কিন্তু referral bonus নিশ্চিত করা যায়নি। Support-এ যোগাযোগ করুন।", GUEST_AUTH);
+      }
+      if (awarded === true) {
+        const { data: referrer } = await db.from("telegram_accounts")
+          .select("telegram_chat_id").eq("telegram_user_id", referrerTelegramId).maybeSingle();
+        if (referrer?.telegram_chat_id) {
+          await send(Number(referrer.telegram_chat_id),
+            "🎉 <b>Telegram Referral Successful!</b>\nআপনার বন্ধু নম্বর শেয়ার করেছে। আপনার balance-এ <b>৳৫</b> যোগ হয়েছে।");
+        }
+        await setState(chatId, "guest_auth", {
+          phone_shared: true,
+          phone: String(m.contact.phone_number ?? "").slice(0, 30),
+          pending_telegram_referrer_id: null,
+        });
+        return send(chatId, "🎉 Referral নিশ্চিত হয়েছে! আপনার বন্ধুর account-এ <b>৳৫</b> bonus যোগ হয়েছে। এখন Telegram bot ব্যবহার করতে পারবেন।", MENU);
+      }
+      await setState(chatId, "guest_auth", {
+        phone_shared: true,
+        phone: String(m.contact.phone_number ?? "").slice(0, 30),
+        pending_telegram_referrer_id: null,
+      });
+      return send(chatId, "✅ নম্বর শেয়ার হয়েছে। এই account-এর জন্য referral bonus আগে claim করা হয়েছে, অথবা referral link বৈধ নয়।", MENU);
+    }
     return send(chatId, "✅ নম্বর পেয়েছি। এখন LOGIN করুন অথবা CREATE ACCOUNT করুন।", GUEST_AUTH);
   }
   if (text === "🆕 CREATE ACCOUNT")
     return send(chatId, "নিচের বাটনে ওয়েবসাইটে অ্যাকাউন্ট খুলুন, তারপর এখানে ফিরে 🔐 LOGIN করুন।", {
-      inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register${st.data?.pending_referrer_id ? `&ref=${encodeURIComponent(st.data.pending_referrer_id)}` : ""}` }]],
+      inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register` }]],
     });
   if (text === "🔐 LOGIN" || text === "/login") {
     await setState(chatId, "login_email");
@@ -461,7 +512,7 @@ async function handleCallback(cq: any) {
       return screen(chatId, cq.message?.message_id, "🔗 <b>I Already Have an Account</b>\n\nআপনার website account-এর registered email দিন। Verification code দিয়ে account ownership নিশ্চিত হলে আগের মতো account linking process শুরু হবে।", { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "menu:home" }]] });
     }
     if (id === "create") return screen(chatId, cq.message?.message_id, "🆕 <b>Create New Website Account</b>\n\nনিচের বাটনে panelbazarbd.shop-এ নতুন account তৈরি করুন।", {
-      inline_keyboard: [[{ text: "🆕 Create New Account", url: SITE_URL + "/auth?mode=register" + (st.data?.pending_referrer_id ? "&ref=" + encodeURIComponent(st.data.pending_referrer_id) : "") }], [{ text: "⬅️ Back", callback_data: "menu:link_account" }]],
+      inline_keyboard: [[{ text: "🆕 Create New Account", url: SITE_URL + "/auth?mode=register" }], [{ text: "⬅️ Back", callback_data: "menu:link_account" }]],
     });
   }
   if (kind === "guest") {
@@ -471,7 +522,7 @@ async function handleCallback(cq: any) {
       return screen(chatId, cq.message?.message_id, "ওয়েবসাইটে নিবন্ধিত <b>Email address</b> লিখুন। আপনার ইমেইলে verification code পাঠানো হবে:");
     }
     if (id === "register") return screen(chatId, cq.message?.message_id, "নিচের বাটনে ওয়েবসাইটে অ্যাকাউন্ট খুলুন, তারপর এখানে ফিরে 🔐 LOGIN করুন।", {
-      inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register${st.data?.pending_referrer_id ? `&ref=${encodeURIComponent(st.data.pending_referrer_id)}` : ""}` }]],
+      inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register` }]],
     });
   }
   if (!user) return welcome(chatId, null, undefined, cq.from.id);
@@ -496,11 +547,14 @@ async function handleCallback(cq: any) {
     if (id === "keys") return showOrders(chatId, user, true, cq.message?.message_id);
     if (id === "support") return showSupport(chatId, cq.message?.message_id);
     if (id === "referral") {
-      const { data: rows, error } = await db.from("referrals").select("id").eq("referrer_id", user.id);
+      const { data: telegramAccount } = await db.from("telegram_accounts")
+        .select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
+      const { data: rows, error } = await db.from("telegram_referrals")
+        .select("id").eq("referrer_telegram_user_id", cq.from.id);
       const referralCount = error ? 0 : (rows ?? []).length;
-      const referralLink = `https://t.me/${"panelbazarbd_bot"}?start=ref_${encodeURIComponent(user.id)}`;
-      const text = `🤝 <b>REFERRAL PROGRAM</b>\n\n🎁 প্রতি সফল রেফারেলে পুরস্কার: <b>৳5</b>\n👥 Successful referrals: <b>${referralCount}</b>\n\n🔗 <b>Your personal Telegram link:</b>\n${esc(referralLink)}\n\nবন্ধুকে এই link পাঠান। সে link দিয়ে bot-এ Start চাপবে, তারপর এই link-এর মাধ্যমে website account তৈরি করে email verify করলে একবারই ৳5 reward যোগ হবে.`;
-      return screen(chatId, cq.message?.message_id, text, { inline_keyboard: [[{ text: "📋 Open Website Referral Page", url: "https://panelbazarbd.shop/dashboard/referral" }], [{ text: "🌐 Open Website", url: "https://panelbazarbd.shop" }], [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
+      const referralLink = `https://t.me/${"panelbazarbd_bot"}?start=ref_${cq.from.id}`;
+      const text = `🤝 <b>TELEGRAM REFERRAL PROGRAM</b>\n\n🎁 প্রতি সফল Telegram referral-এ reward: <b>৳৫</b>\n👥 Successful Telegram referrals: <b>${referralCount}</b>\n\n🔗 <b>আপনার Telegram referral link:</b>\n${esc(referralLink)}\n\nবন্ধুকে এই link দিন। সে Start চাপার পর <b>📱 SHARE MY NUMBER</b> করলে আপনার balance-এ ৳৫ যোগ হবে।\n\nএই referral system website referral থেকে সম্পূর্ণ আলাদা।`;
+      return screen(chatId, cq.message?.message_id, text, { inline_keyboard: [[{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
     }
     if (id === "supportticket") {
       await setState(chatId, "support_ticket_details", { support_user_id: user.id, support_message_id: cq.message?.message_id });
