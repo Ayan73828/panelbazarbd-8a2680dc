@@ -82,6 +82,23 @@ function AdminSettings() {
     <div className="space-y-6">
       <AdminHeader title="Settings" description="Branding and contact shown on the website." />
       <section className="panel space-y-3 p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="font-semibold">Website Maintenance Mode</h2>
+            <p className="text-sm text-muted-foreground">When enabled, visitors will see the maintenance page. Admin accounts can still access and control the full website.</p>
+          </div>
+          <Switch
+            checked={settings.maintenance_mode === "true"}
+            disabled={savingMaintenance}
+            onCheckedChange={(checked) => void toggleMaintenance(checked)}
+            aria-label="Toggle website maintenance mode"
+          />
+        </div>
+        <p className="text-sm font-medium">
+          Status: {settings.maintenance_mode === "true" ? "ON — visitors see maintenance page" : "OFF — website is live"}
+        </p>
+      </section>
+      <section className="panel space-y-3 p-4">
         <h2 className="font-semibold">Website logo</h2>
         <p className="text-sm text-muted-foreground">Choose the logo directly from your phone gallery. PNG, JPG, WEBP, GIF or AVIF, maximum 8 MB.</p>
         <Input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" disabled={uploadingLogo} onChange={(event) => { void uploadLogo(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
