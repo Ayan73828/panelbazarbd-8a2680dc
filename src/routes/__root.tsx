@@ -190,8 +190,22 @@ function RootComponent() {
 function MaintenanceGate({ children }: { children: ReactNode }) {
   const { settings, isLoading } = useSettings();
   const { isAdmin, loading: authLoading, profileLoading } = useAuth();
+  const cachedMaintenance = typeof window !== "undefined"
+    ? window.localStorage.getItem("panelbazarbd_maintenance_mode")
+    : null;
 
-  if (isLoading || authLoading || profileLoading || settings.maintenance_mode !== "true" || isAdmin) {
+  useEffect(() => {
+    if (!isLoading && typeof window !== "undefined") {
+      window.localStorage.setItem("panelbazarbd_maintenance_mode", settings.maintenance_mode === "true" ? "true" : "false");
+    }
+  }, [isLoading, settings.maintenance_mode]);
+
+  // Never briefly reveal the storefront while maintenance status is being fetched.
+  // A cached OFF value allows normal visits to render immediately.
+  const shouldShowMaintenance = settings.maintenance_mode === "true" || (isLoading && cachedMaintenance !== "false");
+
+  if (isAdmin) return <>{children}</>;
+  if (!shouldShowMaintenance || (authLoading || profileLoading) && settings.maintenance_mode !== "true" && cachedMaintenance === "false") {
     return <>{children}</>;
   }
 
