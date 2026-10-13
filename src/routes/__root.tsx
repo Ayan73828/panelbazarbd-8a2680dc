@@ -200,14 +200,26 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
     }
   }, [isLoading, settings.maintenance_mode]);
 
-  // Never briefly reveal the storefront while maintenance status is being fetched.
-  // A cached OFF value allows normal visits to render immediately.
-  const shouldShowMaintenance = settings.maintenance_mode === "true" || (isLoading && cachedMaintenance !== "false");
-
   if (isAdmin) return <>{children}</>;
-  if (!shouldShowMaintenance || (authLoading || profileLoading) && settings.maintenance_mode !== "true" && cachedMaintenance === "false") {
-    return <>{children}</>;
+
+  // Never render the storefront until the server confirms maintenance is OFF.
+  // A cached ON value can show the maintenance page immediately; a cached OFF
+  // value is not authoritative because an administrator may have just enabled it.
+  if (isLoading && cachedMaintenance !== "true") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-5 text-white">
+        <section className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.06] p-8 text-center shadow-xl">
+          <img src={brandLogoUrl} alt="PANEL BAZAR BD" className="mx-auto mb-5 h-14 w-14 rounded-xl object-contain" />
+          <div className="mx-auto mb-4 h-7 w-7 animate-spin rounded-full border-2 border-white/20 border-t-sky-300" aria-hidden="true" />
+          <p className="text-sm font-semibold">ওয়েবসাইটের অবস্থা যাচাই করা হচ্ছে…</p>
+          <p className="mt-2 text-xs text-slate-400">PANEL BAZAR BD</p>
+        </section>
+      </main>
+    );
   }
+
+  const shouldShowMaintenance = settings.maintenance_mode === "true";
+  if (!shouldShowMaintenance) return <>{children}</>;
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-5 py-12 text-white">
