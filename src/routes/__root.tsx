@@ -202,24 +202,10 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
 
   if (isAdmin) return <>{children}</>;
 
-  // A cached "maintenance ON" value may be stale after an administrator turns
-  // maintenance OFF. Never show the maintenance page from localStorage alone.
-  // A cached OFF value can render the storefront immediately; otherwise show a
-  // neutral loading screen until the current server setting is confirmed.
-  if (isLoading && cachedMaintenance === null) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-5 text-white">
-        <section className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.06] p-8 text-center shadow-xl">
-          <img src={brandLogoUrl} alt="PANEL BAZAR BD" className="mx-auto mb-5 h-14 w-14 rounded-xl object-contain" />
-          <div className="mx-auto mb-4 h-7 w-7 animate-spin rounded-full border-2 border-white/20 border-t-sky-300" aria-hidden="true" />
-          <p className="text-sm font-semibold">ওয়েবসাইট লোড হচ্ছে…</p>
-          <p className="mt-2 text-xs text-slate-400">PANEL BAZAR BD</p>
-        </section>
-      </main>
-    );
-  }
-
-  const shouldShowMaintenance = settings.maintenance_mode === "true" || (isLoading && cachedMaintenance === "true");
+  // Do not render any interim maintenance/loading artwork on refresh.
+  // Render the requested page immediately; show maintenance only after the
+  // current site setting confirms it is enabled (never trust stale localStorage).
+  const shouldShowMaintenance = !isLoading && settings.maintenance_mode === "true";
   if (!shouldShowMaintenance) return <>{children}</>;
 
   return (
