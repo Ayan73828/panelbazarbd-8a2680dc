@@ -71,7 +71,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
   const [cartCount, setCartCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
-  const [readNotificationsLoaded, setReadNotificationsLoaded] = useState(false);
+  const [loadedNotificationsStorageKey, setLoadedNotificationsStorageKey] = useState<string | null>(null);
   const readNotificationsStorageKey = `panelbazarbd:read-notifications:${user?.id ?? "guest"}`;
   const unreadNotificationCount = notificationItems.filter((item) => !readNotificationIds.includes(item.id)).length;
 
@@ -83,18 +83,18 @@ export function SiteLayout({ children }: { children: ReactNode }) {
     } catch {
       setReadNotificationIds([]);
     } finally {
-      setReadNotificationsLoaded(true);
+      setLoadedNotificationsStorageKey(readNotificationsStorageKey);
     }
   }, [readNotificationsStorageKey]);
 
   useEffect(() => {
-    if (!readNotificationsLoaded) return;
+    if (loadedNotificationsStorageKey !== readNotificationsStorageKey) return;
     try {
       window.localStorage.setItem(readNotificationsStorageKey, JSON.stringify(readNotificationIds));
     } catch {
       // Keep notification interactions working if browser storage is unavailable.
     }
-  }, [readNotificationIds, readNotificationsLoaded, readNotificationsStorageKey]);
+  }, [readNotificationIds, loadedNotificationsStorageKey, readNotificationsStorageKey]);
 
   const markNotificationRead = (id: string) => {
     setReadNotificationIds((current) => current.includes(id) ? current : [...current, id]);
