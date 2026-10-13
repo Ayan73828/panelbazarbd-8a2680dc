@@ -18,9 +18,6 @@ import { useAuth } from "@/hooks/useAuth";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
-const brandLogoUrl =
-  "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png?v=official-20261013";
-
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -93,17 +90,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:site_name", content: "PANEL BAZAR BD" },
       { property: "og:title", content: "PANEL BAZAR BD — Digital Products & Reseller Panel" },
-      { property: "og:image:alt", content: "PANEL BAZAR BD official logo" },
       { name: "twitter:title", content: "PANEL BAZAR BD — Digital Products & Reseller Panel" },
       { name: "twitter:description", content: "Premium digital products and reseller panel services at reseller prices." },
       { property: "og:url", content: "https://panelbazarbd.shop/" },
       { name: "application-name", content: "PANEL BAZAR BD" },
       { name: "theme-color", content: "#111827" },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: brandLogoUrl },
-      { property: "og:image:type", content: "image/png" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:image", content: brandLogoUrl },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -115,9 +108,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap",
       },
       // Use the official brand image directly so crawlers do not pick the default Lovable icon.
-      { rel: "icon", href: brandLogoUrl, type: "image/png" },
-      { rel: "shortcut icon", href: brandLogoUrl, type: "image/png" },
-      { rel: "apple-touch-icon", href: brandLogoUrl },
     ],
   }),
   shellComponent: RootShell,
@@ -141,7 +131,7 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-/** Applies admin-editable brand colors and favicon at runtime. */
+/** Applies admin-editable brand colors at runtime. */
 function BrandTheme() {
   const { settings } = useSettings();
   const { isFetched } = useSettings();
@@ -165,14 +155,6 @@ function BrandTheme() {
       root.classList.add("brand-theme-ready");
     }
 
-    let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
-    if (!link) {
-      link = document.createElement("link");
-      link.rel = "icon";
-      document.head.appendChild(link);
-    }
-    link.href = brandLogoUrl;
-    link.type = "image/png";
   }, [settings, isFetched]);
   return null;
 }
