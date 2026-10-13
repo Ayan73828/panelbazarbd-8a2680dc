@@ -69,6 +69,39 @@ export function SiteLayout({ children }: { children: ReactNode }) {
   const wa = waLink(settings.whatsapp_number);
   const tg = tgLink(settings.telegram_username);
   const [cartCount, setCartCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+  const [readNotificationsLoaded, setReadNotificationsLoaded] = useState(false);
+  const readNotificationsStorageKey = `panelbazarbd:read-notifications:${user?.id ?? "guest"}`;
+  const unreadNotificationCount = notificationItems.filter((item) => !readNotificationIds.includes(item.id)).length;
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(readNotificationsStorageKey);
+      const parsed: unknown = saved ? JSON.parse(saved) : [];
+      setReadNotificationIds(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []);
+    } catch {
+      setReadNotificationIds([]);
+    } finally {
+      setReadNotificationsLoaded(true);
+    }
+  }, [readNotificationsStorageKey]);
+
+  useEffect(() => {
+    if (!readNotificationsLoaded) return;
+    try {
+      window.localStorage.setItem(readNotificationsStorageKey, JSON.stringify(readNotificationIds));
+    } catch {
+      // Keep notification interactions working if browser storage is unavailable.
+    }
+  }, [readNotificationIds, readNotificationsLoaded, readNotificationsStorageKey]);
+
+  const markNotificationRead = (id: string) => {
+    setReadNotificationIds((current) => current.includes(id) ? current : [...current, id]);
+  };
+  const markAllNotificationsRead = () => {
+    setReadNotificationIds((current) => [...new Set([...current, ...notificationItems.map((item) => item.id)])]);
+  };
   useEffect(() => {
     const update = () => setCartCount(getCartCount());
     update();
@@ -91,17 +124,24 @@ export function SiteLayout({ children }: { children: ReactNode }) {
           )}
           <div className="flex shrink-0 items-center gap-1.5">
             <Button asChild variant="ghost" size="icon" className="relative" aria-label="Shopping cart"><Link to="/cart"><ShoppingCart className="h-5 w-5" />{cartCount > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">{cartCount}</span>}</Link></Button>
-            <DropdownMenu>
+            <DropdownMenu open={notificationsOpen} onOpenChange={setNotificationsOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
                   <Bell className="h-5 w-5" />
-                  {notificationItems.length > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">{notificationItems.length}</span>}
+                  {unreadNotificationCount > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">{unreadNotificationCount}</span>}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[min(22rem,calc(100vw-1.5rem))]">
-                <DropdownMenuLabel className="flex items-center justify-between"><span>Notifications</span><span className="text-xs font-normal text-muted-foreground">{notificationItems.length} recent</span></DropdownMenuLabel>
+                <DropdownMenuLabel className="flex items-center justify-between gap-2"><span>Notifications</span><span className="text-xs font-normal text-muted-foreground">{unreadNotificationCount} unread</span></DropdownMenuLabel>
+                {notificationItems.length > 0 && <div className="px-2 pb-2"><Button type="button" variant="outline" size="sm" className="w-full" disabled={unreadNotificationCount === 0} onClick={markAllNotificationsRead}>Read All Messages</Button></div>}
                 <DropdownMenuSeparator />
-                {notificationItems.length === 0 ? <div className="px-2 py-5 text-center text-sm text-muted-foreground">No notifications yet.</div> : <div className="max-h-[60vh] overflow-y-auto">{notificationItems.map((item) => <div key={item.id} className="flex gap-2 border-b border-border/60 px-2 py-3 last:border-0"><span className="mt-0.5 text-primary">{item.kind === "referral" ? <Gift className="h-4 w-4" /> : item.kind === "wallet" ? <Wallet className="h-4 w-4" /> : item.kind === "order" ? <ReceiptText className="h-4 w-4" /> : <Bell className="h-4 w-4" />}</span><div className="min-w-0 flex-1"><p className="text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.message}</p><p className="mt-1 text-[10px] text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</p></div></div>)}</div>}
+                {notificationItems.length === 0 ? <div className="px-2 py-5 text-center text-sm text-muted-foreground">No notifications yet.</div> : <div className="max-h-[60vh] overflow-y-auto">{notificationItems.map((item) => {
+                  const isRead = readNotificationIds.includes(item.id);
+                  return <button type="button" key={item.id} onClick={() => markNotificationRead(item.id)} className={`flex w-full gap-2 border-b border-border/60 px-2 py-3 text-left last:border-0 hover:bg-muted/60 ${isRead ? "opacity-65" : "bg-primary/5"}`} aria-label={`${item.title}, ${isRead ? "read" : "unread"}`}>
+                    <span className="mt-0.5 text-primary">{item.kind === "referral" ? <Gift className="h-4 w-4" /> : item.kind === "wallet" ? <Wallet className="h-4 w-4" /> : item.kind === "order" ? <ReceiptText className="h-4 w-4" /> : <Bell className="h-4 w-4" />}</span>
+                    <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{item.title}</span>{!isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />}</span><span className="block text-xs text-muted-foreground">{item.message}</span><span className="mt-1 block text-[10px] text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</span></span>
+                  </button>;
+                })}</div>}
               </DropdownMenuContent>
             </DropdownMenu>
             {authLoading ? (
