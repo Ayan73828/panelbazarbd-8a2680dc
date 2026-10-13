@@ -39,7 +39,7 @@ const bottomNav = [
 
 export function SiteLayout({ children }: { children: ReactNode }) {
   const { settings } = useSettings();
-  const { user, profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin, loading: authLoading } = useAuth();
   const orders = useMyOrders();
   const transactions = useMyTransactions();
   const announcements = useActiveAnnouncements();
@@ -104,7 +104,11 @@ export function SiteLayout({ children }: { children: ReactNode }) {
                 {notificationItems.length === 0 ? <div className="px-2 py-5 text-center text-sm text-muted-foreground">No notifications yet.</div> : <div className="max-h-[60vh] overflow-y-auto">{notificationItems.map((item) => <div key={item.id} className="flex gap-2 border-b border-border/60 px-2 py-3 last:border-0"><span className="mt-0.5 text-primary">{item.kind === "referral" ? <Gift className="h-4 w-4" /> : item.kind === "wallet" ? <Wallet className="h-4 w-4" /> : item.kind === "order" ? <ReceiptText className="h-4 w-4" /> : <Bell className="h-4 w-4" />}</span><div className="min-w-0 flex-1"><p className="text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.message}</p><p className="mt-1 text-[10px] text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</p></div></div>)}</div>}
               </DropdownMenuContent>
             </DropdownMenu>
-            {user ? (
+            {authLoading ? (
+              // Reserve the account controls while Supabase restores the session.
+              // This prevents Register/Login from flashing before the signed-in profile appears.
+              <div className="h-9 w-[5.5rem] shrink-0" aria-hidden="true" />
+            ) : user ? (
               <>
                 <span className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
                   {money(profile?.balance, settings.currency_symbol)}
