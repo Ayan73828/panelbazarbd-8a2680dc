@@ -130,6 +130,7 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: `try { var p = localStorage.getItem("panelbazarbd_primary_color"); var a = localStorage.getItem("panelbazarbd_secondary_color"); if (p) document.documentElement.style.setProperty("--primary", p); if (a) document.documentElement.style.setProperty("--accent", a); } catch (_) {}` }} />
         <HeadContent />
       </head>
       <body>
@@ -149,8 +150,14 @@ function BrandTheme() {
   // useEffect runs after paint and caused a visible default-color flash on refresh.
   useLayoutEffect(() => {
     const root = document.documentElement;
-    if (settings.primary_color) root.style.setProperty("--primary", settings.primary_color);
-    if (settings.secondary_color) root.style.setProperty("--accent", settings.secondary_color);
+    if (settings.primary_color) {
+      root.style.setProperty("--primary", settings.primary_color);
+      try { window.localStorage.setItem("panelbazarbd_primary_color", settings.primary_color); } catch {}
+    }
+    if (settings.secondary_color) {
+      root.style.setProperty("--accent", settings.secondary_color);
+      try { window.localStorage.setItem("panelbazarbd_secondary_color", settings.secondary_color); } catch {}
+    }
 
     let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
     if (!link) {
