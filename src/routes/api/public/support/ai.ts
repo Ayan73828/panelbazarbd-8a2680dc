@@ -2,6 +2,22 @@ import { createFileRoute } from "@tanstack/react-router";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
+// Normalize Bangla/English digits and common Bangladesh country-code formats.
+function normalizeBangladeshMobile(input: string): string | null {
+  const banglaDigits = "০১২৩৪৫৬৭৮৯";
+  const normalizedDigits = input.replace(/[০-৯]/g, (digit) => String(banglaDigits.indexOf(digit)));
+  const digits = normalizedDigits.replace(/[^0-9]/g, "");
+  let local = digits;
+  if (local.startsWith("00880")) local = "0" + local.slice(5);
+  else if (local.startsWith("880")) local = "0" + local.slice(3);
+  if (!/^01[3-9][0-9]{8}$/.test(local)) return null;
+  return local;
+}
+
+function asksForMobilePaymentNumber(message: string): boolean {
+  return /(বিকাশ|বিকাশের|bkash|b-kash|নগদ|নগদের|nagad).{0,70}(নাম্বার|নম্বর|number|mobile|মোবাইল)|(নাম্বার|নম্বর|number|mobile|মোবাইল).{0,70}(বিকাশ|bkash|b-kash|নগদ|nagad)/i.test(message);
+}
+
 const SYSTEM_PROMPT = `তুমি Panel Bazar BD-এর professional AI Customer Support Assistant। তোমার agent name request-এ দেওয়া আছে। ব্যবহারকারী বাংলা, Banglish বা English-এ লিখলে তার ভাষা ও সহজবোধ্য style-এ উত্তর দেবে। ভদ্র, ধৈর্যশীল, আত্মবিশ্বাসী কিন্তু কখনো অহংকারী হবে না। স্বাভাবিক মানুষের মতো কথোপকথন করবে; "Hi" বা greeting-এর উত্তরে সংক্ষিপ্ত greeting দিয়ে সাহায্যের বিষয় জিজ্ঞেস করবে।
 
 MISSION
@@ -79,6 +95,24 @@ export const Route = createFileRoute("/api/public/support/ai")({
             .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
           if (!messages.length || messages[messages.length - 1]?.role !== "user") {
             return Response.json({ error: "আপনার সর্বশেষ মেসেজটি পাওয়া যায়নি। আবার লিখে Send করুন।" }, { status: 400 });
+          }
+
+          // When the assistant has just requested a bKash/Nagad sender mobile number,
+          // validate the user's answer before any model can accept it or create a ticket.
+          const previousAssistant = [...messages].reverse().find((m, index) => index > 0 && m.role === "assistant");
+          if (previousAssistant && asksForMobilePaymentNumber(previousAssistant.content)) {
+            const latestUserText = messages[messages.length - 1]!.content;
+            const candidateNumbers = latestUserText.match(/(?:\\+?880|00880|0)?[\\s().-]*[0-9০-৯][0-9০-৯\\s().-]{7,18}[0-9০-৯]/g) ?? [];
+            const validNumber = candidateNumbers.map(normalizeBangladeshMobile).find((value) => value !== null);
+            if (!validNumber) {
+              return Response.json({
+                reply: "দুঃখিত, নম্বরটি সঠিক বাংলাদেশি মোবাইল নম্বর মনে হচ্ছে না। অনুগ্রহ করে ১১ সংখ্যার বাংলাদেশি মোবাইল নম্বর দিন, যেমন 01712345678। বিকাশ/নগদ অ্যাকাউন্টে নম্বরটি নিবন্ধিত কি না শুধু নম্বরের ফরম্যাট দেখে নিশ্চিত করা যায় না।",
+                category: "payment",
+                readyForTicket: false,
+                subject: "",
+                ticketMessage: ""
+              });
+            }
           }
 
           const agentName = typeof body.agentName === "string" && /^[\u0980-\u09FF]{2,20}$/.test(body.agentName) ? body.agentName : "রাকিব";
