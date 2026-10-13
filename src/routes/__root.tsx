@@ -8,7 +8,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, type ReactNode } from "react";
 import { playUiClick } from "@/lib/sounds";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -145,12 +145,13 @@ function BrandTheme() {
   const { settings } = useSettings();
   const { isFetched } = useSettings();
 
-  useEffect(() => {
+  // Apply the fetched theme before the browser paints the hydrated page.
+  // useEffect runs after paint and caused a visible default-color flash on refresh.
+  useLayoutEffect(() => {
     const root = document.documentElement;
     if (settings.primary_color) root.style.setProperty("--primary", settings.primary_color);
     if (settings.secondary_color) root.style.setProperty("--accent", settings.secondary_color);
 
-    // Keep the supplied official brand logo as the site favicon.
     let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
     if (!link) {
       link = document.createElement("link");
@@ -160,7 +161,7 @@ function BrandTheme() {
     link.href = brandLogoUrl;
     link.type = "image/png";
 
-    if (isFetched) document.documentElement.classList.add("brand-theme-ready");
+    if (isFetched) root.classList.add("brand-theme-ready");
   }, [settings, isFetched]);
   return null;
 }
