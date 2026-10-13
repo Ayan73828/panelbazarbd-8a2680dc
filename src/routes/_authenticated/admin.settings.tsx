@@ -29,12 +29,19 @@ function AdminSettings() {
   });
   async function toggleMaintenance(enabled: boolean) {
     setSavingMaintenance(true);
+    const previous = typeof window !== "undefined" ? window.localStorage.getItem("panelbazarbd_maintenance_mode") : null;
+    // Update the same browser's cached gate immediately, so refresh reflects the admin's latest choice.
+    if (typeof window !== "undefined") window.localStorage.setItem("panelbazarbd_maintenance_mode", enabled ? "true" : "false");
     try {
       const { error } = await supabase.from("site_settings").upsert({ key: "maintenance_mode", value: enabled ? "true" : "false" }, { onConflict: "key" });
       if (error) throw error;
       await queryClient.invalidateQueries({ queryKey: ["site_settings"] });
       toast.success(enabled ? "Maintenance mode enabled" : "Maintenance mode disabled — website is live");
     } catch (error) {
+      if (typeof window !== "undefined") {
+        if (previous === null) window.localStorage.removeItem("panelbazarbd_maintenance_mode");
+        else window.localStorage.setItem("panelbazarbd_maintenance_mode", previous);
+      }
       toast.error(error instanceof Error ? error.message : "Could not update maintenance mode");
     } finally {
       setSavingMaintenance(false);
