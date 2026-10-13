@@ -18,6 +18,9 @@ import { useAuth } from "@/hooks/useAuth";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
+const brandLogoUrl = "https://cdn.phototourl.com/member/2026-10-13-bdaa5c4b-3f94-46db-a14a-abc485bc7483.png";
+
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -89,6 +92,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: "Premium digital products and reseller panel services at reseller prices.",
       },
       { property: "og:site_name", content: "PANEL BAZAR BD" },
+      { property: "og:image:alt", content: "PANEL BAZAR BD official logo" },
       { property: "og:title", content: "PANEL BAZAR BD — Digital Products & Reseller Panel" },
       { name: "twitter:title", content: "PANEL BAZAR BD — Digital Products & Reseller Panel" },
       { name: "twitter:description", content: "Premium digital products and reseller panel services at reseller prices." },
@@ -96,11 +100,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "application-name", content: "PANEL BAZAR BD" },
       { name: "theme-color", content: "#111827" },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: brandLogoUrl },
+      { property: "og:image:type", content: "image/png" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: brandLogoUrl },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "canonical", href: "https://panelbazarbd.shop/" },
+      { rel: "icon", href: brandLogoUrl, type: "image/png" },
+      { rel: "shortcut icon", href: brandLogoUrl, type: "image/png" },
+      { rel: "apple-touch-icon", href: brandLogoUrl },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -140,6 +150,14 @@ function BrandTheme() {
   // useEffect runs after paint and caused a visible default-color flash on refresh.
   useLayoutEffect(() => {
     const root = document.documentElement;
+    let iconLink = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    if (!iconLink) {
+      iconLink = document.createElement("link");
+      iconLink.rel = "icon";
+      document.head.appendChild(iconLink);
+    }
+    iconLink.href = brandLogoUrl;
+    iconLink.type = "image/png";
 
     // Do not apply DEFAULT_SETTINGS while the real Supabase settings are still
     // loading: doing so overwrites cached colors and causes a visible flash.
