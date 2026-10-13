@@ -8,7 +8,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <Link to="/" className="flex min-w-0 items-center gap-2">
       <img
-        src={(settings.logo_url || OFFICIAL_LOGO_URL).trim() + "?v=20261011"}
+        src={OFFICIAL_LOGO_URL}
         alt={settings.site_name || "PANEL BAZAR BD"}
         width={36}
         height={36}
