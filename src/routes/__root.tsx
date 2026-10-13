@@ -19,7 +19,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 const brandLogoUrl =
-  "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png";
+  "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png?v=official-20261013";
 
 function NotFoundComponent() {
   return (
