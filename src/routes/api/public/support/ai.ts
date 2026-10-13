@@ -116,8 +116,24 @@ export const Route = createFileRoute("/api/public/support/ai")({
               });
               if (geminiResponse.ok) {
                 const geminiData = await geminiResponse.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-                raw = geminiData.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-                if (!raw) providerErrors.push("Gemini returned an empty response");
+                const candidateText = geminiData.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+                // Only accept a response that matches the support JSON contract. Invalid or blocked
+                // Gemini output must trigger the backup provider instead of breaking the whole chat.
+                try {
+                  const candidate = JSON.parse(candidateText) as { reply?: unknown; category?: unknown; readyForTicket?: unknown; subject?: unknown; ticketMessage?: unknown };
+                  if (
+                    typeof candidate.reply === "string" &&
+                    typeof candidate.readyForTicket === "boolean" &&
+                    typeof candidate.subject === "string" &&
+                    typeof candidate.ticketMessage === "string"
+                  ) {
+                    raw = candidateText;
+                  } else {
+                    providerErrors.push("Gemini returned an invalid support response");
+                  }
+                } catch {
+                  providerErrors.push(candidateText ? "Gemini returned malformed JSON" : "Gemini returned an empty response");
+                }
               } else {
                 const detail = await geminiResponse.text();
                 console.error("Gemini support API error", geminiResponse.status, detail.slice(0, 300));
@@ -164,7 +180,22 @@ export const Route = createFileRoute("/api/public/support/ai")({
               });
               if (groqResponse.ok) {
                 const groqData = await groqResponse.json() as { choices?: Array<{ message?: { content?: string | null } }> };
-                raw = groqData.choices?.[0]?.message?.content ?? "";
+                const candidateText = groqData.choices?.[0]?.message?.content ?? "";
+                try {
+                  const candidate = JSON.parse(candidateText) as { reply?: unknown; readyForTicket?: unknown; subject?: unknown; ticketMessage?: unknown };
+                  if (
+                    typeof candidate.reply === "string" &&
+                    typeof candidate.readyForTicket === "boolean" &&
+                    typeof candidate.subject === "string" &&
+                    typeof candidate.ticketMessage === "string"
+                  ) {
+                    raw = candidateText;
+                  } else {
+                    providerErrors.push("Groq returned an invalid support response");
+                  }
+                } catch {
+                  providerErrors.push(candidateText ? "Groq returned malformed JSON" : "Groq returned an empty response");
+                }
               } else {
                 const detail = await groqResponse.text();
                 console.error("Groq backup support API error", groqResponse.status, detail.slice(0, 300));
