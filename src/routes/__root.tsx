@@ -150,13 +150,19 @@ function BrandTheme() {
   // useEffect runs after paint and caused a visible default-color flash on refresh.
   useLayoutEffect(() => {
     const root = document.documentElement;
-    if (settings.primary_color) {
-      root.style.setProperty("--primary", settings.primary_color);
-      try { window.localStorage.setItem("panelbazarbd_primary_color", settings.primary_color); } catch {}
-    }
-    if (settings.secondary_color) {
-      root.style.setProperty("--accent", settings.secondary_color);
-      try { window.localStorage.setItem("panelbazarbd_secondary_color", settings.secondary_color); } catch {}
+
+    // Do not apply DEFAULT_SETTINGS while the real Supabase settings are still
+    // loading: doing so overwrites cached colors and causes a visible flash.
+    if (isFetched) {
+      if (settings.primary_color) {
+        root.style.setProperty("--primary", settings.primary_color);
+        try { window.localStorage.setItem("panelbazarbd_primary_color", settings.primary_color); } catch {}
+      }
+      if (settings.secondary_color) {
+        root.style.setProperty("--accent", settings.secondary_color);
+        try { window.localStorage.setItem("panelbazarbd_secondary_color", settings.secondary_color); } catch {}
+      }
+      root.classList.add("brand-theme-ready");
     }
 
     let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
@@ -167,8 +173,6 @@ function BrandTheme() {
     }
     link.href = brandLogoUrl;
     link.type = "image/png";
-
-    if (isFetched) root.classList.add("brand-theme-ready");
   }, [settings, isFetched]);
   return null;
 }
