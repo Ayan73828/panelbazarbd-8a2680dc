@@ -69,21 +69,21 @@
   --card-foreground: oklch(0.975 0.004 250);
   --popover: oklch(0.195 0.014 264);
   --popover-foreground: oklch(0.975 0.004 250);
-  --primary: oklch(0.88 0.16 180);
-  --primary-foreground: oklch(0.16 0.02 180);
+  --primary: #22c55e;
+  --primary-foreground: #052e16;
   --secondary: oklch(0.24 0.018 264);
   --secondary-foreground: oklch(0.96 0.004 250);
   --muted: oklch(0.24 0.018 264);
   --muted-foreground: oklch(0.7 0.016 260);
-  --accent: oklch(0.7 0.14 220);
-  --accent-foreground: oklch(0.16 0.02 240);
+  --accent: #22c55e;
+  --accent-foreground: #052e16;
   --destructive: oklch(0.62 0.22 22);
   --destructive-foreground: oklch(0.98 0.004 250);
   --success: oklch(0.75 0.18 150);
   --warning: oklch(0.8 0.16 80);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.75 0.19 150 / 60%);
+  --ring: #22c55e;
   --chart-1: oklch(0.75 0.19 150);
   --chart-2: oklch(0.7 0.14 220);
   --chart-3: oklch(0.8 0.16 80);
@@ -91,12 +91,12 @@
   --chart-5: oklch(0.65 0.22 22);
   --sidebar: oklch(0.175 0.014 264);
   --sidebar-foreground: oklch(0.96 0.004 250);
-  --sidebar-primary: oklch(0.75 0.19 150);
-  --sidebar-primary-foreground: oklch(0.16 0.02 160);
+  --sidebar-primary: #22c55e;
+  --sidebar-primary-foreground: #052e16;
   --sidebar-accent: oklch(0.24 0.018 264);
   --sidebar-accent-foreground: oklch(0.96 0.004 250);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.75 0.19 150 / 60%);
+  --sidebar-ring: #22c55e;
 }
 
 /* Keep the app visible while settings load; hiding body caused a black screen before maintenance mode rendered. */
