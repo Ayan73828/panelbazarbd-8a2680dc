@@ -206,7 +206,7 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
   // maintenance OFF. Never show the maintenance page from localStorage alone.
   // A cached OFF value can render the storefront immediately; otherwise show a
   // neutral loading screen until the current server setting is confirmed.
-  if (isLoading && cachedMaintenance !== "false") {
+  if (isLoading && cachedMaintenance === null) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-5 text-white">
         <section className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.06] p-8 text-center shadow-xl">
@@ -219,7 +219,7 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
     );
   }
 
-  const shouldShowMaintenance = !isLoading && settings.maintenance_mode === "true";
+  const shouldShowMaintenance = settings.maintenance_mode === "true" || (isLoading && cachedMaintenance === "true");
   if (!shouldShowMaintenance) return <>{children}</>;
 
   return (
