@@ -274,45 +274,23 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
 }
 
 
-/** Visible YouTube embed for the requested soundtrack; unmounting it stops playback. */
+/** Hidden YouTube soundtrack with a persistent, user-visible mute toggle. */
 function YouTubeMusicToggle() {
-  const [enabled, setEnabled] = useState(false);
+  // Start enabled by default; browsers may still require a user gesture for audible autoplay.
+  const [enabled, setEnabled] = useState(true);
 
   return (
     <>
       {enabled && (
-        <section
-          aria-label="Background music player"
-          className="fixed bottom-[8.8rem] right-3 z-[60] w-[min(260px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-cyan-100/25 bg-slate-950 p-2 shadow-2xl shadow-cyan-950/40"
-        >
-          <div className="flex items-center justify-between gap-2 px-1 pb-2">
-            <div>
-              <p className="text-xs font-semibold text-cyan-50">Winterlands soundtrack</p>
-              <p className="text-[10px] text-slate-400">YouTube player</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setEnabled(false)}
-              aria-label="Turn background music off"
-              className="rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/10"
-            >
-              Turn Off
-            </button>
-          </div>
-          <iframe
-            title="Winterlands soundtrack from YouTube"
-            src="https://www.youtube-nocookie.com/embed/mCpzM7w5W3E?autoplay=1&playsinline=1&controls=1&rel=0"
-            width="244"
-            height="244"
-            allow="autoplay; encrypted-media; picture-in-picture; web-share"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allowFullScreen
-            className="block max-w-full rounded-xl"
-          />
-          <p className="px-1 pt-2 text-[10px] leading-4 text-slate-400">
-            If playback does not start automatically, tap Play in the player.
-          </p>
-        </section>
+        <iframe
+          title="Background music"
+          aria-hidden="true"
+          tabIndex={-1}
+          src="https://www.youtube-nocookie.com/embed/mCpzM7w5W3E?autoplay=1&playsinline=1&controls=0&rel=0&modestbranding=1&loop=1&playlist=mCpzM7w5W3E"
+          allow="autoplay; encrypted-media"
+          referrerPolicy="strict-origin-when-cross-origin"
+          className="pointer-events-none fixed left-0 top-0 h-px w-px border-0 opacity-0"
+        />
       )}
       <button
         type="button"
