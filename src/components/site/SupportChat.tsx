@@ -638,6 +638,7 @@ export function SupportChat() {
                    return;
                  }
                  setAttachment(file);
+                 event.target.value = "";
                }} />
                <button type="button" onClick={() => attachmentInputRef.current?.click()} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-input hover:bg-muted" aria-label="Choose a photo"><Paperclip className="h-4 w-4" /></button>
                <input value={text} onChange={(event) => setText(event.target.value)} placeholder={flow === "pending" ? "সমস্যার সমাধান হয়েছে বা আরও তথ্য লিখুন…" : "আপনার মেসেজ লিখুন…"} maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary" aria-label="Your message" />
