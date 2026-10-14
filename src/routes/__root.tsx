@@ -8,7 +8,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { playUiClick } from "@/lib/sounds";
 import { Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
@@ -192,6 +192,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrandTheme />
+        <YouTubeMusicToggle />
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <MaintenanceGate><Outlet /></MaintenanceGate>
         <Toaster position="top-center" />
@@ -273,92 +274,57 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
 }
 
 
-/** Original, copyright-safe winter-game ambience synthesized in the browser. */
-function WinterMusicToggle() {
+/** Visible YouTube embed for the requested soundtrack; unmounting it stops playback. */
+function YouTubeMusicToggle() {
   const [enabled, setEnabled] = useState(false);
-  const contextRef = useRef<AudioContext | null>(null);
-  const masterRef = useRef<GainNode | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const noteRef = useRef(0);
-
-  function playNote(frequency: number, duration: number, volume: number, type: OscillatorType = "sine") {
-    const ctx = contextRef.current;
-    const master = masterRef.current;
-    if (!ctx || !master) return;
-    const oscillator = ctx.createOscillator();
-    const gain = ctx.createGain();
-    oscillator.type = type;
-    oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(volume, ctx.currentTime + 0.12);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
-    oscillator.connect(gain).connect(master);
-    oscillator.start();
-    oscillator.stop(ctx.currentTime + duration + 0.04);
-  }
-
-  async function toggleMusic() {
-    if (enabled) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = null;
-      if (masterRef.current && contextRef.current) {
-        masterRef.current.gain.setTargetAtTime(0.0001, contextRef.current.currentTime, 0.12);
-      }
-      setEnabled(false);
-      return;
-    }
-
-    try {
-      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextClass) {
-        toast.error("Background music is not supported in this browser.");
-        return;
-      }
-      const ctx = contextRef.current ?? new AudioContextClass();
-      contextRef.current = ctx;
-      await ctx.resume();
-      const master = masterRef.current ?? ctx.createGain();
-      masterRef.current = master;
-      master.gain.setValueAtTime(0.0001, ctx.currentTime);
-      master.gain.setTargetAtTime(0.16, ctx.currentTime, 0.35);
-      master.connect(ctx.destination);
-      setEnabled(true);
-
-      const melody = [523.25, 659.25, 783.99, 659.25, 587.33, 783.99, 880, 783.99, 523.25, 659.25, 698.46, 587.33];
-      const bass = [130.81, 164.81, 146.83, 196.0];
-      noteRef.current = 0;
-      const tick = () => {
-        const i = noteRef.current++;
-        playNote(melody[i % melody.length], 1.7, 0.065, "sine");
-        if (i % 4 === 0) {
-          playNote(bass[Math.floor(i / 4) % bass.length], 3.4, 0.035, "triangle");
-          playNote(melody[(i + 2) % melody.length] * 2, 1.15, 0.018, "sine");
-        }
-      };
-      tick();
-      timerRef.current = setInterval(tick, 850);
-    } catch {
-      setEnabled(false);
-      toast.error("Could not start music. Please tap again.");
-    }
-  }
-
-  useEffect(() => () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (contextRef.current && contextRef.current.state !== "closed") void contextRef.current.close();
-  }, []);
 
   return (
-    <button
-      type="button"
-      onClick={() => void toggleMusic()}
-      aria-label={enabled ? "Turn background music off" : "Turn background music on"}
-      title={enabled ? "Turn music off" : "Turn music on"}
-      className="fixed bottom-[5.5rem] right-3 z-[60] inline-flex items-center gap-2 rounded-full border border-cyan-100/25 bg-slate-950/90 px-3 py-2.5 text-xs font-semibold text-cyan-50 shadow-lg shadow-cyan-950/30 backdrop-blur-md transition hover:border-cyan-100/50 hover:bg-slate-900"
-    >
-      {enabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-      <span>{enabled ? "Music On" : "Music Off"}</span>
-      <span className={`h-1.5 w-1.5 rounded-full ${enabled ? "animate-pulse bg-emerald-400" : "bg-slate-500"}`} />
-    </button>
+    <>
+      {enabled && (
+        <section
+          aria-label="Background music player"
+          className="fixed bottom-[8.8rem] right-3 z-[60] w-[min(260px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-cyan-100/25 bg-slate-950 p-2 shadow-2xl shadow-cyan-950/40"
+        >
+          <div className="flex items-center justify-between gap-2 px-1 pb-2">
+            <div>
+              <p className="text-xs font-semibold text-cyan-50">Winterlands soundtrack</p>
+              <p className="text-[10px] text-slate-400">YouTube player</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEnabled(false)}
+              aria-label="Turn background music off"
+              className="rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-white/10"
+            >
+              Turn Off
+            </button>
+          </div>
+          <iframe
+            title="Winterlands soundtrack from YouTube"
+            src="https://www.youtube-nocookie.com/embed/mCpzM7w5W3E?autoplay=1&playsinline=1&controls=1&rel=0"
+            width="244"
+            height="244"
+            allow="autoplay; encrypted-media; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+            className="block max-w-full rounded-xl"
+          />
+          <p className="px-1 pt-2 text-[10px] leading-4 text-slate-400">
+            If playback does not start automatically, tap Play in the player.
+          </p>
+        </section>
+      )}
+      <button
+        type="button"
+        onClick={() => setEnabled((value) => !value)}
+        aria-label={enabled ? "Turn background music off" : "Turn background music on"}
+        title={enabled ? "Turn music off" : "Turn music on"}
+        className="fixed bottom-[5.5rem] right-3 z-[60] inline-flex items-center gap-2 rounded-full border border-cyan-100/25 bg-slate-950/95 px-3 py-2.5 text-xs font-semibold text-cyan-50 shadow-lg shadow-cyan-950/30 backdrop-blur-md transition hover:border-cyan-100/50 hover:bg-slate-900"
+      >
+        {enabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+        <span>{enabled ? "Music On" : "Music Off"}</span>
+        <span className={`h-1.5 w-1.5 rounded-full ${enabled ? "animate-pulse bg-emerald-400" : "bg-slate-500"}`} />
+      </button>
+    </>
   );
 }
