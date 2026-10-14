@@ -16,6 +16,8 @@ import {
   Shield,
   User,
   Wallet,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -144,6 +146,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
                 })}</div>}
               </DropdownMenuContent>
             </DropdownMenu>
+            <HeaderMusicToggle />
             {authLoading ? (
               // Reserve the account controls while Supabase restores the session.
               // This prevents Register/Login from flashing before the signed-in profile appears.
@@ -340,3 +343,84 @@ function ProfileMenu({ name, email }: { name: string; email: string }) {
     </DropdownMenu>
   );
 }
+
+/** Starts music automatically where browser policy permits; otherwise retries after the first user interaction. */
+function HeaderMusicToggle() {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    const audio = document.getElementById("panelbazarbd-background-music") as HTMLAudioElement | null;
+    if (!audio) return;
+    audio.loop = true;
+    audio.preload = "auto";
+
+    let optedOut = false;
+    try {
+      optedOut = window.localStorage.getItem("panelbazarbd_music_disabled") === "true";
+    } catch {
+      // Browser storage may be unavailable; default to music enabled.
+    }
+    if (optedOut) {
+      audio.pause();
+      setEnabled(false);
+      return;
+    }
+
+    const startMusic = () => {
+      if (optedOut || !audio.paused) return;
+      void audio.play().then(() => setEnabled(true)).catch(() => {
+        // Autoplay with sound is blocked by some browsers until the visitor interacts.
+        setEnabled(false);
+      });
+    };
+
+    startMusic();
+    const retryAfterInteraction = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-music-toggle]")) return;
+      startMusic();
+      if (!audio.paused) {
+        window.removeEventListener("pointerdown", retryAfterInteraction, true);
+        window.removeEventListener("keydown", retryAfterInteraction, true);
+      }
+    };
+    window.addEventListener("pointerdown", retryAfterInteraction, true);
+    window.addEventListener("keydown", retryAfterInteraction, true);
+    return () => {
+      window.removeEventListener("pointerdown", retryAfterInteraction, true);
+      window.removeEventListener("keydown", retryAfterInteraction, true);
+    };
+  }, []);
+
+  const toggleMusic = () => {
+    const audio = document.getElementById("panelbazarbd-background-music") as HTMLAudioElement | null;
+    if (!audio) return;
+    if (enabled || !audio.paused) {
+      audio.pause();
+      setEnabled(false);
+      try { window.localStorage.setItem("panelbazarbd_music_disabled", "true"); } catch {}
+      return;
+    }
+    try { window.localStorage.removeItem("panelbazarbd_music_disabled"); } catch {}
+    void audio.play().then(() => setEnabled(true)).catch(() => setEnabled(false));
+  };
+
+  return (
+    <>
+      <audio id="panelbazarbd-background-music" src="https://standard-plum-2cflgaxh.edgeone.dev/" loop preload="auto" />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        data-music-toggle="true"
+        onClick={toggleMusic}
+        aria-label={enabled ? "Turn music off" : "Turn music on"}
+        title={enabled ? "Music On — tap to turn off" : "Music Off — tap to turn on"}
+        className="shrink-0"
+      >
+        {enabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+      </Button>
+    </>
+  );
+}
+
