@@ -10,8 +10,6 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { playUiClick } from "@/lib/sounds";
-import { Volume2, VolumeX } from "lucide-react";
-import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSite";
@@ -192,7 +190,6 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrandTheme />
-        <YouTubeMusicToggle />
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <MaintenanceGate><Outlet /></MaintenanceGate>
         <Toaster position="top-center" />
@@ -270,45 +267,5 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
         <p className="mt-8 text-xs text-slate-500">Thank you for your patience · PANEL BAZAR BD</p>
       </section>
     </main>
-  );
-}
-
-
-/** Background soundtrack hosted on EdgeOne, with a user-visible play/pause toggle. */
-function YouTubeMusicToggle() {
-  const [enabled, setEnabled] = useState(false);
-
-  return (
-    <>
-      <audio
-        id="panelbazarbd-background-music"
-        src="https://standard-plum-2cflgaxh.edgeone.dev/"
-        loop
-        preload="none"
-      />
-      <button
-        type="button"
-        onClick={() => {
-          const audio = document.getElementById("panelbazarbd-background-music") as HTMLAudioElement | null;
-          if (!audio) return;
-          if (enabled) {
-            audio.pause();
-            setEnabled(false);
-          } else {
-            void audio.play().then(() => setEnabled(true)).catch(() => {
-              setEnabled(false);
-              toast.error("গান চালু করা যায়নি। MP3 লিংকটি সরাসরি অডিও ফাইল হতে হবে।");
-            });
-          }
-        }}
-        aria-label={enabled ? "Turn background music off" : "Play background music"}
-        title={enabled ? "Turn music off" : "Play music"}
-        className="fixed bottom-[5.5rem] right-3 z-[60] inline-flex items-center gap-2 rounded-full border border-cyan-100/25 bg-slate-950/95 px-3 py-2.5 text-xs font-semibold text-cyan-50 shadow-lg shadow-cyan-950/30 backdrop-blur-md transition hover:border-cyan-100/50 hover:bg-slate-900"
-      >
-        {enabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-        <span>{enabled ? "Music On" : "Play Music"}</span>
-        <span className={`h-1.5 w-1.5 rounded-full ${enabled ? "animate-pulse bg-emerald-400" : "bg-slate-500"}`} />
-      </button>
-    </>
   );
 }
