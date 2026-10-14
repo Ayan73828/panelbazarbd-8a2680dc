@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-type ChatMessage = { role: "user" | "assistant"; content: string };
+type ChatMessage = { role: "user" | "assistant"; content: string };\ntype SupportImage = { mimeType: "image/jpeg" | "image/png" | "image/webp"; data: string };
 
 // Normalize Bangla/English digits and common Bangladesh country-code formats.
 function normalizeBangladeshMobile(input: string): string | null {
@@ -82,7 +82,7 @@ export const Route = createFileRoute("/api/public/support/ai")({
         }
 
         try {
-          const body = await request.json() as { messages?: ChatMessage[]; agentName?: string };
+          const body = await request.json() as { messages?: ChatMessage[]; agentName?: string; image?: SupportImage };
           if (!Array.isArray(body.messages) || body.messages.length === 0) {
             return Response.json({ error: "Please send a message to continue the support chat." }, { status: 400 });
           }
@@ -95,6 +95,22 @@ export const Route = createFileRoute("/api/public/support/ai")({
             .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
           if (!messages.length || messages[messages.length - 1]?.role !== "user") {
             return Response.json({ error: "আপনার সর্বশেষ মেসেজটি পাওয়া যায়নি। আবার লিখে Send করুন।" }, { status: 400 });
+          }
+
+          let image: SupportImage | undefined;
+          if (body.image !== undefined) {
+            const candidate = body.image;
+            if (
+              !candidate ||
+              !["image/jpeg", "image/png", "image/webp"].includes(candidate.mimeType) ||
+              typeof candidate.data !== "string" ||
+              !candidate.data.length ||
+              candidate.data.length > 7_000_000 ||
+              !/^[A-Za-z0-9+/]+={0,2}$/.test(candidate.data)
+            ) {
+              return Response.json({ error: "ছবিটি পড়া যায়নি। JPG, PNG বা WebP ফরম্যাটে ৫ MB-এর কম ছবি আবার বেছে নিন।" }, { status: 400 });
+            }
+            image = candidate;
           }
 
           // When the assistant has just requested a bKash/Nagad sender mobile number,
@@ -128,7 +144,15 @@ export const Route = createFileRoute("/api/public/support/ai")({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   systemInstruction: { parts: [{ text: systemPrompt }] },
-                  contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+                  contents: messages.map((m, index) => ({
+                    role: m.role === "assistant" ? "model" : "user",
+                    parts: [
+                      { text: m.content },
+                      ...(image && index === messages.length - 1 && m.role === "user"
+                        ? [{ inlineData: { mimeType: image.mimeType, data: image.data } }]
+                        : [])
+                    ]
+                  })),
                   generationConfig: {
                     temperature: 0.3,
                     maxOutputTokens: 900,
