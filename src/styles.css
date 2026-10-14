@@ -161,3 +161,38 @@ html:not(.brand-theme-ready) body {
       transparent 70%
     );
 }
+
+
+/* Winter-gaming atmosphere for the authentication screen */
+.winter-orb {
+  position: absolute;
+  display: block;
+  width: 17rem;
+  height: 17rem;
+  border-radius: 9999px;
+  filter: blur(65px);
+  opacity: .2;
+  animation: winter-drift 11s ease-in-out infinite alternate;
+}
+.winter-orb-one { top: 5%; left: -7rem; background: #0891b2; }
+.winter-orb-two { right: -8rem; bottom: 4%; background: #2563eb; animation-delay: -4s; }
+.winter-snow {
+  position: absolute;
+  color: rgba(207, 250, 254, .58);
+  text-shadow: 0 0 18px rgba(165, 243, 252, .5);
+  animation: winter-float 7s ease-in-out infinite;
+}
+.winter-snow-one { top: 13%; right: 15%; font-size: 1.5rem; }
+.winter-snow-two { top: 44%; left: 7%; font-size: 1.1rem; animation-delay: -2s; }
+.winter-snow-three { right: 10%; bottom: 18%; font-size: 1.8rem; animation-delay: -4s; }
+@keyframes winter-drift {
+  from { transform: translate3d(0, -8px, 0) scale(.94); }
+  to { transform: translate3d(16px, 14px, 0) scale(1.08); }
+}
+@keyframes winter-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: .35; }
+  50% { transform: translateY(-14px) rotate(12deg); opacity: .85; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .winter-orb, .winter-snow { animation: none; }
+}
