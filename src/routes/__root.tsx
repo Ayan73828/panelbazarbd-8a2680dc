@@ -11,6 +11,7 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { playUiClick } from "@/lib/sounds";
 import { Volume2, VolumeX } from "lucide-react";
+import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSite";
