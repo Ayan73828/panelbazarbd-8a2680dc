@@ -178,8 +178,10 @@ function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string
           </>}
           <div className="space-y-1.5"><Label htmlFor="auth-email">Email</Label><Input id="auth-email" type="email" required maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></div>
           <Button type="submit" className="w-full rounded-full bg-cyan-200 font-bold text-slate-950 hover:bg-cyan-100" disabled={busy}>{busy ? "Please wait…" : mode === "login" ? "Sign In with Email" : "Continue"}</Button>
+{mode === "login" && <>
           <div className="flex items-center gap-3 py-1 text-[10px] font-semibold tracking-[0.2em] text-slate-500"><span className="h-px flex-1 bg-white/10" /> OR CONTINUE WITH <span className="h-px flex-1 bg-white/10" /></div>
           <Button type="button" variant="outline" className="w-full rounded-full border-white/15 bg-white/[0.04] text-foreground hover:bg-white/[0.08]" disabled={busy} onClick={async () => { setBusy(true); try { const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/dashboard` } }); if (error) throw error; } catch (err) { toast.error(errMsg(err)); setBusy(false); } }}><span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold text-[#4285F4]">G</span>Continue with Google</Button>
+          </>}
         </form>
       ) : (
         <form onSubmit={verifyCode} className="space-y-4">
