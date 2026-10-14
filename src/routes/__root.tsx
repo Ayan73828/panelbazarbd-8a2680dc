@@ -276,31 +276,29 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
 
 /** Hidden YouTube soundtrack with a persistent, user-visible mute toggle. */
 function YouTubeMusicToggle() {
-  // Start enabled by default; browsers may still require a user gesture for audible autoplay.
-  const [enabled, setEnabled] = useState(true);
+  // Start idle so the first tap is a real user gesture that requests audible playback.
+  const [enabled, setEnabled] = useState(false);
 
   return (
     <>
-      {enabled && (
-        <iframe
-          title="Background music"
-          aria-hidden="true"
-          tabIndex={-1}
-          src="https://www.youtube-nocookie.com/embed/mCpzM7w5W3E?autoplay=1&playsinline=1&controls=0&rel=0&modestbranding=1&loop=1&playlist=mCpzM7w5W3E"
-          allow="autoplay; encrypted-media"
-          referrerPolicy="strict-origin-when-cross-origin"
-          className="pointer-events-none fixed left-[-10000px] top-0 h-[200px] w-[200px] border-0 opacity-0"
-        />
-      )}
+      <iframe
+        title="Background music"
+        aria-hidden="true"
+        tabIndex={-1}
+        src={enabled ? "https://www.youtube-nocookie.com/embed/mCpzM7w5W3E?autoplay=1&playsinline=1&controls=0&rel=0&modestbranding=1&loop=1&playlist=mCpzM7w5W3E" : "about:blank"}
+        allow="autoplay; encrypted-media"
+        referrerPolicy="strict-origin-when-cross-origin"
+        className="pointer-events-none fixed left-[-10000px] top-0 h-[200px] w-[200px] border-0 opacity-0"
+      />
       <button
         type="button"
         onClick={() => setEnabled((value) => !value)}
-        aria-label={enabled ? "Turn background music off" : "Turn background music on"}
-        title={enabled ? "Turn music off" : "Turn music on"}
+        aria-label={enabled ? "Turn background music off" : "Play background music"}
+        title={enabled ? "Turn music off" : "Play music"}
         className="fixed bottom-[5.5rem] right-3 z-[60] inline-flex items-center gap-2 rounded-full border border-cyan-100/25 bg-slate-950/95 px-3 py-2.5 text-xs font-semibold text-cyan-50 shadow-lg shadow-cyan-950/30 backdrop-blur-md transition hover:border-cyan-100/50 hover:bg-slate-900"
       >
         {enabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-        <span>{enabled ? "Music On" : "Music Off"}</span>
+        <span>{enabled ? "Music On" : "Play Music"}</span>
         <span className={`h-1.5 w-1.5 rounded-full ${enabled ? "animate-pulse bg-emerald-400" : "bg-slate-500"}`} />
       </button>
     </>
