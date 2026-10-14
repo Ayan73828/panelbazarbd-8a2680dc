@@ -289,7 +289,7 @@ function YouTubeMusicToggle() {
           src="https://www.youtube-nocookie.com/embed/mCpzM7w5W3E?autoplay=1&playsinline=1&controls=0&rel=0&modestbranding=1&loop=1&playlist=mCpzM7w5W3E"
           allow="autoplay; encrypted-media"
           referrerPolicy="strict-origin-when-cross-origin"
-          className="pointer-events-none fixed left-0 top-0 h-px w-px border-0 opacity-0"
+          className="pointer-events-none fixed left-[-10000px] top-0 h-[200px] w-[200px] border-0 opacity-0"
         />
       )}
       <button
