@@ -63,6 +63,8 @@ export function SupportChat() {
   const [flow, setFlow] = useState<Flow>("issue");
   const [text, setText] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [submittedAttachment, setSubmittedAttachment] = useState<File | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [agent] = useState(() => agents[Math.floor(Math.random() * agents.length)] || "রাকিব");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -435,6 +437,7 @@ export function SupportChat() {
     setMessages([]);
     setText("");
     setAttachment(null);
+    setSubmittedAttachment(null);
     setBusy(false);
   };
 
@@ -446,6 +449,7 @@ export function SupportChat() {
     primeReplySound();
     setText("");
     setBusy(true);
+    const currentAttachment = attachment;
     const nextMessages: ChatMessage[] = [...messages, { from: "user", text: value }];
     setAiLastUserTextAt(Date.now());
     if (flow === "pending") {
@@ -471,11 +475,26 @@ export function SupportChat() {
     setMessages(nextMessages);
 
     try {
+      let image: { mimeType: string; data: string } | undefined;
+      if (currentAttachment) {
+        if (!/^image\/(jpeg|png|webp)$/.test(currentAttachment.type) || currentAttachment.size > 5 * 1024 * 1024) {
+          setMessages((current) => [...current, { from: "bot", text: "ছবিটি JPG, PNG বা WebP হতে হবে এবং ৫ MB-এর কম হতে হবে। অন্য ছবি বেছে আবার Send করুন।" }]);
+          return;
+        }
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("ছবি পড়া যায়নি"));
+          reader.onerror = () => reject(new Error("ছবি পড়া যায়নি"));
+          reader.readAsDataURL(currentAttachment);
+        });
+        image = { mimeType: currentAttachment.type, data: dataUrl.slice(dataUrl.indexOf(",") + 1) };
+      }
       const response = await fetch("/api/public/support/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           agentName: agent,
+          image,
           messages: nextMessages.map((message) => ({
             role: message.from === "bot" ? "assistant" : "user",
             content: message.text,
@@ -495,7 +514,7 @@ export function SupportChat() {
         return;
       }
 
-      // A ticket is opened only when the AI confirms that the required details have been collected.
+      if (currentAttachment) { setSubmittedAttachment(currentAttachment); setAttachment(null); }\n\n      // A ticket is opened only when the AI confirms that the required details have been collected.
       // Never create a ticket merely because a reply mentions a waiting period.
       const ticketFlowRequested = Boolean(result.readyForTicket);
       if (!ticketFlowRequested) {
@@ -611,7 +630,16 @@ export function SupportChat() {
            </div> : <form onSubmit={submitMessage} className="border-t border-border p-3">
              {attachment && <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span className="truncate">Photo: {attachment.name}</span><button type="button" onClick={() => setAttachment(null)} className="px-2 py-1 underline">Remove</button></div>}
              <div className="flex items-center gap-2">
-               <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-input hover:bg-muted" aria-label="Attach photo"><Paperclip className="h-4 w-4" /><input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => setAttachment(event.target.files?.[0] ?? null)} /></label>
+               <input ref={attachmentInputRef} type="file" accept="image/*,.jpg,.jpeg,.png,.webp" className="sr-only" onChange={(event) => {
+                 const file = event.target.files?.[0] ?? null;
+                 if (file && (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 5 * 1024 * 1024)) {
+                   setMessages((current) => [...current, { from: "bot", text: "JPG, PNG বা WebP ছবি দিন; ফাইল ৫ MB-এর কম হতে হবে।" }]);
+                   event.target.value = "";
+                   return;
+                 }
+                 setAttachment(file);
+               }} />
+               <button type="button" onClick={() => attachmentInputRef.current?.click()} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-input hover:bg-muted" aria-label="Choose a photo"><Paperclip className="h-4 w-4" /></button>
                <input value={text} onChange={(event) => setText(event.target.value)} placeholder={flow === "pending" ? "সমস্যার সমাধান হয়েছে বা আরও তথ্য লিখুন…" : "আপনার মেসেজ লিখুন…"} maxLength={2000} className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary" aria-label="Your message" />
                <button type="submit" disabled={(!text.trim() && !attachment) || busy} aria-label="Send message" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button>
              </div>
