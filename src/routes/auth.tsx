@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { Brand } from "@/components/site/Brand";
 import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 
 type Mode = "login" | "register";
@@ -49,9 +50,15 @@ function AuthPage() {
 
   return (
     <SiteLayout>
-      <div className="mx-auto w-full max-w-md px-4 py-10">
-        <div className="panel p-6">
-          <div className="mb-6 grid grid-cols-2 rounded-full bg-surface-2 p-1 text-sm">
+      <div className="relative mx-auto w-full max-w-md px-4 py-8 sm:py-12">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl"><span className="winter-orb winter-orb-one" /><span className="winter-orb winter-orb-two" /><span className="winter-snow winter-snow-one">✦</span><span className="winter-snow winter-snow-two">❄</span><span className="winter-snow winter-snow-three">✧</span></div>
+        <div className="relative mb-5 flex flex-col items-center gap-3 text-center">
+          <Brand />
+          <span className="rounded-full border border-cyan-200/25 bg-cyan-300/10 px-3 py-1 text-[10px] font-bold tracking-[0.28em] text-cyan-100">WINTER ACCESS</span>
+          <p className="text-sm text-slate-300">Enter the battlefield. Access your panel.</p>
+        </div>
+        <div className="panel relative overflow-hidden border-cyan-100/20 bg-slate-950/90 p-6 shadow-[0_20px_80px_rgba(8,145,178,0.16)] backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-cyan-100/70 before:to-transparent">
+          <div className="mb-6 grid grid-cols-2 rounded-full border border-white/10 bg-white/[0.04] p-1 text-sm">
             <button type="button" onClick={() => setMode("login")} className={`rounded-full py-2 text-center font-medium ${mode === "login" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Login</button>
             <button type="button" onClick={() => setMode("register")} className={`rounded-full py-2 text-center font-medium ${mode === "register" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Register</button>
           </div>
@@ -163,14 +170,16 @@ function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string
     <div className="space-y-4">
       {!pending ? (
         <form onSubmit={requestCode} className="space-y-4">
-          <h1 className="text-xl font-bold">{mode === "login" ? "Login with email OTP" : "Create your account"}</h1>
+          <h1 className="text-xl font-bold tracking-tight">{mode === "login" ? "Login to your account" : "Create your account"}</h1>
           <p className="text-sm text-muted-foreground">{mode === "login" ? "Enter your registered email to continue." : "Enter your details to create your account."}</p>
           {mode === "register" && <>
             <div className="space-y-1.5"><Label htmlFor="register-name">Full name</Label><Input id="register-name" required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" /></div>
             <div className="space-y-1.5"><Label htmlFor="register-phone">Phone</Label><Input id="register-phone" type="tel" required maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" /></div>
           </>}
           <div className="space-y-1.5"><Label htmlFor="auth-email">Email</Label><Input id="auth-email" type="email" required maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></div>
-          <Button type="submit" className="w-full rounded-full" disabled={busy}>{busy ? "Please wait…" : mode === "login" ? "Login" : "Continue"}</Button>
+          <Button type="submit" className="w-full rounded-full bg-cyan-200 font-bold text-slate-950 hover:bg-cyan-100" disabled={busy}>{busy ? "Please wait…" : mode === "login" ? "Sign In with Email" : "Continue"}</Button>
+          <div className="flex items-center gap-3 py-1 text-[10px] font-semibold tracking-[0.2em] text-slate-500"><span className="h-px flex-1 bg-white/10" /> OR CONTINUE WITH <span className="h-px flex-1 bg-white/10" /></div>
+          <Button type="button" variant="outline" className="w-full rounded-full border-white/15 bg-white/[0.04] text-foreground hover:bg-white/[0.08]" disabled={busy} onClick={async () => { setBusy(true); try { const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/dashboard` } }); if (error) throw error; } catch (err) { toast.error(errMsg(err)); setBusy(false); } }}><span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold text-[#4285F4]">G</span>Continue with Google</Button>
         </form>
       ) : (
         <form onSubmit={verifyCode} className="space-y-4">
