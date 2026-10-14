@@ -354,20 +354,18 @@ function HeaderMusicToggle() {
     audio.loop = true;
     audio.preload = "auto";
 
-    let optedOut = false;
-    try {
-      optedOut = window.localStorage.getItem("panelbazarbd_music_disabled") === "true";
-    } catch {
-      // Browser storage may be unavailable; default to music enabled.
-    }
-    if (optedOut) {
+    const isMusicDisabled = () => {
+      try { return window.localStorage.getItem("panelbazarbd_music_disabled") === "true"; }
+      catch { return false; }
+    };
+    if (isMusicDisabled()) {
       audio.pause();
       setEnabled(false);
       return;
     }
 
     const startMusic = () => {
-      if (optedOut || !audio.paused) return;
+      if (isMusicDisabled() || !audio.paused) return;
       void audio.play().then(() => setEnabled(true)).catch(() => {
         // Autoplay with sound is blocked by some browsers until the visitor interacts.
         setEnabled(false);
