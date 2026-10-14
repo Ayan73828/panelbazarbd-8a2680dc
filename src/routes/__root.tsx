@@ -274,25 +274,33 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
 }
 
 
-/** Hidden YouTube soundtrack with a persistent, user-visible mute toggle. */
+/** Background soundtrack hosted on EdgeOne, with a user-visible play/pause toggle. */
 function YouTubeMusicToggle() {
-  // Start idle so the first tap is a real user gesture that requests audible playback.
   const [enabled, setEnabled] = useState(false);
 
   return (
     <>
-      <iframe
-        title="Background music"
-        aria-hidden="true"
-        tabIndex={-1}
-        src={enabled ? "https://www.youtube-nocookie.com/embed/mCpzM7w5W3E?autoplay=1&playsinline=1&controls=0&rel=0&modestbranding=1&loop=1&playlist=mCpzM7w5W3E" : "about:blank"}
-        allow="autoplay; encrypted-media"
-        referrerPolicy="strict-origin-when-cross-origin"
-        className="pointer-events-none fixed left-[-10000px] top-0 h-[200px] w-[200px] border-0 opacity-0"
+      <audio
+        id="panelbazarbd-background-music"
+        src="https://standard-plum-2cflgaxh.edgeone.dev/"
+        loop
+        preload="none"
       />
       <button
         type="button"
-        onClick={() => setEnabled((value) => !value)}
+        onClick={() => {
+          const audio = document.getElementById("panelbazarbd-background-music") as HTMLAudioElement | null;
+          if (!audio) return;
+          if (enabled) {
+            audio.pause();
+            setEnabled(false);
+          } else {
+            void audio.play().then(() => setEnabled(true)).catch(() => {
+              setEnabled(false);
+              toast.error("গান চালু করা যায়নি। MP3 লিংকটি সরাসরি অডিও ফাইল হতে হবে।");
+            });
+          }
+        }}
         aria-label={enabled ? "Turn background music off" : "Play background music"}
         title={enabled ? "Turn music off" : "Play music"}
         className="fixed bottom-[5.5rem] right-3 z-[60] inline-flex items-center gap-2 rounded-full border border-cyan-100/25 bg-slate-950/95 px-3 py-2.5 text-xs font-semibold text-cyan-50 shadow-lg shadow-cyan-950/30 backdrop-blur-md transition hover:border-cyan-100/50 hover:bg-slate-900"
