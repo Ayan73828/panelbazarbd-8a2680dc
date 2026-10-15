@@ -514,7 +514,9 @@ export function SupportChat() {
         return;
       }
 
-      if (currentAttachment) { setSubmittedAttachment(currentAttachment); setAttachment(null); }\n\n      // A ticket is opened only when the AI confirms that the required details have been collected.
+      if (currentAttachment) { setSubmittedAttachment(currentAttachment); setAttachment(null); }
+
+      // A ticket is opened only when the AI confirms that the required details have been collected.
       // Never create a ticket merely because a reply mentions a waiting period.
       const ticketFlowRequested = Boolean(result.readyForTicket);
       if (!ticketFlowRequested) {
