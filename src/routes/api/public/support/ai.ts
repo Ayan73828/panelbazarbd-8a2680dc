@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-type ChatMessage = { role: "user" | "assistant"; content: string };\ntype SupportImage = { mimeType: "image/jpeg" | "image/png" | "image/webp"; data: string };
+type ChatMessage = { role: "user" | "assistant"; content: string };
+type SupportImage = { mimeType: "image/jpeg" | "image/png" | "image/webp"; data: string };
 
 // Normalize Bangla/English digits and common Bangladesh country-code formats.
 function normalizeBangladeshMobile(input: string): string | null {
@@ -132,7 +133,7 @@ export const Route = createFileRoute("/api/public/support/ai")({
           }
 
           const agentName = typeof body.agentName === "string" && /^[\u0980-\u09FF]{2,20}$/.test(body.agentName) ? body.agentName : "রাকিব";
-          const systemPrompt = SYSTEM_PROMPT + "\\nএই কথোপকথনে তোমার নাম: " + agentName + ".";
+          const systemPrompt = SYSTEM_PROMPT + "\nএই কথোপকথনে তোমার নাম: " + agentName + ".";
           let raw = "";
           let providerErrors: string[] = [];
 
