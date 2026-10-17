@@ -18,7 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
-const brandLogoUrl = "https://cdn.phototourl.com/member/2026-10-13-bdaa5c4b-3f94-46db-a14a-abc485bc7483.png";
+const brandLogoUrl = "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png";
 
 
 function NotFoundComponent() {
