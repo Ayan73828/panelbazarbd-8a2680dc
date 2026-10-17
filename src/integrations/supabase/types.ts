@@ -777,6 +777,10 @@ export type Database = {
         Args: { p_invoice_id: string }
         Returns: string
       }
+      claim_referral_reward: {
+        Args: { p_device_id?: string | null; p_referral_code: string }
+        Returns: boolean
+      }
       ensure_profile: { Args: never; Returns: undefined }
       has_role: {
         Args: {
