@@ -14,6 +14,20 @@ import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 type Mode = "login" | "register";
 type PendingOtp = { email: string; mode: Mode; name?: string; phone?: string; referralCode?: string };
 
+function getWebsiteDeviceId() {
+  try {
+    const deviceKey = "panelbazarbd_website_referral_device_id";
+    let deviceId = localStorage.getItem(deviceKey) || "";
+    if (!/^[a-f0-9-]{36}$/i.test(deviceId)) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem(deviceKey, deviceId);
+    }
+    return deviceId;
+  } catch {
+    return "";
+  }
+}
+
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>): { mode?: Mode | undefined; ref?: string } => ({
     mode: s["mode"] === "register" || s["mode"] === "login" ? s["mode"] : undefined,
@@ -138,17 +152,7 @@ function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string
           savedReferralCode = savedReferralCode || sessionStorage.getItem("pending_website_referral_code");
         } catch {}
         if (savedReferralCode) {
-          let referralDeviceId = "";
-          try {
-            const deviceKey = "panelbazarbd_website_referral_device_id";
-            referralDeviceId = localStorage.getItem(deviceKey) || "";
-            if (!/^[a-f0-9-]{36}$/i.test(referralDeviceId)) {
-              referralDeviceId = crypto.randomUUID();
-              localStorage.setItem(deviceKey, referralDeviceId);
-            }
-          } catch {
-            // If local storage is unavailable, the server still applies the one-account-per-referral rule.
-          }
+          const referralDeviceId = getWebsiteDeviceId();
           const { data: claimed, error: referralError } = await supabase.rpc("claim_referral_reward", {
             p_referral_code: savedReferralCode,
             p_device_id: referralDeviceId || null,
@@ -165,9 +169,19 @@ function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string
             }
           }
         }
+        const deviceId = getWebsiteDeviceId();
+        if (deviceId) {
+          const { error: deviceError } = await supabase.rpc("register_website_device", { p_device_id: deviceId });
+          if (deviceError) console.error("Website device registration failed", deviceError);
+        }
         void telegramNotifyEvent({ data: { event: "signup" } }).catch((notifyError) => console.error("Telegram signup notification failed", notifyError));
         toast.success("Email verified and account created successfully!");
       } else {
+        const deviceId = getWebsiteDeviceId();
+        if (deviceId) {
+          const { error: deviceError } = await supabase.rpc("register_website_device", { p_device_id: deviceId });
+          if (deviceError) console.error("Website device registration failed", deviceError);
+        }
         toast.success("Logged in successfully!");
       }
       navigate({ to: "/dashboard", replace: true });
