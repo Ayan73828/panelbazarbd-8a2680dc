@@ -108,8 +108,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "canonical", href: "https://panelbazarbd.shop/" },
-      { rel: "icon", href: brandLogoUrl, type: "image/png" },
-      { rel: "shortcut icon", href: brandLogoUrl, type: "image/png" },
+      { rel: "icon", href: "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png?v=20261017", type: "image/png", sizes: "192x192" },
+      { rel: "shortcut icon", href: "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png?v=20261017", type: "image/png" },
       { rel: "apple-touch-icon", href: brandLogoUrl },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
