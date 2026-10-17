@@ -6,7 +6,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <Link to="/" className="flex min-w-0 items-center gap-2">
       <img
-        src="https://cdn.phototourl.com/member/2026-10-13-bdaa5c4b-3f94-46db-a14a-abc485bc7483.png"
+        src="https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png"
         alt={settings.site_name || "PANEL BAZAR BD"}
         width={36}
         height={36}
