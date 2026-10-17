@@ -803,6 +803,7 @@ export type Database = {
         Args: { p_product_id: string; p_quantity: number }
         Returns: string
       }
+      register_website_device: { Args: { p_device_id: string }; Returns: boolean }
       resolve_login_email: { Args: { p_username: string }; Returns: string }
       verify_payment: {
         Args: { p_amount: number; p_method: string; p_trx: string }
