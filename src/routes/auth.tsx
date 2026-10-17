@@ -138,8 +138,20 @@ function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string
           savedReferralCode = savedReferralCode || sessionStorage.getItem("pending_website_referral_code");
         } catch {}
         if (savedReferralCode) {
+          let referralDeviceId = "";
+          try {
+            const deviceKey = "panelbazarbd_website_referral_device_id";
+            referralDeviceId = localStorage.getItem(deviceKey) || "";
+            if (!/^[a-f0-9-]{36}$/i.test(referralDeviceId)) {
+              referralDeviceId = crypto.randomUUID();
+              localStorage.setItem(deviceKey, referralDeviceId);
+            }
+          } catch {
+            // If local storage is unavailable, the server still applies the one-account-per-referral rule.
+          }
           const { data: claimed, error: referralError } = await supabase.rpc("claim_referral_reward", {
             p_referral_code: savedReferralCode,
+            p_device_id: referralDeviceId || null,
           });
           if (referralError) {
             console.error("Website referral reward claim failed", referralError);
