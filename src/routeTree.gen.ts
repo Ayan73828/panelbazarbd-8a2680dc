@@ -29,6 +29,7 @@ import { Route as AuthenticatedAdminPaymentsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminProductsRouteImport } from './routes/_authenticated/admin.products'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
 import { Route as AuthenticatedAdminSupportRouteImport } from './routes/_authenticated/admin.support'
+import { Route as AuthenticatedAdminSupportMailRouteImport } from './routes/_authenticated/admin.support-mail'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminWalletRouteImport } from './routes/_authenticated/admin.wallet'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
@@ -556,6 +557,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/support-mail': {
+      id: '/_authenticated/admin/support-mail'
+      path: '/support-mail'
+      fullPath: '/admin/support-mail'
+      preLoaderRoute: typeof AuthenticatedAdminSupportMailRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/support': {
       id: '/_authenticated/admin/support'
       path: '/support'
@@ -653,6 +661,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminProductsRoute: typeof AuthenticatedAdminProductsRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAdminSupportRoute: typeof AuthenticatedAdminSupportRoute
+  AuthenticatedAdminSupportMailRoute: typeof AuthenticatedAdminSupportMailRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminWalletRoute: typeof AuthenticatedAdminWalletRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -668,6 +677,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminProductsRoute: AuthenticatedAdminProductsRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
   AuthenticatedAdminSupportRoute: AuthenticatedAdminSupportRoute,
+  AuthenticatedAdminSupportMailRoute: AuthenticatedAdminSupportMailRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminWalletRoute: AuthenticatedAdminWalletRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
