@@ -175,3 +175,40 @@ export const adminTelegramBroadcast = createServerFn({ method: "POST" })
     }
     return { ok: true, sent, failed, total: sent + failed };
   });
+
+
+export const adminSendSupportEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    to: z.string().trim().email().max(254),
+    subject: z.string().trim().min(2).max(200),
+    message: z.string().trim().min(2).max(10000),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    if (String(context.claims?.email ?? "").toLowerCase() !== "ishak777998@gmail.com") {
+      throw new Error("Only the main admin can send Support Mail");
+    }
+    const apiKey = process.env["RESEND_API_KEY"];
+    if (!apiKey) throw new Error("RESEND_API_KEY is not configured on the website server");
+    const escapeHtml = (value: string) => value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+    const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.6;white-space:pre-wrap">${escapeHtml(data.message.trim())}<hr><p style="font-size:12px;color:#6b7280">PANEL BAZAR BD Support</p></body></html>`;
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: "PANEL BAZAR BD <verification@panelbazarbd.shop>",
+        to: [data.to.trim().toLowerCase()],
+        subject: data.subject.trim(),
+        text: data.message.trim(),
+        html,
+      }),
+    });
+    const result = await response.json().catch(() => ({})) as { id?: string; message?: string; name?: string };
+    if (!response.ok) throw new Error(result.message || result.name || "Email provider rejected the message");
+    return { ok: true, id: result.id ?? null, to: data.to.trim().toLowerCase() };
+  });
