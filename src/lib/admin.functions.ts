@@ -188,7 +188,7 @@ export const adminSendSupportEmail = createServerFn({ method: "POST" })
     if (String(context.claims?.email ?? "").toLowerCase() !== "ishak777998@gmail.com") {
       throw new Error("Only the main admin can send Support Mail");
     }
-    const apiKey = process.env["RESEND_API_KEY"];
+    const apiKey = process.env["RESEND_API_KEY"] || process.env["RESEND_API_TOKEN"];
     if (!apiKey) throw new Error("RESEND_API_KEY is not configured on the website server");
     const escapeHtml = (value: string) => value
       .replace(/&/g, "&amp;")
