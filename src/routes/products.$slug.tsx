@@ -37,7 +37,7 @@ export const Route = createFileRoute("/products/$slug")({
   loader: async ({ context, params }) => {
     const p = await context.queryClient.ensureQueryData(productQuery(params.slug));
     if (!p) throw notFound();
-    return { name: p.name, desc: p.short_description ?? "", image: p.image_url, price: effectivePrice(p), inStock: p.stock > 0 };
+    return { name: p.name, desc: p.short_description ?? "", image: p.image_url, price: effectivePrice(p), inStock: !!p.provider_name || p.stock > 0, supplierManaged: !!p.provider_name };
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return { meta: [{ title: "Product not found" }, { name: "robots", content: "noindex" }] };
@@ -107,7 +107,7 @@ function ProductDetail() {
       ]);
       if (error) throw error;
       const st = new Map((stock ?? []).map((r: { package_id: string; available: number }) => [r.package_id, Number(r.available)]));
-      return (data ?? []).map((x) => ({ ...x, price: Number(x.price), available: x.provider_auto_api ? (x.provider_stock ?? 1) : (st.get(x.id) ?? 0) }));
+      return (data ?? []).map((x) => ({ ...x, price: Number(x.price), available: x.provider_auto_api ? 1 : (st.get(x.id) ?? 0) }));
     },
   });
 
@@ -128,7 +128,8 @@ function ProductDetail() {
 
   if (!p) return null;
   const hasDiscount = !!p.discount_price && Number(p.discount_price) > 0;
-  const soldOut = p.stock <= 0 || p.status === "out_of_stock" || p.status === "coming_soon";
+  const supplierManaged = !!p.provider_name;
+  const soldOut = !supplierManaged && (p.stock <= 0 || p.status === "out_of_stock" || p.status === "coming_soon");
   const cat = p.categories as { name: string; slug: string } | null;
   const packages = pkgs.data ?? [];
   const hasPackages = packages.length > 0;
@@ -174,8 +175,8 @@ function ProductDetail() {
                   <span className="font-display text-3xl font-bold text-primary">{money(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price)), cur)}</span>
                 </div>
                 <p className="text-sm text-muted-foreground">{packages.length} variant available</p>
-                <Button size="lg" className="h-12 w-full rounded-full" disabled={!packages.some((x) => x.available > 0 && x.price > 0)} onClick={() => setOpen(true)}>
-                  <ShoppingCart className="mr-2 h-4 w-4" /> {packages.some((x) => x.available > 0 && x.price > 0) ? "Buy Now" : "Stock out"}
+                <Button size="lg" className="h-12 w-full rounded-full" disabled={!packages.some((x) => x.price > 0)} onClick={() => setOpen(true)}>
+                  <ShoppingCart className="mr-2 h-4 w-4" /> Buy Now
                 </Button>
               </div>
             ) : (
@@ -184,9 +185,9 @@ function ProductDetail() {
                   <span className="text-3xl font-bold text-primary">{money(effectivePrice(p), cur)}</span>
                   {hasDiscount && <span className="text-muted-foreground line-through">{money(p.price, cur)}</span>}
                 </div>
-                <p className={`text-sm font-medium ${soldOut ? "text-destructive" : "text-success"}`}>
+                {!supplierManaged && <p className={`text-sm font-medium ${soldOut ? "text-destructive" : "text-success"}`}>
                   {soldOut ? (p.status === "coming_soon" ? "Coming soon" : "Out of stock") : `${statusLabel(p.status)} — ${p.stock} available`}
-                </p>
+                </p>}
                 <Button size="lg" className="h-12 w-full rounded-full" disabled={soldOut || pkgs.isLoading} onClick={() => setOpen(true)}>
                   <ShoppingCart className="mr-2 h-4 w-4" /> Buy Now
                 </Button>
@@ -250,7 +251,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const hasPk = packages.length > 0;
   const sel = packages.find((x) => x.id === pkgId) ?? null;
   const unit = hasPk ? (sel?.price ?? 0) : product.unit;
-  const maxQty = Math.max(1, Math.min(20, hasPk ? (sel?.available ?? 1) : product.stock));
+  const maxQty = Math.max(1, Math.min(20, hasPk ? (sel?.provider_auto_api ? 20 : (sel?.available ?? 1)) : product.stock));
   const total = unit * qty;
   const balance = Number(profile?.balance ?? 0);
   const insufficient = balance < total;
