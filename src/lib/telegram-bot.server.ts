@@ -622,19 +622,20 @@ async function handleCallback(cq: any) {
     const { data: pk } = await db.from("product_packages").select("id,name,price").eq("product_id", id).eq("is_active", true).order("sort_order");
     const { data: stock } = await db.rpc("package_stock", { p_product_id: id });
     const avail = new Map<string, number>((stock ?? []).map((s: any) => [s.package_id, Number(s.available)]));
-    if (!pk?.length) return screen(chatId, cq.message?.message_id, "এই প্রোডাক্টে কোনো প্যাকেজ নেই।");
+    if (!pk?.length) return screen(chatId, cq.message?.message_id, "এই প্রোডাক্টে কোনো প্যাকেজ নেই।", { inline_keyboard: [[{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
     return screen(chatId, cq.message?.message_id, `<b>${esc(p?.name)}</b>\n${esc(p?.short_description ?? "")}\n\nপ্যাকেজ বেছে নিন:`, {
-      inline_keyboard: pk.map((k: any) => [{
+      inline_keyboard: [...pk.map((k: any) => [{
         text: `${k.name} — ${Number(k.price) > 0 ? tk(k.price) : "Price not set"}${(avail.get(k.id) ?? 0) > 0 ? "" : " (শেষ)"}`,
         callback_data: `k:${k.id}`,
-      }]),
+      }]), [{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]],
     });
   }
   if (kind === "k" && id) {
-    const { data: k } = await db.from("product_packages").select("id,name,price,products(name)").eq("id", id).maybeSingle();
-    if (!k) return;
+    const { data: k } = await db.from("product_packages").select("id,product_id,name,price,products(name)").eq("id", id).maybeSingle();
+    if (!k) return screen(chatId, cq.message?.message_id, "প্যাকেজটি পাওয়া যায়নি।", { inline_keyboard: [[{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+    const productId = String((k as any).product_id ?? "");
     return screen(chatId, cq.message?.message_id, `কিনবেন?\n<b>${esc(k.products?.name)} — ${esc(k.name)}</b>\nদাম: <b>${tk(k.price)}</b>\nব্যালেন্স: ${tk(user.balance)}`, {
-      inline_keyboard: [[{ text: "✅ Buy now", callback_data: `b:${k.id}` }]],
+      inline_keyboard: [[{ text: "✅ Buy now", callback_data: `b:${k.id}` }], [{ text: "⬅️ Back to package list", callback_data: `p:${productId}` }], [{ text: "🛍️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]],
     });
   }
   if (kind === "b" && id) {
@@ -648,8 +649,10 @@ async function handleCallback(cq: any) {
         });
       }
       const msg = error.message.includes("NO_KEYS") ? "এই প্যাকেজের Key বর্তমানে শেষ।"
-        : `❌ ${error.message}`;
-      return screen(chatId, cq.message?.message_id, msg);
+        : error.message.includes("INSUFFICIENT") ? "ব্যালেন্স যথেষ্ট নয়।"
+        : "❌ এই মুহূর্তে অর্ডার সম্পন্ন করা যায়নি।";
+      const { data: packageInfo } = await db.from("product_packages").select("product_id").eq("id", id).maybeSingle();
+      return screen(chatId, cq.message?.message_id, msg, { inline_keyboard: [...(packageInfo?.product_id ? [[{ text: "⬅️ Back to package list", callback_data: `p:${packageInfo.product_id}` }]] : []), [{ text: "🛍️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
     }
     const { data: o } = await db.from("orders").select("*").eq("id", oid).maybeSingle();
     await notifyOwner(`🛒 Telegram purchase\nUser: <b>${esc(user.username || user.email)}</b>\n${esc(o?.product_name)}\n${tk(o?.total ?? 0)} · Order #${String(oid).slice(0, 8)}`);
