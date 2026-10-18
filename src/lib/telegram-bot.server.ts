@@ -585,9 +585,9 @@ async function handleCallback(cq: any) {
     if (id === "referral") {
       const { data: telegramAccount } = await db.from("telegram_accounts")
         .select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
-      const { data: rows, error } = await db.from("telegram_referrals")
-        .select("id").eq("referrer_telegram_user_id", cq.from.id);
-      const referralCount = error ? 0 : (rows ?? []).length;
+      const { count: referralCountRaw, error } = await db.from("telegram_referrals")
+        .select("id", { count: "exact", head: true }).eq("referrer_telegram_user_id", cq.from.id);
+      const referralCount = error ? 0 : (referralCountRaw ?? 0);
       const referralLink = `https://t.me/${"panelbazarbd_bot"}?start=ref_${cq.from.id}`;
       const text = `🤝 <b>TELEGRAM REFERRAL PROGRAM</b>\n\n🎁 প্রতি সফল Telegram referral-এ reward: <b>৳৫</b>\n👥 Successful Telegram referrals: <b>${referralCount}</b>\n\n🔗 <b>আপনার Telegram referral link:</b>\n${esc(referralLink)}\n\nবন্ধুকে এই link দিন। সে Start চাপার পর <b>📱 SHARE MY NUMBER</b> করলে আপনার balance-এ ৳৫ যোগ হবে।\n\nএই referral system website referral থেকে সম্পূর্ণ আলাদা।`;
       return screen(chatId, cq.message?.message_id, text, { inline_keyboard: [[{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]] });
@@ -655,13 +655,13 @@ async function handleCallback(cq: any) {
     return startTelegramPayment(chatId, user, amount, method, cq.message?.message_id);
   }
     if (kind === "p" && id) {
-    const [{ data: p }, { data: pk }] = await Promise.all([
+    const [{ data: p }, { data: pk }, { data: stock }] = await Promise.all([
       db.from("products").select("name,short_description,provider_name").eq("id", id).maybeSingle(),
       db.from("product_packages").select("id,name,price,provider_auto_api,provider_stock,provider_product_id,provider_duration").eq("product_id", id).eq("is_active", true).order("sort_order"),
+      db.rpc("package_stock", { p_product_id: id }),
     ]);
     const supplierManaged = Boolean(p?.provider_name);
     const localPackages = (pk ?? []).filter((k: any) => !supplierManaged || (k.provider_auto_api && k.provider_product_id && k.provider_duration && Number(k.price) > 0));
-    const { data: stock } = supplierManaged ? { data: [] } : await db.rpc("package_stock", { p_product_id: id });
     const avail = new Map<string, number>((stock ?? []).map((s: any) => [s.package_id, Number(s.available)]));
     if (!localPackages.length) return screen(chatId, cq.message?.message_id, supplierManaged ? "এই প্রোডাক্টের অটোমেটিক অর্ডার সেটআপ এখনো সম্পূর্ণ নয়। অনুগ্রহ করে পরে চেষ্টা করুন।" : "এই প্রোডাক্টে কোনো প্যাকেজ নেই।", { inline_keyboard: [[{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
     return screen(chatId, cq.message?.message_id, `<b>${esc(p?.name)}</b>\n${esc(p?.short_description ?? "")}\n\nDuration / Validity বেছে নিন:`, {
