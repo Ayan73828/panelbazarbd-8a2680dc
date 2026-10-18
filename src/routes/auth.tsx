@@ -39,6 +39,7 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "Register and sign in securely using an email verification code." },
       { property: "og:title", content: "Login or Register — PANEL BAZAR BD" },
       { property: "og:description", content: "Login and register using an email verification code." },
+      { name: "robots", content: "noindex,follow" },
     ],
   }),
   component: AuthPage,
