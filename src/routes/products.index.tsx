@@ -29,7 +29,9 @@ export const Route = createFileRoute("/products/")({
       { name: "description", content: "Browse premium digital products and reseller services with instant wallet checkout." },
       { property: "og:title", content: "All Products — PANEL BAZAR BD" },
       { property: "og:description", content: "Browse premium digital products and reseller services." },
+      { property: "og:url", content: "https://panelbazarbd.shop/products/" },
     ],
+    links: [{ rel: "canonical", href: "https://panelbazarbd.shop/products/" }],
   }),
   component: ProductsPage,
 });
