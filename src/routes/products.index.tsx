@@ -25,6 +25,7 @@ export const Route = createFileRoute("/products/")({
   head: () => ({
     meta: [
       { title: "All Products — PANEL BAZAR BD" },
+      { name: "robots", content: "index,follow" },
       { name: "description", content: "Browse premium digital products and reseller services with instant wallet checkout." },
       { property: "og:title", content: "All Products — PANEL BAZAR BD" },
       { property: "og:description", content: "Browse premium digital products and reseller services." },
