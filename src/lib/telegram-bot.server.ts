@@ -664,6 +664,9 @@ async function handleCallback(cq: any) {
       if (result.status === "failed") {
         return screen(chatId, cq.message?.message_id, `❌ ${esc(result.message || "অর্ডার সম্পন্ন হয়নি। টাকা ফেরত দেওয়া হয়েছে।")}`, { inline_keyboard: [[{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🛍️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
       }
+      if (result.status === "unavailable") {
+        return screen(chatId, cq.message?.message_id, `⚠️ ${esc(result.message || "এই প্যাকেজটি আপাতত পাওয়া যাচ্ছে না।")}`, { inline_keyboard: [[{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🛍️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+      }
       if (result.error === "INSUFFICIENT_BALANCE") {
         const shortfall = Math.max(1, Math.ceil(Number(pkg.price) - Number(user.balance ?? 0)));
         return screen(chatId, cq.message?.message_id, `❌ ব্যালেন্স যথেষ্ট নয়।\nপ্রয়োজন: ${tk(pkg.price)}\nআপনার ব্যালেন্স: ${tk(user.balance)}\n\nAdd Fund amount: ${tk(shortfall)}`, { inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
