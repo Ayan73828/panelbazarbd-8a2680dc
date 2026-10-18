@@ -18,8 +18,6 @@ import { useAuth } from "@/hooks/useAuth";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
-const brandLogoUrl = "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png";
-
 
 function NotFoundComponent() {
   return (
@@ -92,7 +90,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: "Premium digital products and reseller panel services at reseller prices.",
       },
       { property: "og:site_name", content: "PANEL BAZAR BD" },
-      { property: "og:image:alt", content: "PANEL BAZAR BD official logo" },
       { property: "og:title", content: "PANEL BAZAR BD — Digital Products & Reseller Panel" },
       { name: "twitter:title", content: "PANEL BAZAR BD — Digital Products & Reseller Panel" },
       { name: "twitter:description", content: "Premium digital products and reseller panel services at reseller prices." },
@@ -100,24 +97,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "application-name", content: "PANEL BAZAR BD" },
       { name: "theme-color", content: "#111827" },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: brandLogoUrl },
-      { property: "og:image:type", content: "image/png" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:image", content: brandLogoUrl },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "canonical", href: "https://panelbazarbd.shop/" },
-      { rel: "icon", href: "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png?v=20261017", type: "image/png", sizes: "192x192" },
-      { rel: "shortcut icon", href: "https://i.postimg.cc/rpr3MqDF/DB0CEC8E-0596-4BC9-BAA0-2A4C387AE71E.png?v=20261017", type: "image/png" },
-      { rel: "apple-touch-icon", href: brandLogoUrl },
+      { rel: "icon", href: "/favicon.svg?v=20261018", type: "image/svg+xml" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap",
       },
-      // Use the official brand image directly so crawlers do not pick the default Lovable icon.
     ],
   }),
   shellComponent: RootShell,
@@ -150,15 +141,6 @@ function BrandTheme() {
   // useEffect runs after paint and caused a visible default-color flash on refresh.
   useLayoutEffect(() => {
     const root = document.documentElement;
-    let iconLink = document.querySelector<HTMLLinkElement>("link[rel='icon']");
-    if (!iconLink) {
-      iconLink = document.createElement("link");
-      iconLink.rel = "icon";
-      document.head.appendChild(iconLink);
-    }
-    iconLink.href = brandLogoUrl;
-    iconLink.type = "image/png";
-
     // Do not apply DEFAULT_SETTINGS while the real Supabase settings are still
     // loading: doing so overwrites cached colors and causes a visible flash.
     if (isFetched) {
@@ -217,7 +199,7 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
   // Do not render any interim maintenance/loading artwork on refresh.
   // Render the requested page immediately; show maintenance only after the
   // current site setting confirms it is enabled (never trust stale localStorage).
-  const shouldShowMaintenance = !isLoading && settings.maintenance_mode === "true";
+  const shouldShowMaintenance = settings.maintenance_mode === "true" && (!isLoading || cachedMaintenance === "true");
   if (!shouldShowMaintenance) return <>{children}</>;
 
   return (
