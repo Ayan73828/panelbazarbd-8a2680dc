@@ -76,14 +76,34 @@ async function getState(chatId: number) {
   const { data } = await db.from("telegram_sessions").select("*").eq("chat_id", chatId).maybeSingle();
   return (data ?? { state: "", data: {} }) as { state: string; data: any };
 }
+// Warm-process cache: cache identity only (never balance/profile data), so most button
+// callbacks need one fresh profile query instead of two identity lookups plus profile.
+const telegramIdentityCache = new Map<number, { userId: string; linked: boolean; expiresAt: number }>();
+const TELEGRAM_IDENTITY_TTL_MS = 15_000;
+function setTelegramIdentity(tgUserId: number, userId: string, linked: boolean) {
+  telegramIdentityCache.set(tgUserId, { userId, linked, expiresAt: Date.now() + TELEGRAM_IDENTITY_TTL_MS });
+}
+function invalidateTelegramIdentity(tgUserId: number) {
+  telegramIdentityCache.delete(tgUserId);
+}
+
 async function linkedUser(tgUserId: number) {
   const db = await admin();
+  const cached = telegramIdentityCache.get(tgUserId);
+  if (cached && cached.expiresAt > Date.now()) {
+    const { data: profile } = await db.from("profiles").select("*").eq("id", cached.userId).maybeSingle();
+    if (profile) return profile as any;
+    invalidateTelegramIdentity(tgUserId);
+  } else if (cached) {
+    invalidateTelegramIdentity(tgUserId);
+  }
   const [{ data: link }, { data: account }] = await Promise.all([
     db.from("telegram_links").select("user_id").eq("telegram_user_id", tgUserId).maybeSingle(),
     db.from("telegram_accounts").select("user_id").eq("telegram_user_id", tgUserId).maybeSingle(),
   ]);
   const userId = link?.user_id ?? account?.user_id;
   if (!userId) return null;
+  setTelegramIdentity(tgUserId, String(userId), Boolean(link?.user_id));
   const { data: profile } = await db.from("profiles").select("*").eq("id", userId).maybeSingle();
   return profile as any;
 }
@@ -120,6 +140,7 @@ async function ensureTelegramAccount(tgUserId: number, chatId: number, telegramU
     console.error("Telegram account create failed", accountError);
     throw new Error("Could not create Telegram account");
   }
+  setTelegramIdentity(tgUserId, userId, false);
   const { data: profile } = await db.from("profiles").select("*").eq("id", userId).maybeSingle();
   return profile as any;
 }
@@ -144,10 +165,16 @@ const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
 
 async function mainMenuForTelegramUser(tgUserId?: number) {
   if (!tgUserId) return MENU;
-  const db = await admin();
-  const { data: link } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", tgUserId).maybeSingle();
+  const cached = telegramIdentityCache.get(tgUserId);
+  let linked = cached && cached.expiresAt > Date.now() ? cached.linked : undefined;
+  if (linked === undefined) {
+    const db = await admin();
+    const { data: link } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", tgUserId).maybeSingle();
+    linked = Boolean(link);
+    if (cached && cached.expiresAt > Date.now()) cached.linked = linked;
+  }
   const rows = MENU.inline_keyboard.filter((row) => !row.some((button) => button.callback_data === "menu:link_account"));
-  rows.push([link
+  rows.push([linked
     ? { text: "🔓 Unlink Website Account", callback_data: "menu:logout" }
     : { text: "🔗 Linked Website Account", callback_data: "menu:link_account" }]);
   return { inline_keyboard: rows };
@@ -342,6 +369,7 @@ export async function handleUpdate(u: any) {
       p_telegram_user_id: m.from.id, p_target_user_id: data.user.id,
     });
     if (linkError) { console.error("Telegram account link failed", linkError); await setState(chatId, ""); return send(chatId, "❌ Account link করা যায়নি। আপনার Telegram account আগে থেকেই অন্য website account-এর সঙ্গে linked থাকতে পারে। Support-এ যোগাযোগ করুন।", MENU); }
+    invalidateTelegramIdentity(m.from.id);
     await setState(chatId, "");
     const linked = await linkedUser(m.from.id);
     await notifyOwner("🔗 Telegram linked: <b>" + esc(linked?.username || email) + "</b> (@" + esc(m.from.username ?? m.from.id) + ")");
@@ -567,6 +595,7 @@ async function handleCallback(cq: any) {
         return welcome(chatId, null, undefined, cq.from.id);
       }
       const { data: split, error: unlinkError } = await db.rpc("bot_unlink_telegram_account", { p_telegram_user_id: cq.from.id }).maybeSingle();
+      if (!unlinkError) invalidateTelegramIdentity(cq.from.id);
       if (unlinkError) {
         console.error("Telegram account unlink failed", unlinkError);
         const message = String(unlinkError.message ?? "").includes("SPLIT_METADATA_MISSING")
