@@ -78,14 +78,13 @@ async function getState(chatId: number) {
 }
 async function linkedUser(tgUserId: number) {
   const db = await admin();
-  const { data: link } = await db.from("telegram_links").select("user_id").eq("telegram_user_id", tgUserId).maybeSingle();
-  if (link) {
-    const { data: linkedProfile } = await db.from("profiles").select("*").eq("id", link.user_id).maybeSingle();
-    if (linkedProfile) return linkedProfile as any;
-  }
-  const { data: account } = await db.from("telegram_accounts").select("user_id").eq("telegram_user_id", tgUserId).maybeSingle();
-  if (!account) return null;
-  const { data: profile } = await db.from("profiles").select("*").eq("id", account.user_id).maybeSingle();
+  const [{ data: link }, { data: account }] = await Promise.all([
+    db.from("telegram_links").select("user_id").eq("telegram_user_id", tgUserId).maybeSingle(),
+    db.from("telegram_accounts").select("user_id").eq("telegram_user_id", tgUserId).maybeSingle(),
+  ]);
+  const userId = link?.user_id ?? account?.user_id;
+  if (!userId) return null;
+  const { data: profile } = await db.from("profiles").select("*").eq("id", userId).maybeSingle();
   return profile as any;
 }
 
@@ -662,17 +661,6 @@ async function handleCallback(cq: any) {
         const shortfall = Math.max(1, Math.ceil(packagePrice - freshBalance));
         return screen(chatId, cq.message?.message_id, `❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই।\nপ্রোডাক্টের দাম: ${tk(packagePrice)}\nআপনার ব্যালেন্স: ${tk(freshBalance)}\n\nঅনুগ্রহ করে আগে ব্যালেন্স Add করুন।`, { inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
       }
-      const { data: freshProfile, error: balanceReadError } = await db.from("profiles").select("balance").eq("id", user.id).maybeSingle();
-      if (balanceReadError || !freshProfile) {
-        console.error("Telegram checkout balance lookup failed", balanceReadError);
-        return screen(chatId, cq.message?.message_id, "আপনার ব্যালেন্স যাচাই করা যায়নি। টাকা কাটা হয়নি। আবার চেষ্টা করুন।", { inline_keyboard: [[{ text: "💳 Add Balance", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
-      }
-      const freshBalance = Number(freshProfile.balance ?? 0);
-      const packagePrice = Number(pkg.price ?? 0);
-      if (freshBalance < packagePrice) {
-        const shortfall = Math.max(1, Math.ceil(packagePrice - freshBalance));
-        return screen(chatId, cq.message?.message_id, `❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই।\nপ্রোডাক্টের দাম: ${tk(packagePrice)}\nআপনার ব্যালেন্স: ${tk(freshBalance)}\n\nঅনুগ্রহ করে আগে ব্যালেন্স Add করুন।`, { inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
-      }
       const { data: result, error } = await db.functions.invoke("banti-telegram-checkout", { body: { package_id: id, user_id: user.id, idempotency_key: crypto.randomUUID() } });
       if (error || !result) {
         console.error("Telegram provider checkout failed", error);
@@ -699,17 +687,6 @@ async function handleCallback(cq: any) {
     if (localBalanceReadError || !freshLocalProfile) {
       console.error("Telegram local checkout balance lookup failed", localBalanceReadError);
       return screen(chatId, cq.message?.message_id, "আপনার ব্যালেন্স যাচাই করা যায়নি। কিছু টাকা কাটা হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।", { inline_keyboard: [[{ text: "💳 Add Balance", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
-    }
-    const freshLocalBalance = Number(freshLocalProfile.balance ?? 0);
-    const localPackagePrice = Number(pkg.price ?? 0);
-    if (freshLocalBalance < localPackagePrice) {
-      const shortfall = Math.max(1, Math.ceil(localPackagePrice - freshLocalBalance));
-      return screen(chatId, cq.message?.message_id, `❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই।\nপ্রোডাক্টের দাম: ${tk(localPackagePrice)}\nআপনার ব্যালেন্স: ${tk(freshLocalBalance)}\n\nঅনুগ্রহ করে আগে ব্যালেন্স Add করুন।`, { inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
-    }
-    const { data: freshLocalProfile, error: localBalanceReadError } = await db.from("profiles").select("balance").eq("id", user.id).maybeSingle();
-    if (localBalanceReadError || !freshLocalProfile) {
-      console.error("Telegram local checkout balance lookup failed", localBalanceReadError);
-      return screen(chatId, cq.message?.message_id, "আপনার ব্যালেন্স যাচাই করা যায়নি। টাকা কাটা হয়নি। আবার চেষ্টা করুন।", { inline_keyboard: [[{ text: "💳 Add Balance", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
     }
     const freshLocalBalance = Number(freshLocalProfile.balance ?? 0);
     const localPackagePrice = Number(pkg.price ?? 0);
