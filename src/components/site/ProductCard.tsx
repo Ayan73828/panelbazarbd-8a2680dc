@@ -18,6 +18,7 @@ export type ProductRow = {
   is_featured: boolean;
   is_best_seller: boolean;
   category_id: string | null;
+  provider_name?: string | null;
 };
 
 export function ProductCard({
@@ -30,7 +31,8 @@ export function ProductCard({
   currency: string;
 }) {
   const hasDiscount = !!product.discount_price && Number(product.discount_price) > 0;
-  const soldOut = product.stock <= 0 || product.status === "out_of_stock";
+  const supplierManaged = !!product.provider_name;
+  const soldOut = !supplierManaged && (product.stock <= 0 || product.status === "out_of_stock");
 
   return (
     <article className="panel group flex flex-col overflow-hidden transition-colors hover:border-primary/40">
@@ -64,9 +66,9 @@ export function ProductCard({
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span className="truncate">{categoryName ?? "Uncategorized"}</span>
-          <span className={soldOut ? "text-destructive" : "text-primary"}>
+          {!supplierManaged && <span className={soldOut ? "text-destructive" : "text-primary"}>
             {soldOut ? "Out of stock" : `${statusLabel(product.status)} • ${product.stock}`}
-          </span>
+          </span>}
         </div>
 
         <Link to="/products/$slug" params={{ slug: product.slug }}>
