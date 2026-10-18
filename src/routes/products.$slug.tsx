@@ -107,7 +107,7 @@ function ProductDetail() {
       ]);
       if (error) throw error;
       const st = new Map((stock ?? []).map((r: { package_id: string; available: number }) => [r.package_id, Number(r.available)]));
-      return (data ?? []).map((x) => ({ ...x, price: Number(x.price), available: st.get(x.id) ?? 0 }));
+      return (data ?? []).map((x) => ({ ...x, price: Number(x.price), available: x.provider_auto_api ? (x.provider_stock ?? 1) : (st.get(x.id) ?? 0) }));
     },
   });
 
