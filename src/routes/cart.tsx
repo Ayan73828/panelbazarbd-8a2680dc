@@ -42,13 +42,29 @@ function CartPage() {
     const completed = new Set<string>();
     let failed = "";
     for (const item of items) {
+      let autoPackage = false;
+      if (item.packageId) {
+        const { data: pkg } = await supabase.from("product_packages").select("provider_auto_api,provider_product_id,provider_duration").eq("id", item.packageId).maybeSingle();
+        autoPackage = !!pkg?.provider_auto_api && !!pkg?.provider_product_id && !!pkg?.provider_duration;
+      }
       for (let i = 0; i < item.quantity; i++) {
-        const result = item.packageId
-          ? await supabase.rpc("purchase_package", { p_package_id: item.packageId })
-          : await supabase.rpc("purchase_product", { p_product_id: item.productId, p_quantity: 1 });
-        if (result.error) { failed = result.error.message; break; }
-        if (typeof result.data === "string") {
-          void telegramNotifyEvent({ data: { event: "order", recordId: result.data } }).catch((e) => console.error("Telegram order notification failed", e));
+        let orderId: string | null = null;
+        if (autoPackage && item.packageId) {
+          const { data, error } = await supabase.functions.invoke("banti-checkout", { body: { package_id: item.packageId, idempotency_key: crypto.randomUUID() } });
+          if (error || data?.status !== "completed" || !Array.isArray(data?.keys) || data.keys.length < 1) {
+            failed = error?.message || data?.message || data?.error || "অটো ডেলিভারি নিশ্চিত হয়নি। Support-এর সঙ্গে যোগাযোগ করুন; একই অর্ডার আবার দেবেন না।";
+            break;
+          }
+          orderId = typeof data.order_id === "string" ? data.order_id : null;
+        } else {
+          const result = item.packageId
+            ? await supabase.rpc("purchase_package", { p_package_id: item.packageId })
+            : await supabase.rpc("purchase_product", { p_product_id: item.productId, p_quantity: 1 });
+          if (result.error) { failed = result.error.message; break; }
+          if (typeof result.data === "string") orderId = result.data;
+        }
+        if (orderId) {
+          void telegramNotifyEvent({ data: { event: "order", recordId: orderId } }).catch((e) => console.error("Telegram order notification failed", e));
         }
       }
       if (failed) break;
