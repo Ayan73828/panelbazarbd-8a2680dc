@@ -90,6 +90,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: "Premium digital products and reseller panel services at reseller prices.",
       },
       { property: "og:site_name", content: "PANEL BAZAR BD" },
+      { property: "og:image", content: "https://cdn.phototourl.com/member/2026-10-18-95f8a910-7c5e-4ec3-a35c-a352f0d7532c.png" },
+      { name: "twitter:image", content: "https://cdn.phototourl.com/member/2026-10-18-95f8a910-7c5e-4ec3-a35c-a352f0d7532c.png" },
       { property: "og:title", content: "PANEL BAZAR BD — Digital Products & Reseller Panel" },
       { name: "twitter:title", content: "PANEL BAZAR BD — Digital Products & Reseller Panel" },
       { name: "twitter:description", content: "Premium digital products and reseller panel services at reseller prices." },
