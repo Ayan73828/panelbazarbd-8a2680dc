@@ -396,6 +396,7 @@ export async function handleUpdate(u: any) {
       return send(chatId, "আপনার Telegram account কোনো website account-এর সঙ্গে linked নেই।", GUEST_AUTH);
     }
     const { data: split, error: unlinkError } = await db.rpc("bot_unlink_telegram_account", { p_telegram_user_id: m.from.id }).maybeSingle();
+    if (!unlinkError) invalidateTelegramIdentity(m.from.id);
     if (unlinkError) {
       console.error("Telegram account unlink failed", unlinkError);
       const message = String(unlinkError.message ?? "").includes("SPLIT_METADATA_MISSING")
@@ -654,8 +655,10 @@ async function handleCallback(cq: any) {
     return startTelegramPayment(chatId, user, amount, method, cq.message?.message_id);
   }
     if (kind === "p" && id) {
-    const { data: p } = await db.from("products").select("name,short_description,provider_name").eq("id", id).maybeSingle();
-    const { data: pk } = await db.from("product_packages").select("id,name,price,provider_auto_api,provider_stock,provider_product_id,provider_duration").eq("product_id", id).eq("is_active", true).order("sort_order");
+    const [{ data: p }, { data: pk }] = await Promise.all([
+      db.from("products").select("name,short_description,provider_name").eq("id", id).maybeSingle(),
+      db.from("product_packages").select("id,name,price,provider_auto_api,provider_stock,provider_product_id,provider_duration").eq("product_id", id).eq("is_active", true).order("sort_order"),
+    ]);
     const supplierManaged = Boolean(p?.provider_name);
     const localPackages = (pk ?? []).filter((k: any) => !supplierManaged || (k.provider_auto_api && k.provider_product_id && k.provider_duration && Number(k.price) > 0));
     const { data: stock } = supplierManaged ? { data: [] } : await db.rpc("package_stock", { p_product_id: id });
