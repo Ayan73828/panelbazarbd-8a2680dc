@@ -19,7 +19,12 @@ export function settingsQueryOptions() {
 }
 
 export function useSettings() {
-  const query = useQuery(settingsQueryOptions());
+  const query = useQuery({
+    ...settingsQueryOptions(),
+    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
   return { settings: query.data ?? DEFAULT_SETTINGS, ...query };
 }
 
