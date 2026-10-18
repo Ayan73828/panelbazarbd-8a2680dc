@@ -104,7 +104,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "canonical", href: "https://panelbazarbd.shop/" },
-      { rel: "icon", href: "https://cdn.phototourl.com/member/2026-10-18-95f8a910-7c5e-4ec3-a35c-a352f0d7532c.png", type: "image/png" },
+      { rel: "icon", href: "https://panelbazarbd.shop/favicon.svg?v=20261018", type: "image/svg+xml" },
+      { rel: "icon", href: "https://cdn.phototourl.com/member/2026-10-18-95f8a910-7c5e-4ec3-a35c-a352f0d7532c.png?v=20261018", type: "image/png" },
+      { rel: "shortcut icon", href: "https://cdn.phototourl.com/member/2026-10-18-95f8a910-7c5e-4ec3-a35c-a352f0d7532c.png?v=20261018", type: "image/png" },
+      { rel: "apple-touch-icon", href: "https://cdn.phototourl.com/member/2026-10-18-95f8a910-7c5e-4ec3-a35c-a352f0d7532c.png?v=20261018" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
