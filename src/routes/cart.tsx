@@ -12,7 +12,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
 import { playMoneyDeduct } from "@/lib/sounds";
 
-export const Route = createFileRoute("/cart")({ component: CartPage });
+export const Route = createFileRoute("/cart")({
+  head: () => ({ meta: [{ title: "Cart — PANEL BAZAR BD" }, { name: "robots", content: "noindex,follow" }] }),
+  component: CartPage,
+});
 function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [busy, setBusy] = useState(false);
