@@ -11,7 +11,7 @@ export const Route = createFileRoute("/payment/success")({
   validateSearch: (s: Record<string, unknown>): { invoice_id?: string | undefined } => ({
     invoice_id: typeof s["invoice_id"] === "string" ? (s["invoice_id"] as string) : undefined,
   }),
-  head: () => ({ meta: [{ title: "Payment — PANEL BAZAR BD" }] }),
+  head: () => ({ meta: [{ title: "Payment — PANEL BAZAR BD" }, { name: "robots", content: "noindex,nofollow" }] }),
   component: PaymentSuccess,
 });
 
