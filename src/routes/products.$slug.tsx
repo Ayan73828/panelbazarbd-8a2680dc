@@ -102,7 +102,7 @@ function ProductDetail() {
     enabled: !!p?.id,
     queryFn: async () => {
       const [{ data, error }, { data: stock }] = await Promise.all([
-        supabase.from("product_packages").select("id,name,duration,price,sort_order").eq("product_id", p!.id).eq("is_active", true).order("sort_order"),
+        supabase.from("product_packages").select("id,name,duration,price,sort_order,provider_auto_api,provider_product_id,provider_duration").eq("product_id", p!.id).eq("is_active", true).order("sort_order"),
         supabase.rpc("package_stock", { p_product_id: p!.id }),
       ]);
       if (error) throw error;
@@ -234,7 +234,7 @@ function ProductDetail() {
   );
 }
 
-type Pkg = { id: string; name: string; duration: string; price: number; available: number };
+type Pkg = { id: string; name: string; duration: string; price: number; available: number; provider_auto_api?: boolean; provider_product_id?: string | null; provider_duration?: string | null };
 
 function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; onOpenChange: (v: boolean) => void; product: { id: string; name: string; unit: number; slug: string; stock: number }; packages: Pkg[] }) {
   const { user, profile, refresh } = useAuth();
@@ -292,15 +292,31 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     setError("");
     let done = 0;
     for (let i = 0; i < qty; i++) {
-      const { data: orderId, error } = sel
-        ? await supabase.rpc("purchase_package", { p_package_id: sel.id })
-        : await supabase.rpc("purchase_product", { p_product_id: product.id, p_quantity: 1 });
-      if (error) {
-        setError(error.message.includes("NO_KEYS") ? `স্টক শেষ — ${done}টি কেনা হয়েছে।` : error.message.includes("INSUFFICIENT_BALANCE") ? `ব্যালেন্স কম — ${done}টি কেনা হয়েছে।` : errMsg(error));
+      let orderId: string | null = null;
+      let failure = "";
+      if (sel?.provider_auto_api && sel.provider_product_id && sel.provider_duration) {
+        const { data, error } = await supabase.functions.invoke("banti-checkout", {
+          body: { package_id: sel.id, idempotency_key: crypto.randomUUID() },
+        });
+        if (error) failure = error.message || "অটো অর্ডার ব্যর্থ হয়েছে।";
+        else if (data?.status !== "completed" || !Array.isArray(data?.keys) || data.keys.length < 1) {
+          failure = typeof data?.message === "string" ? data.message : typeof data?.error === "string" ? data.error : "অটো ডেলিভারি নিশ্চিত হয়নি। Support-এর সঙ্গে যোগাযোগ করুন; একই অর্ডার আবার দেবেন না।";
+        } else {
+          orderId = typeof data.order_id === "string" ? data.order_id : null;
+        }
+      } else {
+        const result = sel
+          ? await supabase.rpc("purchase_package", { p_package_id: sel.id })
+          : await supabase.rpc("purchase_product", { p_product_id: product.id, p_quantity: 1 });
+        if (result.error) failure = result.error.message;
+        else if (typeof result.data === "string") orderId = result.data;
+      }
+      if (failure) {
+        setError(failure.includes("NO_KEYS") ? `স্টক শেষ — ${done}টি কেনা হয়েছে।` : failure.includes("INSUFFICIENT_BALANCE") ? `ব্যালেন্স কম — ${done}টি কেনা হয়েছে।` : `${failure} (আগে My Orders/Support দেখে নিন; একই অর্ডার বারবার দেবেন না।)`);
         break;
       }
       done++;
-      if (typeof orderId === "string") {
+      if (orderId) {
         void telegramNotifyEvent({ data: { event: "order", recordId: orderId } }).catch((notifyError) => console.error("Telegram order notification failed", notifyError));
       }
     }
