@@ -4,7 +4,7 @@ import { SiteLayout } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/payment/cancel")({
-  head: () => ({ meta: [{ title: "Payment Cancelled — PANEL BAZAR BD" }] }),
+  head: () => ({ meta: [{ title: "Payment Cancelled — PANEL BAZAR BD" }, { name: "robots", content: "noindex,nofollow" }] }),
   component: PaymentCancel,
 });
 
