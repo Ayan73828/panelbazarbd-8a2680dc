@@ -49,7 +49,14 @@ export function SiteLayout({ children }: { children: ReactNode }) {
     ...(transactions.data ?? []).map((tx) => ({
       id: `tx-${tx.id}`,
       title: tx.type === "referral_reward" ? "Referral reward received" : tx.type === "deposit" || tx.type === "add_funds" ? "Wallet balance updated" : tx.type === "purchase" ? "Purchase activity" : "Wallet activity",
-      message: tx.description || (tx.type === "referral_reward" ? "You received a referral reward." : `${tx.type}: ${money(tx.amount, settings.currency_symbol)}`),
+      // Never expose internal transaction descriptions (provider names, refund reasons, or order IDs) in customer-facing notifications.
+      message: tx.type === "referral_reward"
+        ? "You received a referral reward."
+        : tx.type === "deposit" || tx.type === "add_funds"
+          ? "Your wallet balance has been updated."
+          : tx.type === "purchase"
+            ? "Your purchase activity has been updated."
+            : "Your wallet activity has been updated.",
       createdAt: tx.created_at,
       kind: tx.type === "referral_reward" ? "referral" as const : "wallet" as const,
     })),
