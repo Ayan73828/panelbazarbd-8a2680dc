@@ -261,7 +261,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     if (!v) { setStep(1); setError(""); setQty(1); }
   }
   function addSelectedToCart() {
-    if (hasPk && !sel) { setError("আগে Validation / Duration নির্বাচন করুন।"); return; }
+    if (hasPk && !sel) { setError("আগে Validity / Duration নির্বাচন করুন।"); return; }
     if (unit <= 0 || maxQty < 1) { setError("এই অপশনটি এখন কেনা যাবে না।"); return; }
     addCartItem({
       id: sel ? product.id + ":" + sel.id : product.id,
@@ -335,7 +335,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     }
   }
 
-  const steps = ["Variant", "Account", "Payment"];
+  const steps = ["Validity", "Account", "Payment"];
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
@@ -356,12 +356,12 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
               <div className="space-y-4">
                 {hasPk && (
                   <label className="block space-y-1.5">
-                    <span className="font-medium">Choose Variant</span>
+                    <span className="font-medium">Choose Validity / Duration</span>
                     <select className="h-11 w-full rounded-lg border border-input bg-background px-3" value={pkgId} onChange={(e) => { setPkgId(e.target.value); setQty(1); }}>
                       <option value="">Select an option</option>
                       {packages.map((pk) => (
-                        <option key={pk.id} value={pk.id} disabled={pk.available <= 0 || pk.price <= 0}>
-                          {pk.name} — {money(pk.price, cur)}{pk.available <= 0 ? " (Stock out)" : ""}
+                        <option key={pk.id} value={pk.id} disabled={pk.price <= 0}>
+                          {pk.duration || pk.name} — {money(pk.price, cur)}
                         </option>
                       ))}
                     </select>
