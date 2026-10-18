@@ -78,10 +78,14 @@ async function getState(chatId: number) {
 }
 // Warm-process cache: cache identity only (never balance/profile data), so most button
 // callbacks need one fresh profile query instead of two identity lookups plus profile.
-const telegramIdentityCache = new Map<number, { userId: string; linked: boolean; expiresAt: number }>();
+const telegramIdentityCache = new Map<number, { userId: string; linked: boolean; expiresAt: number; profile?: any; profileExpiresAt?: number }>();
 const TELEGRAM_IDENTITY_TTL_MS = 15_000;
-function setTelegramIdentity(tgUserId: number, userId: string, linked: boolean) {
-  telegramIdentityCache.set(tgUserId, { userId, linked, expiresAt: Date.now() + TELEGRAM_IDENTITY_TTL_MS });
+const TELEGRAM_PROFILE_TTL_MS = 3_000;
+function setTelegramIdentity(tgUserId: number, userId: string, linked: boolean, profile?: any) {
+  telegramIdentityCache.set(tgUserId, {
+    userId, linked, expiresAt: Date.now() + TELEGRAM_IDENTITY_TTL_MS,
+    ...(profile ? { profile, profileExpiresAt: Date.now() + TELEGRAM_PROFILE_TTL_MS } : {}),
+  });
 }
 function invalidateTelegramIdentity(tgUserId: number) {
   telegramIdentityCache.delete(tgUserId);
@@ -91,8 +95,12 @@ async function linkedUser(tgUserId: number) {
   const db = await admin();
   const cached = telegramIdentityCache.get(tgUserId);
   if (cached && cached.expiresAt > Date.now()) {
+    if (cached.profile && (cached.profileExpiresAt ?? 0) > Date.now()) return cached.profile;
     const { data: profile } = await db.from("profiles").select("*").eq("id", cached.userId).maybeSingle();
-    if (profile) return profile as any;
+    if (profile) {
+      setTelegramIdentity(tgUserId, cached.userId, cached.linked, profile);
+      return profile as any;
+    }
     invalidateTelegramIdentity(tgUserId);
   } else if (cached) {
     invalidateTelegramIdentity(tgUserId);
@@ -103,8 +111,8 @@ async function linkedUser(tgUserId: number) {
   ]);
   const userId = link?.user_id ?? account?.user_id;
   if (!userId) return null;
-  setTelegramIdentity(tgUserId, String(userId), Boolean(link?.user_id));
   const { data: profile } = await db.from("profiles").select("*").eq("id", userId).maybeSingle();
+  if (profile) setTelegramIdentity(tgUserId, String(userId), Boolean(link?.user_id), profile);
   return profile as any;
 }
 
