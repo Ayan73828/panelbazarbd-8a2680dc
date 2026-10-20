@@ -4,18 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { uddoktapayCreateCharge } from "@/lib/uddoktapay.functions";
 
-const MIN = 100;
-const PRESETS = [100, 500, 1000];
+const MIN = 50;
+const PRESETS = [50, 100, 500, 1000];
 
 export function AddFund({ initialAmount, autoStart }: { initialAmount?: number | undefined; autoStart?: boolean | undefined } = {}) {
-  // When coming from a product purchase, the exact shortfall is allowed (no minimum).
   const fromProduct = !!initialAmount;
-  const [amount, setAmount] = useState(initialAmount ? String(Math.max(1, Math.ceil(initialAmount))) : "");
+  const requiredAmount = initialAmount ? Math.max(MIN, Math.ceil(initialAmount)) : undefined;
+  const [amount, setAmount] = useState(requiredAmount ? String(requiredAmount) : "");
   const started = useRef(false);
   const [busy, setBusy] = useState(false);
 
-  const pay = async (value: number, allowAny = false) => {
-    if (!(value >= (allowAny ? 1 : MIN))) { toast.error(`কমপক্ষে ৳${MIN} দিন`); return; }
+  const pay = async (value: number) => {
+    if (!(Number.isFinite(value) && value >= MIN)) { toast.error(`কমপক্ষে ৳${MIN} ডিপোজিট করতে হবে`); return; }
     setBusy(true);
     try {
       const r = await uddoktapayCreateCharge({ data: { amount: value, origin: window.location.origin } });
@@ -29,7 +29,7 @@ export function AddFund({ initialAmount, autoStart }: { initialAmount?: number |
   useEffect(() => {
     if (autoStart && initialAmount && !started.current) {
       started.current = true;
-      void pay(Math.ceil(initialAmount), true);
+      void pay(Math.max(MIN, Math.ceil(initialAmount)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart, initialAmount]);
@@ -39,16 +39,16 @@ export function AddFund({ initialAmount, autoStart }: { initialAmount?: number |
       <h2 className="font-semibold">Add fund</h2>
       <p className="text-sm text-muted-foreground">bKash / Nagad / Binance Pay দিয়ে পেমেন্ট করুন — ব্যালেন্স অটো যোগ হবে।</p>
       {fromProduct ? (
-        <p className="rounded-lg bg-primary/10 p-3 text-sm text-primary">প্রোডাক্ট কিনতে ৳{Math.ceil(initialAmount!)} প্রয়োজন — পেমেন্ট পেজ খুলছে…</p>
+        <p className="rounded-lg bg-primary/10 p-3 text-sm text-primary">প্রোডাক্ট কিনতে ব্যালেন্স কম। সর্বনিম্ন ৳{MIN} যোগ করতে হবে; ৳{requiredAmount} টাকার পেমেন্ট পেজ খুলছে…</p>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {PRESETS.map((v) => (
             <Button key={v} variant="secondary" className="h-12 font-semibold" disabled={busy} onClick={() => pay(v)}>৳{v}</Button>
           ))}
         </div>
       )}
-      <Input className="h-11" type="number" inputMode="decimal" placeholder={fromProduct ? "Amount" : `অন্য পরিমাণ (min ৳${MIN})`} value={amount} onChange={(e) => setAmount(e.target.value)} />
-      <Button className="h-11 w-full" disabled={busy} onClick={() => pay(Number(amount), fromProduct)}>{busy ? "Starting…" : "Pay now"}</Button>
+      <Input className="h-11" type="number" min={MIN} inputMode="numeric" placeholder={`অন্য পরিমাণ (সর্বনিম্ন ৳${MIN})`} value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <Button className="h-11 w-full" disabled={busy} onClick={() => pay(Number(amount))>{busy ? "Starting…" : "Pay now"}</Button>
     </div>
   );
 }
