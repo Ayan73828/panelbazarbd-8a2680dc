@@ -48,7 +48,8 @@ export function AddFund({ initialAmount, autoStart }: { initialAmount?: number |
         </div>
       )}
       <Input className="h-11" type="number" min={MIN} inputMode="numeric" placeholder={`অন্য পরিমাণ (সর্বনিম্ন ৳${MIN})`} value={amount} onChange={(e) => setAmount(e.target.value)} />
-      <Button className="h-11 w-full" disabled={busy} onClick={() => pay(Number(amount))>{busy ? "Starting…" : "Pay now"}</Button>
+      <p className="text-xs font-medium text-muted-foreground">আপনি ৳৫০-এর কম ডিপোজিট করতে পারবেন না। সর্বনিম্ন ডিপোজিট ৳৫০।</p>
+      <Button className="h-11 w-full" disabled={busy} onClick={() => pay(Number(amount))}>{busy ? "Starting…" : "Pay now"}</Button>
     </div>
   );
 }
