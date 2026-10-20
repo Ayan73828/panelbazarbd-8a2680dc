@@ -7,7 +7,7 @@ export const uddoktapayCreateCharge = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z
       .object({
-        amount: z.number().min(1).max(100000),
+        amount: z.number().min(50, "Minimum deposit is Tk 50").max(100000),
         origin: z.string().url().max(200),
       })
       .parse(d),
