@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSite";
-import { effectivePrice, money, statusLabel } from "@/lib/site";
+import { effectivePrice, money } from "@/lib/site";
 import { playMoneyDeduct } from "@/lib/sounds";
 import { addCartItem } from "@/lib/cart";
 import { telegramNotifyEvent } from "@/lib/telegram-notifications.functions";
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/products/$slug")({
   loader: async ({ context, params }) => {
     const p = await context.queryClient.ensureQueryData(productQuery(params.slug));
     if (!p) throw notFound();
-    return { name: p.name, desc: p.short_description ?? "", image: p.image_url, price: effectivePrice(p), inStock: !!p.provider_name || p.stock > 0, supplierManaged: !!p.provider_name };
+    return { name: p.name, desc: p.short_description ?? "", image: p.image_url, price: effectivePrice(p) };
   },
   head: ({ loaderData, params }) => {
     if (!loaderData) return { meta: [{ title: "Product not found" }, { name: "robots", content: "noindex" }] };
@@ -66,7 +66,6 @@ export const Route = createFileRoute("/products/$slug")({
               "@type": "Offer",
               price: loaderData.price,
               priceCurrency: "BDT",
-              availability: loaderData.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
             },
           }),
         },
@@ -128,8 +127,6 @@ function ProductDetail() {
 
   if (!p) return null;
   const hasDiscount = !!p.discount_price && Number(p.discount_price) > 0;
-  const supplierManaged = !!p.provider_name;
-  const soldOut = !supplierManaged && (p.stock <= 0 || p.status === "out_of_stock" || p.status === "coming_soon");
   const cat = p.categories as { name: string; slug: string } | null;
   const packages = pkgs.data ?? [];
   const hasPackages = packages.length > 0;
@@ -185,10 +182,7 @@ function ProductDetail() {
                   <span className="text-3xl font-bold text-primary">{money(effectivePrice(p), cur)}</span>
                   {hasDiscount && <span className="text-muted-foreground line-through">{money(p.price, cur)}</span>}
                 </div>
-                {!supplierManaged && <p className={`text-sm font-medium ${soldOut ? "text-destructive" : "text-success"}`}>
-                  {soldOut ? (p.status === "coming_soon" ? "Coming soon" : "Out of stock") : `${statusLabel(p.status)} — ${p.stock} available`}
-                </p>}
-                <Button size="lg" className="h-12 w-full rounded-full" disabled={soldOut || pkgs.isLoading} onClick={() => setOpen(true)}>
+                <Button size="lg" className="h-12 w-full rounded-full" disabled={pkgs.isLoading} onClick={() => setOpen(true)}>
                   <ShoppingCart className="mr-2 h-4 w-4" /> Buy Now
                 </Button>
               </>
@@ -313,7 +307,9 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
         else if (typeof result.data === "string") orderId = result.data;
       }
       if (failure) {
-        setError(failure.includes("NO_KEYS") ? `স্টক শেষ — ${done}টি কেনা হয়েছে।` : failure.includes("INSUFFICIENT_BALANCE") ? `ব্যালেন্স কম — ${done}টি কেনা হয়েছে।` : `${failure} (আগে My Orders/Support দেখে নিন; একই অর্ডার বারবার দেবেন না।)`);
+        setError(failure.includes("INSUFFICIENT_BALANCE")
+          ? `ব্যালেন্স কম — ${done}টি অর্ডার সম্পন্ন হয়েছে। Wallet-এ ব্যালেন্স যোগ করুন।`
+          : `দুঃখিত, আপনার অর্ডারটি সম্পন্ন করা যাচ্ছে না। ${done > 0 ? `${done}টি অর্ডার সম্পন্ন হয়েছে। ` : ""}My Orders দেখে নিন; প্রয়োজনে সাপোর্টে যোগাযোগ করুন। একই অর্ডার আবার দেওয়ার আগে অর্ডারের অবস্থা যাচাই করুন।`);
         break;
       }
       done++;
