@@ -242,6 +242,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [minDepositOpen, setMinDepositOpen] = useState(false);
   const hasPk = packages.length > 0;
   const sel = packages.find((x) => x.id === pkgId) ?? null;
   const unit = hasPk ? (sel?.price ?? 0) : product.unit;
@@ -275,9 +276,16 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   }
 
   function goAddMoney() {
+    const shortfall = Math.ceil(total - balance);
     sessionStorage.setItem("kr_return_to", `/products/${product.slug}`);
     close(false);
-    navigate({ to: "/dashboard/wallet", search: { amount: Math.ceil(total - balance), auto: true } });
+    if (shortfall < 50) { setMinDepositOpen(true); return; }
+    navigate({ to: "/dashboard/wallet", search: { amount: shortfall, auto: true } });
+  }
+
+  function confirmMinimumDeposit() {
+    setMinDepositOpen(false);
+    navigate({ to: "/dashboard/wallet", search: { amount: 50, auto: true } });
   }
 
   async function buy() {
@@ -333,6 +341,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
 
   const steps = ["Validity", "Account", "Payment"];
   return (
+    <>
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
         <DialogHeader><DialogTitle className="truncate">{product.name}</DialogTitle></DialogHeader>
@@ -408,5 +417,16 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
         )}
       </DialogContent>
     </Dialog>
+    <Dialog open={minDepositOpen} onOpenChange={setMinDepositOpen}>
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm">
+        <DialogHeader><DialogTitle>সর্বনিম্ন ডিপোজিট ৳৫০</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">আপনার নির্বাচিত পণ্যের দাম ৳৫০-এর কম হলেও ডিপোজিটের সর্বনিম্ন পরিমাণ ৳৫০। আপনি কি ৳৫০ ডিপোজিট করে পেমেন্টে যেতে চান?</p>
+        <DialogFooter className="gap-2">
+          <Button variant="secondary" onClick={() => setMinDepositOpen(false)}>না, ফিরে যান</Button>
+          <Button onClick={confirmMinimumDeposit}>হ্যাঁ, পেমেন্টে যান</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
