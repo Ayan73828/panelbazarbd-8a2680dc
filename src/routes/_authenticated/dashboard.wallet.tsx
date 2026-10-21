@@ -24,7 +24,7 @@ export const Route = createFileRoute("/_authenticated/dashboard/wallet")({
 });
 
 function WalletPage() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refresh } = useAuth();
   const [redeemCode, setRedeemCode] = useState("");
   const [redeeming, setRedeeming] = useState(false);
   const redeem = async () => {
@@ -38,7 +38,7 @@ function WalletPage() {
       if (!result?.success) throw new Error("Redeem code গ্রহণ করা যায়নি");
       toast.success(`৳${Number(result.amount ?? 0).toFixed(2)} ব্যালেন্স যোগ হয়েছে`);
       setRedeemCode("");
-      await refreshProfile?.();
+      refresh();
       await txs.refetch();
     } catch (error) {
       const message = String((error as { message?: string })?.message ?? error);
