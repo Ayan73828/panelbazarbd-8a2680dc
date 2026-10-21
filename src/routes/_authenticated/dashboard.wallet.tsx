@@ -1,4 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Gift } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
 import { AddFund } from "@/components/site/AddFund";
 import { MessageCircle, Send } from "lucide-react";
 import { PageHeader } from "@/components/site/SiteLayout";
@@ -19,7 +24,27 @@ export const Route = createFileRoute("/_authenticated/dashboard/wallet")({
 });
 
 function WalletPage() {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
+  const [redeemCode, setRedeemCode] = useState("");
+  const [redeeming, setRedeeming] = useState(false);
+  const redeem = async () => {
+    const code = redeemCode.trim();
+    if (!code) { toast.error("Redeem code লিখুন"); return; }
+    setRedeeming(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("redeem_code", { p_code: code });
+      if (error) throw error;
+      const result = data as { success?: boolean; amount?: number; balance?: number } | null;
+      if (!result?.success) throw new Error("Redeem code গ্রহণ করা যায়নি");
+      toast.success(`৳${Number(result.amount ?? 0).toFixed(2)} ব্যালেন্স যোগ হয়েছে`);
+      setRedeemCode("");
+      await refreshProfile?.();
+      await txs.refetch();
+    } catch (error) {
+      const message = String((error as { message?: string })?.message ?? error);
+      toast.error(message.includes("REDEEM_CODE_USED") ? "এই কোডটি ইতিমধ্যে ব্যবহার হয়েছে" : message.includes("REDEEM_CODE_EXPIRED") ? "এই কোডের মেয়াদ শেষ" : message.includes("INVALID_REDEEM_CODE") ? "Redeem code সঠিক নয়" : "কোড রিডিম করা যায়নি। আবার চেষ্টা করুন।");
+    } finally { setRedeeming(false); }
+  };
   const { amount, auto } = Route.useSearch();
   const { settings } = useSettings();
   const txs = useMyTransactions();
@@ -37,6 +62,12 @@ function WalletPage() {
         </div>
       </div>
       <AddFund initialAmount={amount} autoStart={auto} />
+      <div className="panel space-y-3 p-4">
+        <div className="flex items-center gap-2"><Gift className="h-5 w-5 text-primary" /><h2 className="font-semibold">Redeem Code</h2></div>
+        <p className="text-sm text-muted-foreground">আপনার Redeem Code দিয়ে ওয়ালেটে ব্যালেন্স যোগ করুন। প্রতিটি কোড একবারই ব্যবহার করা যাবে—ওয়েবসাইট বা Telegram যেকোনো এক জায়গায়।</p>
+        <Input value={redeemCode} onChange={(e) => setRedeemCode(e.target.value)} placeholder="যেমন: PB-AB12CD34EF56" autoCapitalize="characters" />
+        <Button className="w-full" onClick={() => void redeem()} disabled={redeeming}>{redeeming ? "Redeem হচ্ছে…" : "Redeem Code"}</Button>
+      </div>
       <div>
         <h2 className="mb-3 font-semibold">Transactions</h2>
         {txs.isLoading ? <RowSkeleton /> : txs.error ? <ErrorState onRetry={() => txs.refetch()} /> : (txs.data ?? []).length === 0 ? (
