@@ -110,7 +110,7 @@ function CartPage() {
         <div className="space-y-3">{items.map((item) => <article key={item.id} className="panel flex gap-3 p-3">
           {item.image_url ? <img src={item.image_url} alt="" className="h-16 w-16 rounded-lg object-cover" /> : <div className="h-16 w-16 rounded-lg bg-surface-2" />}
           <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{item.name}</p>{item.variantName && <p className="text-xs text-muted-foreground">{item.variantName}{item.duration ? " · " + item.duration : ""}</p>}<p className="mt-1 text-sm font-bold text-primary">{money(priceFor(item), settings.currency_symbol)} × {item.quantity}</p>
-            {isDiscounted(item) && <p className="text-xs text-muted-foreground"><span className="line-through">{money(item.price, settings.currency_symbol)}</span> · Reseller {discountPercent}% discount</p>
+            {isDiscounted(item) && <p className="text-xs text-muted-foreground"><span className="line-through">{money(item.price, settings.currency_symbol)}</span> · Reseller {discountPercent}% discount</p>}
             <div className="mt-2 flex items-center gap-2"><Button size="icon" variant="secondary" className="h-8 w-8" onClick={() => updateQty(item.id, item.quantity - 1)}><Minus className="h-3 w-3" /></Button><span className="w-5 text-center">{item.quantity}</span><Button size="icon" variant="secondary" className="h-8 w-8" disabled={item.quantity >= item.stock} onClick={() => updateQty(item.id, item.quantity + 1)}><Plus className="h-3 w-3" /></Button></div>
           </div>
           <Button variant="ghost" size="icon" aria-label="Remove item" onClick={() => { removeCartItem(item.id); setItems(readCart()); }}><Trash2 className="h-4 w-4" /></Button>
