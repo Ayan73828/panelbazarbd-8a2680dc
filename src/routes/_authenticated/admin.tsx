@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { CreditCard, FolderTree, KeyRound, Home, LayoutDashboard, LifeBuoy, LogOut, Megaphone, Package, ReceiptText, Settings, ShieldAlert, Users, UserRound, Wallet } from "lucide-react";
+import { CreditCard, FolderTree, KeyRound, Home, LayoutDashboard, LifeBuoy, LogOut, Megaphone, Package, ReceiptText, Settings, ShieldAlert, Users, UserRound, Wallet, Gift } from "lucide-react";
 import { Brand } from "@/components/site/Brand";
 import { EmptyState, RowSkeleton } from "@/components/site/States";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ const items = [
   { to: "/admin/users", label: "Users", icon: Users, exact: false },
   { to: "/admin/payments", label: "Payments", icon: CreditCard, exact: false },
   { to: "/admin/wallet", label: "Wallet", icon: Wallet, exact: false },
+  { to: "/admin/redeem-codes", label: "Redeem Codes", icon: Gift, exact: false },
   { to: "/admin/support", label: "Support", icon: LifeBuoy, exact: false },
   { to: "/admin/support-mail", label: "Support Mail", icon: LifeBuoy, exact: false },
   { to: "/admin-customer-agents", label: "Customer Agents", icon: UserRound, exact: false },
@@ -52,7 +53,7 @@ function AdminLayout() {
     return () => { active = false; };
   }, [user?.id]);
   const canEnterAdmin = isAdmin || adminPermissions.length > 0;
-  const visibleItems = isAdmin ? items : items.filter((item) => item.exact || adminPermissions.includes(({ "/admin/products": "products", "/admin/keys": "keys", "/admin/categories": "categories", "/admin/orders": "orders", "/admin/users": "users", "/admin/payments": "payments", "/admin/wallet": "wallet", "/admin/support": "support", "/admin/support-mail": "", "/admin-customer-agents": "customer_agents", "/admin/announcements": "announcements", "/admin/telegram-announcements": "telegram_broadcast", "/admin/homepage": "homepage", "/admin/settings": "settings" } as Record<string, string>)[item.to] ?? ""));
+  const visibleItems = isAdmin ? items : items.filter((item) => item.exact || adminPermissions.includes(({ "/admin/products": "products", "/admin/keys": "keys", "/admin/categories": "categories", "/admin/orders": "orders", "/admin/users": "users", "/admin/payments": "payments", "/admin/wallet": "wallet", "/admin/redeem-codes": "wallet", "/admin/support": "support", "/admin/support-mail": "", "/admin-customer-agents": "customer_agents", "/admin/announcements": "announcements", "/admin/telegram-announcements": "telegram_broadcast", "/admin/homepage": "homepage", "/admin/settings": "settings" } as Record<string, string>)[item.to] ?? ""));
   if (loading || profileLoading || !permissionsLoaded) return <div className="mx-auto max-w-5xl p-6"><RowSkeleton rows={6} /></div>;
   if (!canEnterAdmin)
     return (
