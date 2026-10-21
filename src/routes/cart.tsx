@@ -20,6 +20,7 @@ function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [discountEligiblePackages, setDiscountEligiblePackages] = useState<Set<string>>(new Set());
   const { settings } = useSettings();
   const { user, profile, refresh } = useAuth();
   const navigate = useNavigate();
@@ -30,7 +31,26 @@ function CartPage() {
     window.addEventListener("storage", refreshCart);
     return () => { window.removeEventListener("cart-updated", refreshCart); window.removeEventListener("storage", refreshCart); };
   }, []);
-  const total = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
+  const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10))) : 0;
+  useEffect(() => {
+    const ids = [...new Set(items.map((item) => item.packageId).filter((id): id is string => !!id))];
+    if (!ids.length) { setDiscountEligiblePackages(new Set()); return; }
+    let cancelled = false;
+    void supabase.from("product_packages")
+      .select("id,provider_auto_api,provider_product_id,provider_duration")
+      .in("id", ids)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data) { setDiscountEligiblePackages(new Set()); return; }
+        setDiscountEligiblePackages(new Set(data
+          .filter((pkg) => !pkg.provider_auto_api || !pkg.provider_product_id || !pkg.provider_duration)
+          .map((pkg) => pkg.id)));
+      });
+    return () => { cancelled = true; };
+  }, [items]);
+  const isDiscounted = (item: CartItem) => discountPercent > 0 && (!item.packageId || discountEligiblePackages.has(item.packageId));
+  const priceFor = (item: CartItem) => isDiscounted(item) ? Math.round(item.price * (100 - discountPercent)) / 100 : item.price;
+  const total = useMemo(() => items.reduce((sum, item) => sum + priceFor(item) * item.quantity, 0), [items, discountPercent, discountEligiblePackages]);
   const balance = Number(profile?.balance ?? 0);
   const insufficient = balance < total;
   function updateQty(id: string, quantity: number) {
@@ -89,14 +109,15 @@ function CartPage() {
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <div className="space-y-3">{items.map((item) => <article key={item.id} className="panel flex gap-3 p-3">
           {item.image_url ? <img src={item.image_url} alt="" className="h-16 w-16 rounded-lg object-cover" /> : <div className="h-16 w-16 rounded-lg bg-surface-2" />}
-          <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{item.name}</p>{item.variantName && <p className="text-xs text-muted-foreground">{item.variantName}{item.duration ? " · " + item.duration : ""}</p>}<p className="mt-1 text-sm font-bold text-primary">{money(item.price, settings.currency_symbol)} × {item.quantity}</p>
+          <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{item.name}</p>{item.variantName && <p className="text-xs text-muted-foreground">{item.variantName}{item.duration ? " · " + item.duration : ""}</p>}<p className="mt-1 text-sm font-bold text-primary">{money(priceFor(item), settings.currency_symbol)} × {item.quantity}</p>
+            {isDiscounted(item) && <p className="text-xs text-muted-foreground"><span className="line-through">{money(item.price, settings.currency_symbol)}</span> · Reseller {discountPercent}% discount</p>
             <div className="mt-2 flex items-center gap-2"><Button size="icon" variant="secondary" className="h-8 w-8" onClick={() => updateQty(item.id, item.quantity - 1)}><Minus className="h-3 w-3" /></Button><span className="w-5 text-center">{item.quantity}</span><Button size="icon" variant="secondary" className="h-8 w-8" disabled={item.quantity >= item.stock} onClick={() => updateQty(item.id, item.quantity + 1)}><Plus className="h-3 w-3" /></Button></div>
           </div>
           <Button variant="ghost" size="icon" aria-label="Remove item" onClick={() => { removeCartItem(item.id); setItems(readCart()); }}><Trash2 className="h-4 w-4" /></Button>
         </article>)}</div>
-        <aside className="panel h-fit space-y-3 p-4"><h2 className="font-semibold">Order summary</h2><div className="flex justify-between text-sm"><span className="text-muted-foreground">Items</span><span>{items.reduce((n, item) => n + item.quantity, 0)}</span></div><div className="flex justify-between text-sm"><span className="text-muted-foreground">Wallet balance</span><span>{money(balance, settings.currency_symbol)}</span></div><div className="flex justify-between border-t pt-3 font-bold"><span>Total</span><span className="text-primary">{money(total, settings.currency_symbol)}</span></div>
+        <aside className="panel h-fit space-y-3 p-4"><h2 className="font-semibold">Order summary</h2><div className="flex justify-between text-sm"><span className="text-muted-foreground">Items</span><span>{items.reduce((n, item) => n + item.quantity, 0)}</span></div>{discountPercent > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Reseller discount</span><span className="text-primary">{discountPercent}% on eligible items</span></div>}<div className="flex justify-between text-sm"><span className="text-muted-foreground">Wallet balance</span><span>{money(balance, settings.currency_symbol)}</span></div><div className="flex justify-between border-t pt-3 font-bold"><span>Total</span><span className="text-primary">{money(total, settings.currency_symbol)}</span></div>
           {insufficient && <p className="rounded-lg bg-primary/10 p-3 text-xs text-primary">ব্যালেন্স কম। Checkout চাপলে ঘাটতি Add Balance করতে পারবেন।</p>}{err && <p className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{err}</p>}
-          <Button className="w-full rounded-full" disabled={busy} onClick={checkout}>{busy ? "Processing…" : insufficient ? "Add Balance & Checkout" : "Checkout · " + money(total, settings.currency_symbol)}</Button><p className="text-xs text-muted-foreground">সব আইটেমের মোট মূল্য দেখানো হচ্ছে; checkout-এ অর্ডারগুলো একে একে যাচাই হবে।</p>
+          <Button className="w-full rounded-full" disabled={busy} onClick={checkout}>{busy ? "Processing…" : insufficient ? "Add Balance & Checkout" : "Checkout · " + money(total, settings.currency_symbol)}</Button><p className="text-xs text-muted-foreground">Reseller discount প্রযোজ্য eligible পণ্যের মোট মূল্য দেখানো হচ্ছে; auto-provider checkout-এ discount প্রযোজ্য নয়।</p>
         </aside>
       </div>}
   </div></SiteLayout>;
