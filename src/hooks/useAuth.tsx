@@ -12,6 +12,8 @@ export type Profile = {
   phone: string | null;
   balance: number;
   is_active: boolean;
+  is_reseller: boolean;
+  reseller_discount_percent: number;
   created_at: string;
 };
 
