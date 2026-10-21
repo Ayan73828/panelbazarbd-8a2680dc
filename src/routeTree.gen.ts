@@ -39,6 +39,7 @@ import { Route as AuthenticatedDashboardProfileRouteImport } from './routes/_aut
 import { Route as AuthenticatedDashboardPurchasesRouteImport } from './routes/_authenticated/dashboard.purchases'
 import { Route as AuthenticatedDashboardSupportRouteImport } from './routes/_authenticated/dashboard.support'
 import { Route as AuthenticatedDashboardWalletRouteImport } from './routes/_authenticated/dashboard.wallet'
+import { Route as AuthenticatedDashboardResellerRouteImport } from './routes/_authenticated/dashboard.reseller'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicUddoktapayWebhookRouteImport } from './routes/api/public/uddoktapay/webhook'
 
@@ -202,6 +203,12 @@ const AuthenticatedDashboardWalletRoute =
     path: '/wallet',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const AuthenticatedDashboardResellerRoute =
+  AuthenticatedDashboardResellerRouteImport.update({
+    id: '/reseller',
+    path: '/reseller',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -242,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/purchases': typeof AuthenticatedDashboardPurchasesRoute
   '/dashboard/support': typeof AuthenticatedDashboardSupportRoute
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
+  '/dashboard/reseller': typeof AuthenticatedDashboardResellerRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -272,6 +280,7 @@ export interface FileRoutesByTo {
   '/dashboard/purchases': typeof AuthenticatedDashboardPurchasesRoute
   '/dashboard/support': typeof AuthenticatedDashboardSupportRoute
   '/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
+  '/dashboard/reseller': typeof AuthenticatedDashboardResellerRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -306,6 +315,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/purchases': typeof AuthenticatedDashboardPurchasesRoute
   '/_authenticated/dashboard/support': typeof AuthenticatedDashboardSupportRoute
   '/_authenticated/dashboard/wallet': typeof AuthenticatedDashboardWalletRoute
+  '/_authenticated/dashboard/reseller': typeof AuthenticatedDashboardResellerRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -693,6 +703,7 @@ interface AuthenticatedDashboardRouteChildren {
   AuthenticatedDashboardPurchasesRoute: typeof AuthenticatedDashboardPurchasesRoute
   AuthenticatedDashboardSupportRoute: typeof AuthenticatedDashboardSupportRoute
   AuthenticatedDashboardWalletRoute: typeof AuthenticatedDashboardWalletRoute
+  AuthenticatedDashboardResellerRoute: typeof AuthenticatedDashboardResellerRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
 }
 
@@ -704,6 +715,7 @@ const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
     AuthenticatedDashboardPurchasesRoute: AuthenticatedDashboardPurchasesRoute,
     AuthenticatedDashboardSupportRoute: AuthenticatedDashboardSupportRoute,
     AuthenticatedDashboardWalletRoute: AuthenticatedDashboardWalletRoute,
+    AuthenticatedDashboardResellerRoute: AuthenticatedDashboardResellerRoute,
     AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   }
 
