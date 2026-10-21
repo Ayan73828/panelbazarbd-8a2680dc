@@ -218,6 +218,7 @@ export async function handleUpdate(u: any) {
     });
   }
   if (st.state === "admin_redeem_amount" && text) {
+    if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Redeem code তৈরি বাতিল হয়েছে।"); }
     if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) { await setState(chatId, ""); return send(chatId, "অনুমতি নেই।"); }
     const amount = Number(text.replace(/[৳, ]/g, ""));
     if (!Number.isFinite(amount) || amount < 1 || amount > 100000) return send(chatId, "৳১ থেকে ৳১,০০,০০০ পর্যন্ত সঠিক amount লিখুন।");
@@ -225,6 +226,7 @@ export async function handleUpdate(u: any) {
     return send(chatId, "এই কোডটি সর্বোচ্চ কতবার ব্যবহার করা যাবে? একবারের কোড হলে <b>1</b> লিখুন।");
   }
   if (st.state === "admin_redeem_uses" && text) {
+    if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Redeem code তৈরি বাতিল হয়েছে।"); }
     if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) { await setState(chatId, ""); return send(chatId, "অনুমতি নেই।"); }
     const amount = Number(st.data?.redeem_amount);
     const maxUses = Number(text.trim());
