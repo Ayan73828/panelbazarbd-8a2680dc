@@ -345,6 +345,8 @@ export type Database = {
           duration: string
           id: string
           is_active: boolean
+          is_reseller: boolean
+          reseller_discount_percent: number
           name: string
           price: number
           product_id: string
@@ -367,6 +369,8 @@ export type Database = {
           duration?: string
           id?: string
           is_active?: boolean
+          is_reseller?: boolean
+          reseller_discount_percent?: number
           name?: string
           price?: number
           product_id?: string
@@ -487,6 +491,8 @@ export type Database = {
           email?: string | null
           id: string
           is_active?: boolean
+          is_reseller?: boolean
+          reseller_discount_percent?: number
           name?: string
           phone?: string | null
           updated_at?: string
@@ -758,6 +764,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_reseller: { Args: never; Returns: string }
       admin_adjust_balance: {
         Args: {
           p_amount: number
