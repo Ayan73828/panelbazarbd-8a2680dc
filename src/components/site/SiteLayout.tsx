@@ -168,7 +168,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
                 <span className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
                   {money(profile?.balance, settings.currency_symbol)}
                 </span>
-                <ProfileMenu name={profile?.name || profile?.username || profile?.email || "Account"} email={profile?.email ?? ""} />
+                <ProfileMenu name={profile?.name || profile?.username || profile?.email || "Account"} email={profile?.email ?? ""} isReseller={!!profile?.is_reseller} />
               </>
             ) : (
               <>
@@ -317,7 +317,7 @@ export function PageHeader({
   );
 }
 
-function ProfileMenu({ name, email }: { name: string; email: string }) {
+function ProfileMenu({ name, email, isReseller }: { name: string; email: string; isReseller: boolean }) {
   const { signOut } = useAuth();
   const items = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -325,7 +325,7 @@ function ProfileMenu({ name, email }: { name: string; email: string }) {
     { to: "/dashboard/orders", label: "My Orders", icon: ReceiptText },
     { to: "/dashboard/purchases", label: "Purchased", icon: ShoppingBag },
     { to: "/dashboard/wallet", label: "Wallet", icon: Wallet },
-    { to: "/dashboard/reseller", label: "Upgrade to Reseller Dashboard", icon: Store },
+    { to: "/dashboard/reseller", label: isReseller ? "Reseller Dashboard" : "Upgrade to Reseller Dashboard", icon: Store },
     { to: "/dashboard/profile", label: "Profile", icon: User },
     { to: "/dashboard/password", label: "Password", icon: KeyRound },
     { to: "/dashboard/support", label: "Support", icon: LifeBuoy },
