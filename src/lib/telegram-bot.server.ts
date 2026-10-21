@@ -718,8 +718,8 @@ async function handleCallback(cq: any) {
       db.rpc("package_stock", { p_product_id: id }),
     ]);
     const supplierManaged = Boolean(p?.provider_name);
-    const localPackages = (pk ?? []).filter((k: any) => !supplierManaged || (k.provider_auto_api && k.provider_product_id && k.provider_duration && Number(k.price) > 0));
     const avail = new Map<string, number>((stock ?? []).map((s: any) => [s.package_id, Number(s.available)]));
+    const localPackages = (pk ?? []).filter((k: any) => !supplierManaged || (Number(avail.get(k.id) ?? 0) > 0) || (k.provider_auto_api && k.provider_product_id && k.provider_duration && Number(k.price) > 0));
     if (!localPackages.length) return screen(chatId, cq.message?.message_id, supplierManaged ? "এই প্রোডাক্টের অটোমেটিক অর্ডার সেটআপ এখনো সম্পূর্ণ নয়। অনুগ্রহ করে পরে চেষ্টা করুন।" : "এই প্রোডাক্টে কোনো প্যাকেজ নেই।", { inline_keyboard: [[{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
     return screen(chatId, cq.message?.message_id, `<b>${esc(p?.name)}</b>\n${esc(p?.short_description ?? "")}\n\nDuration / Validity বেছে নিন:`, {
       inline_keyboard: [...localPackages.map((k: any) => [{
@@ -740,13 +740,7 @@ async function handleCallback(cq: any) {
     const { data: pkg } = await db.from("product_packages").select("id,product_id,name,price,provider_auto_api,provider_product_id,provider_duration,provider_stock,products(name,provider_name)").eq("id", id).maybeSingle();
     if (!pkg) return screen(chatId, cq.message?.message_id, "প্যাকেজটি পাওয়া যায়নি।", { inline_keyboard: [[{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
     const supplierManaged = Boolean((pkg as any).products?.provider_name);
-    if (supplierManaged && (!pkg.provider_auto_api || !pkg.provider_product_id || !pkg.provider_duration || Number(pkg.price) <= 0)) {
-      return screen(chatId, cq.message?.message_id, "এই প্যাকেজের অটোমেটিক সেটআপ সম্পূর্ণ নয়। টাকা কাটা হয়নি।", { inline_keyboard: [[{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🛍️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
-    }
     if (supplierManaged) {
-      if (pkg.provider_stock !== null && Number(pkg.provider_stock) < 1) {
-        return screen(chatId, cq.message?.message_id, "এই প্যাকেজটি আপাতত পাওয়া যাচ্ছে না। কোনো টাকা কাটা হয়নি।", { inline_keyboard: [[{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
-      }
       const { data: freshProfile, error: balanceReadError } = await db.from("profiles").select("balance").eq("id", user.id).maybeSingle();
       if (balanceReadError || !freshProfile) {
         console.error("Telegram checkout balance lookup failed", balanceReadError);
