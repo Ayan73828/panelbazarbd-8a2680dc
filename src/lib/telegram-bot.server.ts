@@ -666,7 +666,7 @@ async function handleCallback(cq: any) {
     if (!localPackages.length) return screen(chatId, cq.message?.message_id, supplierManaged ? "এই প্রোডাক্টের অটোমেটিক অর্ডার সেটআপ এখনো সম্পূর্ণ নয়। অনুগ্রহ করে পরে চেষ্টা করুন।" : "এই প্রোডাক্টে কোনো প্যাকেজ নেই।", { inline_keyboard: [[{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
     return screen(chatId, cq.message?.message_id, `<b>${esc(p?.name)}</b>\n${esc(p?.short_description ?? "")}\n\nDuration / Validity বেছে নিন:`, {
       inline_keyboard: [...localPackages.map((k: any) => [{
-        text: `${k.name} — ${Number(k.price) > 0 ? tk(k.price) : "Price not set"}${supplierManaged ? (k.provider_stock === 0 ? " (সাময়িকভাবে বন্ধ)" : " · Auto") : ((avail.get(k.id) ?? 0) > 0 ? "" : " (Key শেষ)")}`,
+        text: `${k.name} — ${Number(k.price) > 0 ? tk(k.price) : "Price not set"}`,
         callback_data: `k:${k.id}`,
       }]), [{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]],
     });
