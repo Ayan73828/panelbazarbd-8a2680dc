@@ -294,6 +294,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     if (hasPk && !sel) { setError("আগে Validity / Duration নির্বাচন করুন।"); return; }
     setBusy(true);
     setError("");
+    let done = 0;
     let orderId: string | null = null;
     let failure = "";
     let pending = false;
@@ -311,18 +312,26 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
         failure = typeof data?.message === "string" ? data.message : typeof data?.error === "string" ? data.error : "অটো ডেলিভারি নিশ্চিত হয়নি। Support-এর সঙ্গে যোগাযোগ করুন; একই অর্ডার আবার দেবেন না।";
         orderId = typeof data?.order_id === "string" ? data.order_id : null;
       } else {
+        done = qty;
         orderId = typeof data.order_id === "string" ? data.order_id : null;
       }
     } else {
-      const result = sel
-        ? await supabase.rpc("purchase_package", { p_package_id: sel.id })
-        : await supabase.rpc("purchase_product", { p_product_id: product.id, p_quantity: qty });
-      if (result.error) failure = result.error.message;
-      else if (typeof result.data === "string") orderId = result.data;
-      else failure = "অর্ডারের নিশ্চিত ফলাফল পাওয়া যায়নি। My Orders দেখে নিন।";
+      for (let i = 0; i < qty; i++) {
+        const result = sel
+          ? await supabase.rpc("purchase_package", { p_package_id: sel.id })
+          : await supabase.rpc("purchase_product", { p_product_id: product.id, p_quantity: 1 });
+        if (result.error || typeof result.data !== "string") {
+          failure = result.error?.message || "অর্ডারের নিশ্চিত ফলাফল পাওয়া যায়নি। My Orders দেখে নিন।";
+          break;
+        }
+        done++;
+        orderId = result.data;
+        void telegramNotifyEvent({ data: { event: "order", recordId: result.data } })
+          .catch((notifyError) => console.error("Telegram order notification failed", notifyError));
+      }
     }
 
-    if (orderId) {
+    if (orderId && sel?.provider_auto_api) {
       void telegramNotifyEvent({ data: { event: "order", recordId: orderId } })
         .catch((notifyError) => console.error("Telegram order notification failed", notifyError));
     }
@@ -342,13 +351,13 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     }
     if (failure) {
       setError(failure.includes("INSUFFICIENT_BALANCE")
-        ? "ব্যালেন্স কম। Wallet-এ ব্যালেন্স যোগ করুন।"
-        : failure);
+        ? `ব্যালেন্স কম — ${done}টি অর্ডার সম্পন্ন হয়েছে। Wallet-এ ব্যালেন্স যোগ করুন।`
+        : `অর্ডার সম্পন্ন হয়নি। ${done > 0 ? `${done}টি অর্ডার সম্পন্ন হয়েছে। ` : ""}${failure} My Orders দেখে নিন; একই অর্ডার আবার দেওয়ার আগে স্ট্যাটাস যাচাই করুন।`);
       return;
     }
 
     playMoneyDeduct();
-    toast.success(`${qty}টি কেনার অর্ডার সফল! Key পাবেন My Orders-এ।`);
+    toast.success(`${done}টি কেনার অর্ডার সফল! Key পাবেন My Orders-এ।`);
     close(false);
     navigate({ to: "/dashboard/orders" });
   }
