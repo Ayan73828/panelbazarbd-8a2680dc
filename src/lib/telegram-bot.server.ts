@@ -26,7 +26,8 @@ const MENU = {
   inline_keyboard: [
     [{ text: "🛍️ Shop Now", callback_data: "menu:products" }],
     [{ text: "🧾 My Order", callback_data: "menu:orders" }, { text: "👑 Profile", callback_data: "menu:profile" }],
-    [{ text: "💳 Add Balance", callback_data: "menu:fund" }, { text: "🤝 Referral", callback_data: "menu:referral" }],
+    [{ text: "💳 Add Balance", callback_data: "menu:fund" }, { text: "🎟️ Redeem Code", callback_data: "menu:redeem" }],
+    [{ text: "🤝 Referral", callback_data: "menu:referral" }],
     [{ text: "💬 Support", callback_data: "menu:support" }],
     [{ text: "🔗 Linked Website Account", callback_data: "menu:link_account" }],
   ],
@@ -209,6 +210,49 @@ export async function handleUpdate(u: any) {
   const user = await linkedUser(m.from.id);
   const st = await getState(chatId);
 
+  const ownerChatForAdmin = process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+  if (text === "/admin") {
+    if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) return send(chatId, "এই কমান্ডটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
+    return send(chatId, "👑 <b>Panel Bazar Admin</b>\n\nনিচের অপশন থেকে Redeem Code তৈরি করুন।", {
+      inline_keyboard: [[{ text: "🎟️ Create Redeem Code", callback_data: "adminredeem:create" }]],
+    });
+  }
+  if (st.state === "admin_redeem_amount" && text) {
+    if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) { await setState(chatId, ""); return send(chatId, "অনুমতি নেই।"); }
+    const amount = Number(text.replace(/[৳, ]/g, ""));
+    if (!Number.isFinite(amount) || amount < 1 || amount > 100000) return send(chatId, "৳১ থেকে ৳১,০০,০০০ পর্যন্ত সঠিক amount লিখুন।");
+    await setState(chatId, "admin_redeem_uses", { redeem_amount: Math.round(amount * 100) / 100 });
+    return send(chatId, "এই কোডটি সর্বোচ্চ কতবার ব্যবহার করা যাবে? একবারের কোড হলে <b>1</b> লিখুন।");
+  }
+  if (st.state === "admin_redeem_uses" && text) {
+    if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) { await setState(chatId, ""); return send(chatId, "অনুমতি নেই।"); }
+    const amount = Number(st.data?.redeem_amount);
+    const maxUses = Number(text.trim());
+    if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 10000) return send(chatId, "সর্বোচ্চ ব্যবহার ১ থেকে ১০,০০০-এর মধ্যে পূর্ণসংখ্যা দিন।");
+    const code = "PB-" + crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase();
+    const db = await admin();
+    const { data: created, error } = await db.rpc("create_redeem_code_for_bot", { p_amount: amount, p_code: code, p_max_uses: maxUses, p_expires_at: null });
+    await setState(chatId, "");
+    if (error || !created?.code) { console.error("Telegram redeem code create failed", error); return send(chatId, "❌ Redeem Code তৈরি হয়নি। আবার /admin দিয়ে চেষ্টা করুন।"); }
+    return send(chatId, "✅ <b>Redeem Code তৈরি হয়েছে</b>\n\n🎟️ Code: <code>" + esc(created.code) + "</code>\n💰 Amount: <b>" + tk(Number(created.amount)) + "</b>\n🔢 সর্বোচ্চ ব্যবহার: <b>" + Number(created.max_uses) + "</b>\n\nWebsite এবং Telegram—দুই জায়গায়ই ব্যবহার করা যাবে; সর্বমোট ব্যবহার সীমা একই থাকবে।");
+  }
+  if (st.state === "redeem_code" && text) {
+    if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Redeem বাতিল হয়েছে।", MENU); }
+    const targetUserId = String(st.data?.redeem_user_id ?? user?.id ?? "");
+    if (!targetUserId || !user?.id || targetUserId !== String(user.id)) { await setState(chatId, ""); return send(chatId, "Account যাচাই করা যায়নি। আবার Redeem Code অপশন খুলুন।", MENU); }
+    const db = await admin();
+    const { data: result, error } = await db.rpc("redeem_code_for_user", {
+      p_code: text, p_user_id: targetUserId, p_channel: "telegram", p_telegram_user_id: m.from.id,
+    });
+    await setState(chatId, "");
+    if (error || !result?.success) {
+      const message = String(error?.message ?? "");
+      const friendly = message.includes("REDEEM_CODE_USED") ? "এই কোডের ব্যবহারসীমা শেষ।" : message.includes("REDEEM_CODE_EXPIRED") ? "এই কোডের মেয়াদ শেষ।" : message.includes("INVALID_REDEEM_CODE") ? "কোডটি সঠিক নয় বা আর সক্রিয় নেই।" : "কোডটি রিডিম করা যায়নি।";
+      return send(chatId, "❌ " + friendly, MENU);
+    }
+    invalidateTelegramIdentity(m.from.id);
+    return send(chatId, "🎉 <b>Redeem সফল!</b>\nআপনার ব্যালেন্সে <b>" + tk(Number(result.amount)) + "</b> যোগ হয়েছে।\nবর্তমান ব্যালেন্স: <b>" + tk(Number(result.balance)) + "</b>", MENU);
+  }
   if (text === "Restart 🔁") {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
     await Promise.all(oldIds.map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)));
@@ -525,6 +569,13 @@ async function handleCallback(cq: any) {
   if (!user) user = await ensureTelegramAccount(cq.from.id, chatId, cq.from.username, cq.from.first_name);
   const [kind, id] = String(cq.data ?? "").split(":");
   const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+  if (kind === "adminredeem") {
+    if (!ownerChatId || String(chatId) !== String(ownerChatId)) return screen(chatId, cq.message?.message_id, "এই অপশনটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
+    if (id === "create") {
+      await setState(chatId, "admin_redeem_amount");
+      return screen(chatId, cq.message?.message_id, "🎟️ <b>Create Redeem Code</b>\n\nকত টাকার কোড তৈরি করবেন? উদাহরণ: 10, 20, 30। বাতিল করতে /cancel লিখুন।");
+    }
+  }
   if ((kind === "supportreply" || kind === "supportclose") && String(chatId) === String(ownerChatId)) {
     const db = await admin();
     const { data: ticket } = await db.from("support_tickets").select("id,user_id,subject,telegram_chat_id,status").eq("id", id).eq("status", "open").maybeSingle();
@@ -567,6 +618,10 @@ async function handleCallback(cq: any) {
     if (id === "products") return showProducts(chatId, cq.message?.message_id);
     if (id === "wallet") return showWallet(chatId, user, cq.message?.message_id);
     if (id === "fund") return showFundAmounts(chatId, user, "", cq.message?.message_id);
+    if (id === "redeem") {
+      await setState(chatId, "redeem_code", { redeem_user_id: user.id });
+      return screen(chatId, cq.message?.message_id, "🎟️ <b>Redeem Code</b>\n\nআপনার code লিখে পাঠান। কোডটি Website বা Telegram—যেকোনো এক জায়গায় রিডিম করা যাবে, কিন্তু একবারের বেশি নয়। বাতিল করতে /cancel লিখুন।");
+    }
     if (id === "link_account") {
       const { data: linked } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
       if (linked) return screen(chatId, cq.message?.message_id, "আপনার website account ইতিমধ্যে linked আছে। Unlink করতে Main Menu-র Unlink Website Account বাটন ব্যবহার করুন।", await mainMenuForTelegramUser(cq.from.id));
