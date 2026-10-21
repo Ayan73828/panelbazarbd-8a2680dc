@@ -43,7 +43,7 @@ function CartPage() {
         if (cancelled) return;
         if (error || !data) { setDiscountEligiblePackages(new Set()); return; }
         setDiscountEligiblePackages(new Set(data
-          .filter((pkg) => !pkg.provider_auto_api || !pkg.provider_product_id || !pkg.provider_duration)
+          .filter((pkg) => !pkg.provider_auto_api)
           .map((pkg) => pkg.id)));
       });
     return () => { cancelled = true; };
