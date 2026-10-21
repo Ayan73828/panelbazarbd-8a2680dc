@@ -291,39 +291,40 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   async function buy() {
     if (busy) return;
     if (insufficient) { goAddMoney(); return; }
+    if (hasPk && !sel) { setError("আগে Validity / Duration নির্বাচন করুন।"); return; }
     setBusy(true);
     setError("");
-    let done = 0;
-    for (let i = 0; i < qty; i++) {
-      let orderId: string | null = null;
-      let failure = "";
-      if (sel?.provider_auto_api && sel.provider_product_id && sel.provider_duration) {
-        const { data, error } = await supabase.functions.invoke("banti-checkout", {
-          body: { package_id: sel.id, idempotency_key: crypto.randomUUID() },
-        });
-        if (error) failure = error.message || "অটো অর্ডার ব্যর্থ হয়েছে।";
-        else if (data?.status !== "completed" || !Array.isArray(data?.keys) || data.keys.length < 1) {
-          failure = typeof data?.message === "string" ? data.message : typeof data?.error === "string" ? data.error : "অটো ডেলিভারি নিশ্চিত হয়নি। Support-এর সঙ্গে যোগাযোগ করুন; একই অর্ডার আবার দেবেন না।";
-        } else {
-          orderId = typeof data.order_id === "string" ? data.order_id : null;
-        }
+    let orderId: string | null = null;
+    let failure = "";
+    let pending = false;
+
+    if (sel?.provider_auto_api && sel.provider_product_id && sel.provider_duration) {
+      const { data, error } = await supabase.functions.invoke("banti-checkout", {
+        body: { package_id: sel.id, quantity: qty, idempotency_key: crypto.randomUUID() },
+      });
+      if (error) {
+        failure = error.message || "অটো অর্ডার ব্যর্থ হয়েছে।";
+      } else if (data?.status === "pending" || data?.status === "processing") {
+        pending = true;
+        orderId = typeof data.order_id === "string" ? data.order_id : null;
+      } else if (data?.status !== "completed" || !Array.isArray(data?.keys) || data.keys.length < qty) {
+        failure = typeof data?.message === "string" ? data.message : typeof data?.error === "string" ? data.error : "অটো ডেলিভারি নিশ্চিত হয়নি। Support-এর সঙ্গে যোগাযোগ করুন; একই অর্ডার আবার দেবেন না।";
+        orderId = typeof data?.order_id === "string" ? data.order_id : null;
       } else {
-        const result = sel
-          ? await supabase.rpc("purchase_package", { p_package_id: sel.id })
-          : await supabase.rpc("purchase_product", { p_product_id: product.id, p_quantity: 1 });
-        if (result.error) failure = result.error.message;
-        else if (typeof result.data === "string") orderId = result.data;
+        orderId = typeof data.order_id === "string" ? data.order_id : null;
       }
-      if (failure) {
-        setError(failure.includes("INSUFFICIENT_BALANCE")
-          ? `ব্যালেন্স কম — ${done}টি অর্ডার সম্পন্ন হয়েছে। Wallet-এ ব্যালেন্স যোগ করুন।`
-          : `দুঃখিত, আপনার অর্ডারটি সম্পন্ন করা যাচ্ছে না। ${done > 0 ? `${done}টি অর্ডার সম্পন্ন হয়েছে। ` : ""}My Orders দেখে নিন; প্রয়োজনে সাপোর্টে যোগাযোগ করুন। একই অর্ডার আবার দেওয়ার আগে অর্ডারের অবস্থা যাচাই করুন।`);
-        break;
-      }
-      done++;
-      if (orderId) {
-        void telegramNotifyEvent({ data: { event: "order", recordId: orderId } }).catch((notifyError) => console.error("Telegram order notification failed", notifyError));
-      }
+    } else {
+      const result = sel
+        ? await supabase.rpc("purchase_package", { p_package_id: sel.id })
+        : await supabase.rpc("purchase_product", { p_product_id: product.id, p_quantity: qty });
+      if (result.error) failure = result.error.message;
+      else if (typeof result.data === "string") orderId = result.data;
+      else failure = "অর্ডারের নিশ্চিত ফলাফল পাওয়া যায়নি। My Orders দেখে নিন।";
+    }
+
+    if (orderId) {
+      void telegramNotifyEvent({ data: { event: "order", recordId: orderId } })
+        .catch((notifyError) => console.error("Telegram order notification failed", notifyError));
     }
     setBusy(false);
     refresh();
@@ -331,12 +332,25 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     qc.invalidateQueries({ queryKey: ["packages"] });
     qc.invalidateQueries({ queryKey: ["products"] });
     qc.invalidateQueries({ queryKey: ["my"] });
-    if (done === qty) {
-      playMoneyDeduct();
-      toast.success(`${done}টি কেনা সফল! Key পাবেন My Orders-এ।`);
+    qc.invalidateQueries({ queryKey: ["orders"] });
+
+    if (pending) {
+      toast.message("অর্ডার যাচাই চলছে", { description: "My Orders-এ স্ট্যাটাস দেখুন। নিশ্চিত না হওয়া পর্যন্ত একই অর্ডার আবার দেবেন না।" });
       close(false);
       navigate({ to: "/dashboard/orders" });
+      return;
     }
+    if (failure) {
+      setError(failure.includes("INSUFFICIENT_BALANCE")
+        ? "ব্যালেন্স কম। Wallet-এ ব্যালেন্স যোগ করুন।"
+        : failure);
+      return;
+    }
+
+    playMoneyDeduct();
+    toast.success(`${qty}টি কেনার অর্ডার সফল! Key পাবেন My Orders-এ।`);
+    close(false);
+    navigate({ to: "/dashboard/orders" });
   }
 
   const steps = ["Validity", "Account", "Payment"];
