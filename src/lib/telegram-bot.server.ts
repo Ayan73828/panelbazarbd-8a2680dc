@@ -725,7 +725,8 @@ async function handleCallback(cq: any) {
       db.from("product_packages").select("id,name,price,provider_auto_api,provider_stock,provider_product_id,provider_duration").eq("product_id", id).eq("is_active", true).order("sort_order"),
       db.rpc("package_stock", { p_product_id: id }),
     ]);
-    const supplierManaged = Boolean(p?.provider_name);
+    // A package flagged for automatic supplier delivery must use the supplier checkout even if product.provider_name is missing.
+    const supplierManaged = Boolean(p?.provider_name) || (pk ?? []).some((k: any) => Boolean(k.provider_auto_api));
     const avail = new Map<string, number>((stock ?? []).map((s: any) => [s.package_id, Number(s.available)]));
     const localPackages = (pk ?? []).filter((k: any) => !supplierManaged || (Number(avail.get(k.id) ?? 0) > 0) || (k.provider_auto_api && k.provider_product_id && k.provider_duration && Number(k.price) > 0));
     if (!localPackages.length) return screen(chatId, cq.message?.message_id, supplierManaged ? "এই প্রোডাক্টের অটোমেটিক অর্ডার সেটআপ এখনো সম্পূর্ণ নয়। অনুগ্রহ করে পরে চেষ্টা করুন।" : "এই প্রোডাক্টে কোনো প্যাকেজ নেই।", { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
@@ -748,7 +749,8 @@ async function handleCallback(cq: any) {
   if (kind === "b" && id) {
     const { data: pkg } = await db.from("product_packages").select("id,product_id,name,price,provider_auto_api,provider_product_id,provider_duration,provider_stock,products(name,provider_name)").eq("id", id).maybeSingle();
     if (!pkg) return screen(chatId, cq.message?.message_id, "প্যাকেজটি পাওয়া যায়নি।", { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
-    const supplierManaged = Boolean((pkg as any).products?.provider_name);
+    // provider_auto_api is the authoritative checkout switch; provider_name may be unset on older product records.
+    const supplierManaged = Boolean((pkg as any).provider_auto_api) || Boolean((pkg as any).products?.provider_name);
     if (supplierManaged) {
       const { data: freshProfile, error: balanceReadError } = await db.from("profiles").select("balance").eq("id", user.id).maybeSingle();
       if (balanceReadError || !freshProfile) {
