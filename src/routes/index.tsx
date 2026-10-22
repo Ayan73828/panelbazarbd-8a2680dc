@@ -85,33 +85,33 @@ function HomePage() {
     <SiteLayout>
       {enabled("hero") && (
         <section className="hero-glow border-b border-border/60">
-          <div className="grid w-full items-center gap-8 px-4 py-12">
-            <div className="space-y-5">
+          <div className="grid w-full items-center gap-5 px-4 py-5 sm:gap-6 sm:py-7">
+            <div className="space-y-3 sm:space-y-4">
               <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                 <Zap className="h-3.5 w-3.5" /> Instant wallet checkout
               </span>
-              <h1 className="text-3xl font-bold leading-tight sm:text-5xl">
+              <h1 className="text-2xl font-bold leading-tight sm:text-4xl">
                 <span className="text-gradient-brand">{settings.hero_title}</span>
               </h1>
               <p className="max-w-xl text-sm text-muted-foreground sm:text-base">
                 {settings.hero_subtitle || settings.site_description}
               </p>
               <div className="flex flex-wrap gap-3">
-                <Button asChild size="lg" className="rounded-full">
+                <Button asChild size="default" className="rounded-full">
                   <Link to={settings.hero_button_url || "/products"}>
                     {settings.hero_button_text || "Browse Products"}
                     <ArrowRight className="ml-1 h-4 w-4" />
                   </Link>
                 </Button>
                 {!user && (
-                  <Button asChild size="lg" variant="secondary" className="rounded-full">
+                  <Button asChild size="default" variant="secondary" className="rounded-full">
                     <Link to="/auth" search={{ mode: "register" }}>
                       Create account
                     </Link>
                   </Button>
                 )}
               </div>
-              <div className="flex flex-wrap gap-4 pt-2 text-xs text-muted-foreground">
+              <div className="flex flex-wrap gap-4 pt-0.5 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <ShieldCheck className="h-4 w-4 text-primary" /> Secure accounts
                 </span>
