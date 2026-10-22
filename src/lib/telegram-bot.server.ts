@@ -83,7 +83,7 @@ async function getState(chatId: number) {
 // callbacks need one fresh profile query instead of two identity lookups plus profile.
 const telegramIdentityCache = new Map<number, { userId: string; linked: boolean; expiresAt: number; profile?: any; profileExpiresAt?: number }>();
 const TELEGRAM_IDENTITY_TTL_MS = 15_000;
-const TELEGRAM_PROFILE_TTL_MS = 3_000;
+const TELEGRAM_PROFILE_TTL_MS = 8_000;
 function setTelegramIdentity(tgUserId: number, userId: string, linked: boolean, profile?: any) {
   telegramIdentityCache.set(tgUserId, {
     userId, linked, expiresAt: Date.now() + TELEGRAM_IDENTITY_TTL_MS,
@@ -572,7 +572,8 @@ async function showSupport(chatId: number, messageId?: number) {
 
 async function handleCallback(cq: any) {
   const chatId = cq.message?.chat?.id as number;
-  await tg("answerCallbackQuery", { callback_query_id: cq.id }).catch(() => undefined);
+  // Acknowledge the tap immediately; do not block UI work on Telegram API latency.
+  void tg("answerCallbackQuery", { callback_query_id: cq.id }).catch(() => undefined);
   if (!chatId) return;
   let user = await linkedUser(cq.from.id);
   if (!user) user = await ensureTelegramAccount(cq.from.id, chatId, cq.from.username, cq.from.first_name);
