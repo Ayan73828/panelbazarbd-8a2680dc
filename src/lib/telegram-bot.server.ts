@@ -20,13 +20,15 @@ export const tgApi = tg;
 
 const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const tk = (n: number) => `৳${Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-const dualMoney = (n: number) => tk(Number(n ?? 0));
+const USD_BDT_RATE = Math.max(1, Number(process.env["TELEGRAM_USD_BDT_RATE"] || 122));
+const dualMoney = (n: number) => `${tk(Number(n ?? 0))} BDT · ${(Number(n ?? 0) / USD_BDT_RATE).toFixed(2)} USD`;
+const premiumButton = (button: Record<string, unknown>, style: "primary" | "success" | "danger" = "primary") => ({ ...button, style });
 
 const MENU = {
   inline_keyboard: [
     [{ text: "🛍️ Shop Now", callback_data: "menu:products" }],
     [{ text: "🧾 My Order", callback_data: "menu:orders" }, { text: "👑 Profile", callback_data: "menu:profile" }],
-    [{ text: "💳 Add Balance", callback_data: "menu:fund" }, { text: "🎟️ Redeem Code", callback_data: "menu:redeem" }],
+    [{ text: "💳 Add Balance", callback_data: "menu:fund", style: "primary" }, { text: "🎟️ Redeem Code", callback_data: "menu:redeem", style: "primary" }],
     [{ text: "🤝 Referral", callback_data: "menu:referral" }],
     [{ text: "💬 Support", callback_data: "menu:support" }],
     [{ text: "🔗 Linked Website Account", callback_data: "menu:link_account" }],
@@ -565,7 +567,7 @@ async function showSupport(chatId: number, messageId?: number) {
 
 async function handleCallback(cq: any) {
   const chatId = cq.message?.chat?.id as number;
-  void tg("answerCallbackQuery", { callback_query_id: cq.id }).catch(() => undefined);
+  await tg("answerCallbackQuery", { callback_query_id: cq.id }).catch(() => undefined);
   if (!chatId) return;
   let user = await linkedUser(cq.from.id);
   if (!user) user = await ensureTelegramAccount(cq.from.id, chatId, cq.from.username, cq.from.first_name);
@@ -723,7 +725,7 @@ async function handleCallback(cq: any) {
     if (!localPackages.length) return screen(chatId, cq.message?.message_id, supplierManaged ? "এই প্রোডাক্টের অটোমেটিক অর্ডার সেটআপ এখনো সম্পূর্ণ নয়। অনুগ্রহ করে পরে চেষ্টা করুন।" : "এই প্রোডাক্টে কোনো প্যাকেজ নেই।", { inline_keyboard: [[{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
     return screen(chatId, cq.message?.message_id, `<b>${esc(p?.name)}</b>\n${esc(p?.short_description ?? "")}\n\nDuration / Validity বেছে নিন:`, {
       inline_keyboard: [...localPackages.map((k: any) => [{
-        text: `${k.name} — ${Number(k.price) > 0 ? tk(k.price) : "Price not set"}`,
+        text: `${k.name} — ${Number(k.price) > 0 ? dualMoney(k.price) : "Price not set"}`,
         callback_data: `k:${k.id}`,
       }]), [{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]],
     });
@@ -732,8 +734,8 @@ async function handleCallback(cq: any) {
     const { data: k } = await db.from("product_packages").select("id,product_id,name,price,products(name)").eq("id", id).maybeSingle();
     if (!k) return screen(chatId, cq.message?.message_id, "প্যাকেজটি পাওয়া যায়নি।", { inline_keyboard: [[{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
     const productId = String((k as any).product_id ?? "");
-    return screen(chatId, cq.message?.message_id, `কিনবেন?\n<b>${esc(k.products?.name)} — ${esc(k.name)}</b>\nদাম: <b>${tk(k.price)}</b>\nব্যালেন্স: ${tk(user.balance)}`, {
-      inline_keyboard: [[{ text: "✅ Buy now", callback_data: `b:${k.id}` }], [{ text: "⬅️ Back to package list", callback_data: `p:${productId}` }], [{ text: "🛍️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]],
+    return screen(chatId, cq.message?.message_id, `কিনবেন?\n<b>${esc(k.products?.name)} — ${esc(k.name)}</b>\nদাম: <b>${dualMoney(k.price)}</b>\nব্যালেন্স: ${tk(user.balance)}`, {
+      inline_keyboard: [[premiumButton({ text: "✅ Buy now", callback_data: `b:${k.id}` }, "success")], [premiumButton({ text: "⬅️ Back to package list", callback_data: `p:${productId}` })], [premiumButton({ text: "🛍️ Back to Products", callback_data: "menu:products" })], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" })]],
     });
   }
   if (kind === "b" && id) {
