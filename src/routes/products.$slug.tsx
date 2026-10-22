@@ -247,7 +247,11 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const sel = packages.find((x) => x.id === pkgId) ?? null;
   const unit = hasPk ? (sel?.price ?? 0) : product.unit;
   const maxQty = Math.max(1, Math.min(20, hasPk ? (sel?.provider_auto_api ? 20 : (sel?.available ?? 1)) : product.stock));
-  const total = unit * qty;
+  const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
+  const discountEligible = discountPercent > 0 && !sel?.provider_auto_api;
+  const effectiveUnit = discountEligible ? Math.round(unit * (100 - discountPercent)) / 100 : unit;
+  const originalTotal = unit * qty;
+  const total = effectiveUnit * qty;
   const balance = Number(profile?.balance ?? 0);
   const insufficient = balance < total;
 
@@ -404,6 +408,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                   </div>
                 </div>
                 <div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Total</span><span className="text-primary">{money(total, cur)}</span></div>
+                {discountEligible && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Reseller discount ({discountPercent}%)</span><span><span className="mr-2 text-muted-foreground line-through">{money(originalTotal, cur)}</span><span className="text-primary">−{money(originalTotal - total, cur)}</span></span></div>}
               </div>
             )}
             {step === 2 && (
@@ -417,6 +422,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
               <div className="space-y-2">
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Item</span><span className="text-right font-medium">{sel ? sel.name : product.name} × {qty}</span></div>
                 <div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Total</span><span className="text-primary">{money(total, cur)}</span></div>
+                {discountEligible && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Reseller discount ({discountPercent}%)</span><span><span className="mr-2 text-muted-foreground line-through">{money(originalTotal, cur)}</span><span className="text-primary">−{money(originalTotal - total, cur)}</span></span></div>}
                 {insufficient && <p className="rounded-lg bg-primary/10 p-3 text-primary">ব্যালেন্স কম। "Add money" চাপলে পেমেন্ট পেজ খুলবে।</p>}
               </div>
             )}
