@@ -528,10 +528,15 @@ async function startTelegramPayment(chatId: number, user: any, amount: number, m
 
 async function showProducts(chatId: number, messageId?: number) {
   const db = await admin();
-  const { data } = await db.from("products").select("id,name").eq("is_active", true).order("sort_order").limit(60);
-  const rows = (data ?? []).map((p: any) => [{ text: p.name, callback_data: `p:${p.id}` }]);
-  rows.push([{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]);
-  const body = { chat_id: chatId, text: data?.length ? "🛍 <b>Products</b> — একটি বেছে নিন:" : "এখন কোনো প্রোডাক্ট নেই।", parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: rows } };
+  const { data } = await db.from("products").select("id,name").eq("is_active", true).limit(60);
+  const sortedProducts = (data ?? []).slice().sort((a: any, b: any) =>
+    String(a.name ?? "").trim().localeCompare(String(b.name ?? "").trim(), "en", { sensitivity: "base", numeric: true })
+  );
+  const rows = sortedProducts.map((p: any) => [
+    premiumButton({ text: `🛍️ ${String(p.name ?? "").trim()}`, callback_data: `p:${p.id}` }, "success"),
+  ]);
+  rows.push([premiumButton({ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }, "primary")]);
+  const body = { chat_id: chatId, text: sortedProducts.length ? "🛍 <b>PRODUCT LIST</b>\n\nA–Z অনুযায়ী সাজানো — আপনার প্রোডাক্ট বেছে নিন:" : "এখন কোনো প্রোডাক্ট নেই।", parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: rows } };
   return screen(chatId, messageId, body.text, body.reply_markup);
 }
 
