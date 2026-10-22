@@ -163,6 +163,100 @@ html:not(.brand-theme-ready) body {
 }
 
 
+
+/* iOS-inspired Liquid Glass treatment for shared application buttons */
+@layer components {
+  .liquid-glass-button {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, white 30%, transparent) !important;
+    background-image: linear-gradient(
+      145deg,
+      color-mix(in srgb, white 15%, transparent),
+      color-mix(in srgb, white 3%, transparent)
+    );
+    backdrop-filter: blur(18px) saturate(175%);
+    -webkit-backdrop-filter: blur(18px) saturate(175%);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 32%, transparent),
+      inset 0 -1px 0 color-mix(in srgb, black 10%, transparent),
+      0 5px 16px color-mix(in srgb, black 16%, transparent);
+    transform: translateZ(0);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .liquid-glass-button::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      115deg,
+      color-mix(in srgb, white 19%, transparent),
+      transparent 42%,
+      color-mix(in srgb, white 4%, transparent)
+    );
+    opacity: .8;
+    z-index: -1;
+  }
+
+  .liquid-glass-button[data-glass-variant="default"] {
+    background-color: color-mix(in srgb, var(--primary) 28%, transparent) !important;
+    color: var(--foreground) !important;
+    border-color: color-mix(in srgb, var(--primary) 52%, white 22%) !important;
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 42%, transparent),
+      0 5px 18px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  .liquid-glass-button[data-glass-variant="secondary"],
+  .liquid-glass-button[data-glass-variant="outline"] {
+    background-color: color-mix(in srgb, white 8%, transparent) !important;
+    color: var(--foreground) !important;
+  }
+
+  .liquid-glass-button[data-glass-variant="destructive"] {
+    background-color: color-mix(in srgb, var(--destructive) 24%, transparent) !important;
+    color: var(--foreground) !important;
+    border-color: color-mix(in srgb, var(--destructive) 55%, white 20%) !important;
+  }
+
+  .liquid-glass-button[data-glass-variant="ghost"],
+  .liquid-glass-button[data-glass-variant="link"] {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .liquid-glass-button:not(:disabled):hover {
+    filter: brightness(1.12);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 48%, transparent),
+      0 7px 22px color-mix(in srgb, var(--primary) 20%, transparent);
+  }
+
+  .liquid-glass-button:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--primary) 75%, white 25%);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .liquid-glass-button {
+      transition: none !important;
+    }
+  }
+
+  @supports not ((backdrop-filter: blur(1px))) {
+    .liquid-glass-button {
+      background-color: color-mix(in srgb, var(--surface-2) 92%, transparent);
+    }
+  }
+}
+
 /* Winter-gaming atmosphere for the authentication screen */
 .winter-orb {
   position: absolute;
