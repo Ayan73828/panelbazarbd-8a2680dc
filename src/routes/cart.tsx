@@ -31,7 +31,7 @@ function CartPage() {
     window.addEventListener("storage", refreshCart);
     return () => { window.removeEventListener("cart-updated", refreshCart); window.removeEventListener("storage", refreshCart); };
   }, []);
-  const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10))) : 0;
+  const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
   useEffect(() => {
     const ids = [...new Set(items.map((item) => item.packageId).filter((id): id is string => !!id))];
     if (!ids.length) { setDiscountEligiblePackages(new Set()); return; }
