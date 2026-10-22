@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import {
   Home,
   Bell,
+  BadgeCheck,
   Gift,
   KeyRound,
   LifeBuoy,
@@ -339,7 +340,10 @@ function ProfileMenu({ name, email, isReseller }: { name: string; email: string;
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
-          <p className="truncate text-sm font-semibold">{name}</p>
+          <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
+            <span className="truncate">{name}</span>
+            {isReseller && <BadgeCheck className="h-4 w-4 shrink-0 fill-primary/15 text-primary" aria-label="Verified reseller" title="Verified reseller" />}
+          </p>
           <p className="truncate text-xs font-normal text-muted-foreground">{email}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
