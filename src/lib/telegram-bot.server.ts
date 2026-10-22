@@ -749,9 +749,16 @@ async function handleCallback(cq: any) {
   if (kind === "b" && id) {
     const { data: pkg } = await db.from("product_packages").select("id,product_id,name,price,provider_auto_api,provider_product_id,provider_duration,provider_stock,products(name,provider_name)").eq("id", id).maybeSingle();
     if (!pkg) return screen(chatId, cq.message?.message_id, "প্যাকেজটি পাওয়া যায়নি।", { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
-    // provider_auto_api is the authoritative checkout switch; provider_name may be unset on older product records.
-    const supplierManaged = Boolean((pkg as any).provider_auto_api) || Boolean((pkg as any).products?.provider_name);
-    if (supplierManaged) {
+    // Match website fulfillment: use manually added keys first, then supplier API only when manual stock is empty.
+    const { data: stockRows, error: stockError } = await db.rpc("package_stock", { p_product_id: pkg.product_id });
+    if (stockError) {
+      console.error("Telegram package stock lookup failed", stockError);
+      return screen(chatId, cq.message?.message_id, "প্যাকেজের Key stock যাচাই করা যায়নি। কোনো অর্ডার করা হয়নি। কিছুক্ষণ পর আবার চেষ্টা করুন।", { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
+    }
+    const manualAvailable = Number((stockRows ?? []).find((row: any) => String(row.package_id) === String(pkg.id))?.available ?? 0);
+    const supplierAutoReady = Boolean((pkg as any).provider_auto_api && (pkg as any).provider_product_id && (pkg as any).provider_duration);
+    const useSupplierApi = manualAvailable <= 0 && supplierAutoReady;
+    if (useSupplierApi) {
       const { data: freshProfile, error: balanceReadError } = await db.from("profiles").select("balance").eq("id", user.id).maybeSingle();
       if (balanceReadError || !freshProfile) {
         console.error("Telegram checkout balance lookup failed", balanceReadError);
