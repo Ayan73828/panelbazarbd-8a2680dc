@@ -277,17 +277,17 @@ export function SiteLayout({ children }: { children: ReactNode }) {
       <FloatingContact />
       <SupportChat />
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/70 bg-background/95 backdrop-blur">
-        <ul className="mx-auto flex max-w-lg items-stretch justify-between px-2 py-1.5">
+      <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 pointer-events-none">
+        <ul className="mx-auto flex max-w-lg items-stretch justify-between gap-1 rounded-[1.6rem] border border-white/50 bg-background/70 px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/55 pointer-events-auto dark:border-white/15 dark:shadow-[0_8px_32px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.12)]">
           {bottomNav.map(({ to, label, icon: Icon }) => (
-            <li key={to} className="flex-1">
+            <li key={to} className="min-w-0 flex-1">
               <Link
                 to={to}
                 activeOptions={{ exact: to === "/" }}
-                className="flex flex-col items-center gap-1 rounded-lg py-1.5 text-[11px] text-muted-foreground transition-colors data-[status=active]:bg-primary/10 data-[status=active]:text-primary"
+                className="group relative flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl border border-transparent px-1 py-1.5 text-[10px] font-medium text-muted-foreground transition-all duration-200 hover:bg-white/25 hover:text-foreground active:scale-95 data-[status=active]:border-white/45 data-[status=active]:bg-white/55 data-[status=active]:text-primary data-[status=active]:shadow-[0_2px_10px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.8)] dark:hover:bg-white/10 dark:data-[status=active]:border-white/15 dark:data-[status=active]:bg-white/10 dark:data-[status=active]:shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               >
-                <Icon className="h-5 w-5" />
-                {label}
+                <Icon className="h-[1.2rem] w-[1.2rem] transition-transform duration-200 group-data-[status=active]:-translate-y-0.5" strokeWidth={1.8} />
+                <span className="max-w-full truncate leading-none">{label === "Orders" ? "Order" : label}</span>
               </Link>
             </li>
           ))}
