@@ -26,12 +26,12 @@ const premiumButton = (button: Record<string, unknown>, style: "primary" | "succ
 
 const MENU = {
   inline_keyboard: [
-    [{ text: "🛍️ Shop Now", callback_data: "menu:products" }],
-    [{ text: "🧾 My Order", callback_data: "menu:orders" }, { text: "👑 Profile", callback_data: "menu:profile" }],
-    [{ text: "💳 Add Balance", callback_data: "menu:fund", style: "primary" }, { text: "🎟️ Redeem Code", callback_data: "menu:redeem", style: "primary" }],
-    [{ text: "🤝 Referral", callback_data: "menu:referral" }],
-    [{ text: "💬 Support", callback_data: "menu:support" }],
-    [{ text: "🔗 Linked Website Account", callback_data: "menu:link_account" }],
+    [premiumButton({ text: "🛍️ Shop Now", callback_data: "menu:products" }, "primary")],
+    [premiumButton({ text: "🧾 My Order", callback_data: "menu:orders" }, "primary"), premiumButton({ text: "👑 Profile", callback_data: "menu:profile" }, "primary")],
+    [premiumButton({ text: "💳 Add Balance", callback_data: "menu:fund" }, "primary"), premiumButton({ text: "🎟️ Redeem Code", callback_data: "menu:redeem" }, "primary")],
+    [premiumButton({ text: "🤝 Referral", callback_data: "menu:referral" }, "primary")],
+    [premiumButton({ text: "💬 Support", callback_data: "menu:support" }, "primary")],
+    [premiumButton({ text: "🔗 Linked Website Account", callback_data: "menu:link_account" }, "primary")],
   ],
 };
 const RESTART_KEYBOARD = {
@@ -722,42 +722,43 @@ async function handleCallback(cq: any) {
     const supplierManaged = Boolean(p?.provider_name);
     const avail = new Map<string, number>((stock ?? []).map((s: any) => [s.package_id, Number(s.available)]));
     const localPackages = (pk ?? []).filter((k: any) => !supplierManaged || (Number(avail.get(k.id) ?? 0) > 0) || (k.provider_auto_api && k.provider_product_id && k.provider_duration && Number(k.price) > 0));
-    if (!localPackages.length) return screen(chatId, cq.message?.message_id, supplierManaged ? "এই প্রোডাক্টের অটোমেটিক অর্ডার সেটআপ এখনো সম্পূর্ণ নয়। অনুগ্রহ করে পরে চেষ্টা করুন।" : "এই প্রোডাক্টে কোনো প্যাকেজ নেই।", { inline_keyboard: [[{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+    if (!localPackages.length) return screen(chatId, cq.message?.message_id, supplierManaged ? "এই প্রোডাক্টের অটোমেটিক অর্ডার সেটআপ এখনো সম্পূর্ণ নয়। অনুগ্রহ করে পরে চেষ্টা করুন।" : "এই প্রোডাক্টে কোনো প্যাকেজ নেই।", { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
     return screen(chatId, cq.message?.message_id, `<b>${esc(p?.name)}</b>\n${esc(p?.short_description ?? "")}\n\nDuration / Validity বেছে নিন:`, {
       inline_keyboard: [...localPackages.map((k: any) => [{
-        text: `${k.name} — ${Number(k.price) > 0 ? dualMoney(k.price) : "Price not set"}`,
+        text: `🛒 ${k.name} · ${Number(k.price) > 0 ? dualMoney(k.price) : "Price not set"}`,
+        style: "success",
         callback_data: `k:${k.id}`,
-      }]), [{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]],
+      }]), [premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]],
     });
   }
   if (kind === "k" && id) {
     const { data: k } = await db.from("product_packages").select("id,product_id,name,price,products(name)").eq("id", id).maybeSingle();
-    if (!k) return screen(chatId, cq.message?.message_id, "প্যাকেজটি পাওয়া যায়নি।", { inline_keyboard: [[{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+    if (!k) return screen(chatId, cq.message?.message_id, "প্যাকেজটি পাওয়া যায়নি।", { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
     const productId = String((k as any).product_id ?? "");
     return screen(chatId, cq.message?.message_id, `কিনবেন?\n<b>${esc(k.products?.name)} — ${esc(k.name)}</b>\nদাম: <b>${dualMoney(k.price)}</b>\nব্যালেন্স: ${tk(user.balance)}`, {
-      inline_keyboard: [[premiumButton({ text: "✅ Buy now", callback_data: `b:${k.id}` }, "success")], [premiumButton({ text: "⬅️ Back to package list", callback_data: `p:${productId}` })], [premiumButton({ text: "🛍️ Back to Products", callback_data: "menu:products" })], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" })]],
+      inline_keyboard: [[premiumButton({ text: "✅ Buy now", callback_data: `b:${k.id}` }, "success")], [premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${productId}` }, "primary")], [premiumButton({ text: "🛍️ Back to Products", callback_data: "menu:products" })], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" })]],
     });
   }
   if (kind === "b" && id) {
     const { data: pkg } = await db.from("product_packages").select("id,product_id,name,price,provider_auto_api,provider_product_id,provider_duration,provider_stock,products(name,provider_name)").eq("id", id).maybeSingle();
-    if (!pkg) return screen(chatId, cq.message?.message_id, "প্যাকেজটি পাওয়া যায়নি।", { inline_keyboard: [[{ text: "⬅️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+    if (!pkg) return screen(chatId, cq.message?.message_id, "প্যাকেজটি পাওয়া যায়নি।", { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
     const supplierManaged = Boolean((pkg as any).products?.provider_name);
     if (supplierManaged) {
       const { data: freshProfile, error: balanceReadError } = await db.from("profiles").select("balance").eq("id", user.id).maybeSingle();
       if (balanceReadError || !freshProfile) {
         console.error("Telegram checkout balance lookup failed", balanceReadError);
-        return screen(chatId, cq.message?.message_id, "আপনার ব্যালেন্স যাচাই করা যায়নি। কিছু টাকা কাটা হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।", { inline_keyboard: [[{ text: "💳 Add Balance", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+        return screen(chatId, cq.message?.message_id, "আপনার ব্যালেন্স যাচাই করা যায়নি। কিছু টাকা কাটা হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।", { inline_keyboard: [[{ text: "💳 Add Balance", callback_data: "menu:fund" }], [premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
       }
       const freshBalance = Number(freshProfile.balance ?? 0);
       const packagePrice = Number(pkg.price ?? 0);
       if (freshBalance < packagePrice) {
         const shortfall = Math.max(1, Math.ceil(packagePrice - freshBalance));
-        return screen(chatId, cq.message?.message_id, `❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই।\nপ্রোডাক্টের দাম: ${tk(packagePrice)}\nআপনার ব্যালেন্স: ${tk(freshBalance)}\n\nঅনুগ্রহ করে আগে ব্যালেন্স Add করুন।`, { inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+        return screen(chatId, cq.message?.message_id, `❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই।\nপ্রোডাক্টের দাম: ${tk(packagePrice)}\nআপনার ব্যালেন্স: ${tk(freshBalance)}\n\nঅনুগ্রহ করে আগে ব্যালেন্স Add করুন।`, { inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
       }
       const { data: result, error } = await db.functions.invoke("banti-telegram-checkout", { body: { package_id: id, user_id: user.id, idempotency_key: crypto.randomUUID() } });
       if (error || !result) {
         console.error("Telegram provider checkout failed", error);
-        return screen(chatId, cq.message?.message_id, "অর্ডারের অবস্থা নিশ্চিত করা যায়নি। আবার Buy Now চাপার আগে My Order দেখুন বা Support-এ যোগাযোগ করুন।", { inline_keyboard: [[{ text: "🧾 My Order", callback_data: "menu:orders" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+        return screen(chatId, cq.message?.message_id, "অর্ডারের অবস্থা নিশ্চিত করা যায়নি। আবার Buy Now চাপার আগে My Order দেখুন বা Support-এ যোগাযোগ করুন।", { inline_keyboard: [[{ text: "🧾 My Order", callback_data: "menu:orders" }], [premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
       }
       if (result.status === "completed") {
         await notifyOwner(`🛒 Telegram auto-delivery\nUser: <b>${esc(user.username || user.email)}</b>\n${esc(result.product_name || pkg.name)}\n${tk(Number(result.total ?? pkg.price))} · Order #${String(result.order_id).slice(0, 8)}`);
@@ -765,38 +766,38 @@ async function handleCallback(cq: any) {
         return screen(chatId, cq.message?.message_id, `✅ অর্ডার সফল!\n<b>${esc(result.product_name || pkg.name)}</b>\n🔑 Key: <code>${esc(keys.join("\\n"))}</code>\nOrder #${String(result.order_id).slice(0, 8)}`, MENU);
       }
       if (result.status === "failed") {
-        return screen(chatId, cq.message?.message_id, `❌ ${esc(result.message || "অর্ডার সম্পন্ন হয়নি। টাকা ফেরত দেওয়া হয়েছে।")}`, { inline_keyboard: [[{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🛍️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+        return screen(chatId, cq.message?.message_id, `❌ ${esc(result.message || "অর্ডার সম্পন্ন হয়নি। টাকা ফেরত দেওয়া হয়েছে।")}`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
       }
       if (result.status === "unavailable") {
-        return screen(chatId, cq.message?.message_id, `⚠️ ${esc(result.message || "এই প্যাকেজটি আপাতত পাওয়া যাচ্ছে না।")}`, { inline_keyboard: [[{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🛍️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+        return screen(chatId, cq.message?.message_id, `⚠️ ${esc(result.message || "এই প্যাকেজটি আপাতত পাওয়া যাচ্ছে না।")}`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
       }
       if (result.error === "INSUFFICIENT_BALANCE") {
         const shortfall = Math.max(1, Math.ceil(Number(pkg.price) - Number(user.balance ?? 0)));
-        return screen(chatId, cq.message?.message_id, `❌ ব্যালেন্স যথেষ্ট নয়।\nপ্রয়োজন: ${tk(pkg.price)}\nআপনার ব্যালেন্স: ${tk(user.balance)}\n\nAdd Fund amount: ${tk(shortfall)}`, { inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+        return screen(chatId, cq.message?.message_id, `❌ ব্যালেন্স যথেষ্ট নয়।\nপ্রয়োজন: ${tk(pkg.price)}\nআপনার ব্যালেন্স: ${tk(user.balance)}\n\nAdd Fund amount: ${tk(shortfall)}`, { inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
       }
-      return screen(chatId, cq.message?.message_id, `⏳ ${esc(result.message || "অর্ডার প্রসেস হচ্ছে। আবার অর্ডার করবেন না; সাপোর্টে যোগাযোগ করুন।")}\nOrder #${String(result.order_id || "").slice(0, 8)}`, { inline_keyboard: [[{ text: "🧾 My Order", callback_data: "menu:orders" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+      return screen(chatId, cq.message?.message_id, `⏳ ${esc(result.message || "অর্ডার প্রসেস হচ্ছে। আবার অর্ডার করবেন না; সাপোর্টে যোগাযোগ করুন।")}\nOrder #${String(result.order_id || "").slice(0, 8)}`, { inline_keyboard: [[{ text: "🧾 My Order", callback_data: "menu:orders" }], [premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
     }
     const { data: freshLocalProfile, error: localBalanceReadError } = await db.from("profiles").select("balance").eq("id", user.id).maybeSingle();
     if (localBalanceReadError || !freshLocalProfile) {
       console.error("Telegram local checkout balance lookup failed", localBalanceReadError);
-      return screen(chatId, cq.message?.message_id, "আপনার ব্যালেন্স যাচাই করা যায়নি। কিছু টাকা কাটা হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।", { inline_keyboard: [[{ text: "💳 Add Balance", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+      return screen(chatId, cq.message?.message_id, "আপনার ব্যালেন্স যাচাই করা যায়নি। কিছু টাকা কাটা হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।", { inline_keyboard: [[{ text: "💳 Add Balance", callback_data: "menu:fund" }], [premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
     }
     const freshLocalBalance = Number(freshLocalProfile.balance ?? 0);
     const localPackagePrice = Number(pkg.price ?? 0);
     if (freshLocalBalance < localPackagePrice) {
       const shortfall = Math.max(1, Math.ceil(localPackagePrice - freshLocalBalance));
-      return screen(chatId, cq.message?.message_id, `❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই।\nপ্রোডাক্টের দাম: ${tk(localPackagePrice)}\nআপনার ব্যালেন্স: ${tk(freshLocalBalance)}\n\nঅনুগ্রহ করে আগে ব্যালেন্স Add করুন।`, { inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+      return screen(chatId, cq.message?.message_id, `❌ আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই।\nপ্রোডাক্টের দাম: ${tk(localPackagePrice)}\nআপনার ব্যালেন্স: ${tk(freshLocalBalance)}\n\nঅনুগ্রহ করে আগে ব্যালেন্স Add করুন।`, { inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
     }
     const { data: oid, error } = await db.rpc("bot_purchase_package", { p_user_id: user.id, p_package_id: id });
     if (error) {
       if (error.message.includes("INSUFFICIENT")) {
         const shortfall = Math.max(1, Math.ceil(Number(pkg.price ?? 100) - Number(user.balance ?? 0)));
         return screen(chatId, cq.message?.message_id, `❌ ব্যালেন্স যথেষ্ট নয়।\nপ্রয়োজন: ${tk(pkg.price ?? 0)}\nআপনার ব্যালেন্স: ${tk(user.balance)}\n\nAdd Fund amount: ${tk(shortfall)}`, {
-          inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }]],
+          inline_keyboard: [[{ text: `➕ Add ${tk(shortfall)}`, callback_data: `fundshort:${shortfall}` }], [{ text: "💳 Add Fund options", callback_data: "menu:fund" }], [premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")]],
         });
       }
       const msg = error.message.includes("NO_KEYS") ? "এই প্যাকেজের Key বর্তমানে শেষ।" : "❌ এই মুহূর্তে অর্ডার সম্পন্ন করা যায়নি।";
-      return screen(chatId, cq.message?.message_id, msg, { inline_keyboard: [[{ text: "⬅️ Back to package list", callback_data: `p:${pkg.product_id}` }], [{ text: "🛍️ Back to Products", callback_data: "menu:products" }], [{ text: "🏠 Main Menu", callback_data: "menu:home" }]] });
+      return screen(chatId, cq.message?.message_id, msg, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
     }
     const { data: o } = await db.from("orders").select("*").eq("id", oid).maybeSingle();
     await notifyOwner(`🛒 Telegram purchase\nUser: <b>${esc(user.username || user.email)}</b>\n${esc(o?.product_name)}\n${tk(o?.total ?? 0)} · Order #${String(oid).slice(0, 8)}`);
