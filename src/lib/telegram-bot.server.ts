@@ -757,7 +757,8 @@ async function handleCallback(cq: any) {
     }
     const manualAvailable = Number((stockRows ?? []).find((row: any) => String(row.package_id) === String(pkg.id))?.available ?? 0);
     const supplierAutoReady = Boolean((pkg as any).provider_auto_api && (pkg as any).provider_product_id && (pkg as any).provider_duration);
-    const useSupplierApi = manualAvailable <= 0 && supplierAutoReady;
+    // The Telegram checkout Edge Function already tries manual keys first and only calls the supplier when stock is empty. Always route API-ready packages through it; otherwise the legacy bot_purchase_package RPC can fail even when manual stock exists.
+    const useSupplierApi = supplierAutoReady;
     if (useSupplierApi) {
       const { data: freshProfile, error: balanceReadError } = await db.from("profiles").select("balance").eq("id", user.id).maybeSingle();
       if (balanceReadError || !freshProfile) {
