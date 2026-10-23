@@ -67,7 +67,7 @@ export function OrderList({
             </div>
           )}
           <p className="w-full text-[11px] text-muted-foreground">Order ID: {o.id}</p>
-          {o.status === "completed" && o.products?.setup_tutorial_url && /^https?:\\/\\//i.test(o.products.setup_tutorial_url) && (
+          {o.status === "completed" && o.products?.setup_tutorial_url && (o.products.setup_tutorial_url.startsWith("https://") || o.products.setup_tutorial_url.startsWith("http://")) && (
             <a href={o.products.setup_tutorial_url} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-1 rounded-lg border border-primary/20 bg-primary/5 py-2 text-xs font-semibold text-primary">
               📖 Setup Tutorial <ExternalLink className="h-3 w-3" />
             </a>
