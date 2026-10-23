@@ -808,7 +808,14 @@ async function handleCallback(cq: any) {
         await preserveOrderMessage(chatId, cq.message?.message_id);
         await notifyOwner(`🛒 Telegram auto-delivery\nUser: <b>${esc(user.username || user.email)}</b>\n${esc(result.product_name || pkg.name)}\n${tk(Number(result.total ?? pkg.price))} · Order #${String(result.order_id).slice(0, 8)}`);
         const keys = Array.isArray(result.keys) ? result.keys : [];
-        return screen(chatId, cq.message?.message_id, `✅ অর্ডার সফল!\n<b>${esc(result.product_name || pkg.name)}</b>\n🔑 Key: <code>${esc(keys.join("\\n"))}</code>\nOrder #${String(result.order_id).slice(0, 8)}`, orderSuccessKeyboard);
+        const tutorialUrl = String((pkg as any).products?.setup_tutorial_url ?? "").trim();
+        const successKeyboard = {
+          inline_keyboard: [
+            ...(/^https?:\/\//i.test(tutorialUrl) ? [[{ text: "📖 Setup Tutorial", url: tutorialUrl }]] : []),
+            [{ text: "🏠 Main Menu", callback_data: "menu:home" }],
+          ],
+        };
+        return screen(chatId, cq.message?.message_id, `✅ অর্ডার সফল!\n<b>${esc(result.product_name || pkg.name)}</b>\n🔑 Key: <code>${esc(keys.join("\\n"))}</code>\nOrder #${String(result.order_id).slice(0, 8)}`, successKeyboard);
       }
       if (result.status === "failed") {
         return screen(chatId, cq.message?.message_id, `❌ ${esc(result.message || "অর্ডার সম্পন্ন হয়নি। টাকা ফেরত দেওয়া হয়েছে।")}`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
