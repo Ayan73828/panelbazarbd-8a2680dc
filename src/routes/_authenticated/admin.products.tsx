@@ -19,7 +19,7 @@ type P = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 const blank: P = {
   name: "", slug: "", category_id: "", short_description: "", full_description: "", features: "",
   image_url: "", images: "", price: 0, discount_price: "", stock: 0, status: "in_stock",
-  demo_url: "", purchase_url: "", is_featured: false, is_best_seller: false, is_active: true, sort_order: 0,
+  demo_url: "", purchase_url: "", setup_tutorial_url: "", is_featured: false, is_best_seller: false, is_active: true, sort_order: 0,
 };
 
 function AdminProducts() {
@@ -131,6 +131,7 @@ function ProductDialog({ value, cats, onClose, onSaved }: { value: P; cats: P[];
       status: f.status,
       demo_url: f.demo_url || null,
       purchase_url: f.purchase_url || null,
+      setup_tutorial_url: String(f.setup_tutorial_url || "").trim() || null,
       is_featured: !!f.is_featured,
       is_best_seller: !!f.is_best_seller,
       is_active: !!f.is_active,
@@ -183,6 +184,7 @@ function ProductDialog({ value, cats, onClose, onSaved }: { value: P; cats: P[];
           <div className="sm:col-span-2"><Field label="Features" hint="One per line"><Textarea rows={3} value={f.features} onChange={(e) => set("features", e.target.value)} /></Field></div>
           <Field label="Demo URL"><Input value={f.demo_url ?? ""} onChange={(e) => set("demo_url", e.target.value)} /></Field>
           <Field label="Purchase / access URL" hint="Shown to buyers after order completes"><Input value={f.purchase_url ?? ""} onChange={(e) => set("purchase_url", e.target.value)} /></Field>
+          <div className="sm:col-span-2"><Field label="Setup Tutorial URL" hint="YouTube, Telegram, or any https link. Shown after successful purchase on website and Telegram."><Input type="url" placeholder="https://…" value={f.setup_tutorial_url ?? ""} onChange={(e) => set("setup_tutorial_url", e.target.value)} /></Field></div>
           <SwitchField label="Visible on site" checked={!!f.is_active} onChange={(v) => set("is_active", v)} />
           <SwitchField label="Featured" checked={!!f.is_featured} onChange={(v) => set("is_featured", v)} />
           <SwitchField label="Best seller" checked={!!f.is_best_seller} onChange={(v) => set("is_best_seller", v)} />
