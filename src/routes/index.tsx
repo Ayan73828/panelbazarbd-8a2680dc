@@ -97,12 +97,6 @@ function HomePage() {
                 {settings.hero_subtitle || settings.site_description}
               </p>
               <div className="flex flex-wrap gap-3">
-                <Button asChild size="default" className="rounded-full">
-                  <Link to={settings.hero_button_url || "/products"}>
-                    {settings.hero_button_text || "Browse Products"}
-                    <ArrowRight className="ml-1 h-4 w-4" />
-                  </Link>
-                </Button>
                 {!user && (
                   <Button asChild size="default" variant="secondary" className="rounded-full">
                     <Link to="/auth" search={{ mode: "register" }}>
