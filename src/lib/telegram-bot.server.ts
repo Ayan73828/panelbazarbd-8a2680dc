@@ -74,6 +74,19 @@ async function rememberMessage(chatId: number, messageId: number) {
     updated_at: new Date().toISOString(),
   });
 }
+
+async function preserveOrderMessage(chatId: number, messageId?: number) {
+  if (typeof messageId !== "number") return;
+  const db = await admin();
+  const current = await getState(chatId);
+  const ids = Array.isArray(current.data?.persistent_order_message_ids) ? current.data.persistent_order_message_ids : [];
+  await db.from("telegram_sessions").upsert({
+    chat_id: chatId,
+    state: current.state ?? "",
+    data: { ...(current.data ?? {}), persistent_order_message_ids: [...new Set([...ids, messageId])].slice(-100) },
+    updated_at: new Date().toISOString(),
+  });
+}
 async function getState(chatId: number) {
   const db = await admin();
   const { data } = await db.from("telegram_sessions").select("*").eq("chat_id", chatId).maybeSingle();
@@ -259,21 +272,26 @@ export async function handleUpdate(u: any) {
   }
   if (text === "Restart 🔁") {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
-    await Promise.all(oldIds.map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)));
-    await setState(chatId, "", { recent_bot_message_ids: [] });
+    const persistentIds = new Set<number>(Array.isArray(st.data?.persistent_order_message_ids) ? st.data.persistent_order_message_ids : []);
+    await Promise.all(oldIds.filter((message_id: number) => !persistentIds.has(message_id)).map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)));
+    await setState(chatId, "", { recent_bot_message_ids: [...persistentIds], persistent_order_message_ids: [...persistentIds] });
     const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
     return welcome(chatId, account, undefined, m.from.id);
   }
   if (text.startsWith("/start")) {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
-    for (const message_id of oldIds) await tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined);
+    const persistentIds = new Set<number>(Array.isArray(st.data?.persistent_order_message_ids) ? st.data.persistent_order_message_ids : []);
+    for (const message_id of oldIds) {
+      if (!persistentIds.has(message_id)) await tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined);
+    }
     const payload = text.split(/\s+/)[1] ?? "";
     const rawReferrerId = payload.startsWith("ref_") ? payload.slice(4) : "";
     const validReferrerId = /^\d+$/.test(rawReferrerId) && Number(rawReferrerId) !== m.from.id
       ? Number(rawReferrerId) : null;
     // Telegram referrals are intentionally independent of the website referral system.
     const nextData = {
-      recent_bot_message_ids: [],
+      recent_bot_message_ids: [...persistentIds],
+      persistent_order_message_ids: [...persistentIds],
       pending_referrer_id: null,
       pending_telegram_referrer_id: validReferrerId,
       phone_shared: Boolean(st.data?.phone_shared),
@@ -777,6 +795,7 @@ async function handleCallback(cq: any) {
         return screen(chatId, cq.message?.message_id, "অর্ডারের অবস্থা নিশ্চিত করা যায়নি। আবার Buy Now চাপার আগে My Order দেখুন বা Support-এ যোগাযোগ করুন।", { inline_keyboard: [[{ text: "🧾 My Order", callback_data: "menu:orders" }], [premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
       }
       if (result.status === "completed") {
+        await preserveOrderMessage(chatId, cq.message?.message_id);
         await notifyOwner(`🛒 Telegram auto-delivery\nUser: <b>${esc(user.username || user.email)}</b>\n${esc(result.product_name || pkg.name)}\n${tk(Number(result.total ?? pkg.price))} · Order #${String(result.order_id).slice(0, 8)}`);
         const keys = Array.isArray(result.keys) ? result.keys : [];
         return screen(chatId, cq.message?.message_id, `✅ অর্ডার সফল!\n<b>${esc(result.product_name || pkg.name)}</b>\n🔑 Key: <code>${esc(keys.join("\\n"))}</code>\nOrder #${String(result.order_id).slice(0, 8)}`, MENU);
@@ -816,6 +835,7 @@ async function handleCallback(cq: any) {
       return screen(chatId, cq.message?.message_id, msg, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
     }
     const { data: o } = await db.from("orders").select("*").eq("id", oid).maybeSingle();
+    await preserveOrderMessage(chatId, cq.message?.message_id);
     await notifyOwner(`🛒 Telegram purchase\nUser: <b>${esc(user.username || user.email)}</b>\n${esc(o?.product_name)}\n${tk(o?.total ?? 0)} · Order #${String(oid).slice(0, 8)}`);
     return screen(chatId, cq.message?.message_id, `✅ কেনা সফল!\n<b>${esc(o?.product_name)}</b>\n🔑 Key: <code>${esc(o?.delivered_key)}</code>\nOrder #${String(oid).slice(0, 8)}`, MENU);
   }
