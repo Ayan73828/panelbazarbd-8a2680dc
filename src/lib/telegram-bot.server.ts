@@ -771,7 +771,7 @@ async function handleCallback(cq: any) {
     });
   }
   if (kind === "b" && id) {
-    const { data: pkg } = await db.from("product_packages").select("id,product_id,name,price,provider_auto_api,provider_product_id,provider_duration,provider_stock,products(name,provider_name)").eq("id", id).maybeSingle();
+    const { data: pkg } = await db.from("product_packages").select("id,product_id,name,price,provider_auto_api,provider_product_id,provider_duration,provider_stock,products(name,provider_name,setup_tutorial_url)").eq("id", id).maybeSingle();
     if (!pkg) return screen(chatId, cq.message?.message_id, "প্যাকেজটি পাওয়া যায়নি।", { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
     // Match website fulfillment: use manually added keys first, then supplier API only when manual stock is empty.
     const { data: stockRows, error: stockError } = await db.rpc("package_stock", { p_product_id: pkg.product_id });
@@ -783,6 +783,10 @@ async function handleCallback(cq: any) {
     const supplierAutoReady = Boolean((pkg as any).provider_auto_api && (pkg as any).provider_product_id && (pkg as any).provider_duration);
     // The Telegram checkout Edge Function already tries manual keys first and only calls the supplier when stock is empty. Always route API-ready packages through it; otherwise the legacy bot_purchase_package RPC can fail even when manual stock exists.
     const useSupplierApi = supplierAutoReady;
+    const tutorialUrl = String((pkg as any).products?.setup_tutorial_url ?? "").trim();
+    const orderSuccessKeyboard = /^https?:\/\//i.test(tutorialUrl)
+      ? { inline_keyboard: [[{ text: "📖 Setup Tutorial", url: tutorialUrl }], ...MENU.inline_keyboard] }
+      : MENU;
     if (useSupplierApi) {
       const { data: freshProfile, error: balanceReadError } = await db.from("profiles").select("balance").eq("id", user.id).maybeSingle();
       if (balanceReadError || !freshProfile) {
@@ -804,7 +808,7 @@ async function handleCallback(cq: any) {
         await preserveOrderMessage(chatId, cq.message?.message_id);
         await notifyOwner(`🛒 Telegram auto-delivery\nUser: <b>${esc(user.username || user.email)}</b>\n${esc(result.product_name || pkg.name)}\n${tk(Number(result.total ?? pkg.price))} · Order #${String(result.order_id).slice(0, 8)}`);
         const keys = Array.isArray(result.keys) ? result.keys : [];
-        return screen(chatId, cq.message?.message_id, `✅ অর্ডার সফল!\n<b>${esc(result.product_name || pkg.name)}</b>\n🔑 Key: <code>${esc(keys.join("\\n"))}</code>\nOrder #${String(result.order_id).slice(0, 8)}`, MENU);
+        return screen(chatId, cq.message?.message_id, `✅ অর্ডার সফল!\n<b>${esc(result.product_name || pkg.name)}</b>\n🔑 Key: <code>${esc(keys.join("\\n"))}</code>\nOrder #${String(result.order_id).slice(0, 8)}`, orderSuccessKeyboard);
       }
       if (result.status === "failed") {
         return screen(chatId, cq.message?.message_id, `❌ ${esc(result.message || "অর্ডার সম্পন্ন হয়নি। টাকা ফেরত দেওয়া হয়েছে।")}`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
@@ -843,6 +847,6 @@ async function handleCallback(cq: any) {
     const { data: o } = await db.from("orders").select("*").eq("id", oid).maybeSingle();
     await preserveOrderMessage(chatId, cq.message?.message_id);
     await notifyOwner(`🛒 Telegram purchase\nUser: <b>${esc(user.username || user.email)}</b>\n${esc(o?.product_name)}\n${tk(o?.total ?? 0)} · Order #${String(oid).slice(0, 8)}`);
-    return screen(chatId, cq.message?.message_id, `✅ কেনা সফল!\n<b>${esc(o?.product_name)}</b>\n🔑 Key: <code>${esc(o?.delivered_key)}</code>\nOrder #${String(oid).slice(0, 8)}`, MENU);
+    return screen(chatId, cq.message?.message_id, `✅ কেনা সফল!\n<b>${esc(o?.product_name)}</b>\n🔑 Key: <code>${esc(o?.delivered_key)}</code>\nOrder #${String(oid).slice(0, 8)}`, orderSuccessKeyboard);
   }
 }
