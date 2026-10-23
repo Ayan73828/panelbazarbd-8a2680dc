@@ -281,6 +281,11 @@ export async function handleUpdate(u: any) {
   if (text.startsWith("/start")) {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
     const persistentIds = new Set<number>(Array.isArray(st.data?.persistent_order_message_ids) ? st.data.persistent_order_message_ids : []);
+    // Remove the previous /start command too, along with the previous ordinary bot replies.
+    const previousStartMessageId = Number(st.data?.last_start_message_id);
+    if (Number.isInteger(previousStartMessageId) && previousStartMessageId > 0 && previousStartMessageId !== m.message_id) {
+      await tg("deleteMessage", { chat_id: chatId, message_id: previousStartMessageId }).catch(() => undefined);
+    }
     for (const message_id of oldIds) {
       if (!persistentIds.has(message_id)) await tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined);
     }
@@ -295,6 +300,7 @@ export async function handleUpdate(u: any) {
       pending_referrer_id: null,
       pending_telegram_referrer_id: validReferrerId,
       phone_shared: Boolean(st.data?.phone_shared),
+      last_start_message_id: m.message_id,
     };
     await setState(chatId, "", nextData);
     const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
