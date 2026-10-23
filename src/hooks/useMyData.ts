@@ -10,7 +10,7 @@ export function useMyOrders() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select("*, products(slug,image_url,purchase_url,demo_url)")
+        .select("*, products(slug,image_url,purchase_url,demo_url,setup_tutorial_url)")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
