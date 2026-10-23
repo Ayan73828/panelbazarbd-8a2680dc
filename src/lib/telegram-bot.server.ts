@@ -467,17 +467,12 @@ export async function handleUpdate(u: any) {
       await setState(chatId, "guest_auth", { phone_shared: true });
       return send(chatId, "আপনার Telegram account কোনো website account-এর সঙ্গে linked নেই।", GUEST_AUTH);
     }
-    const { data: split, error: unlinkError } = await db.rpc("bot_unlink_telegram_account", { p_telegram_user_id: m.from.id }).maybeSingle();
-    if (!unlinkError) invalidateTelegramIdentity(m.from.id);
-    if (unlinkError) {
-      console.error("Telegram account unlink failed", unlinkError);
-      const message = String(unlinkError.message ?? "").includes("SPLIT_METADATA_MISSING")
-        ? "⚠️ এই account আগে link করা হয়েছিল, কিন্তু link করার সময়কার মূল balance ratio সংরক্ষিত নেই। ভুলভাবে টাকা ভাগ না করার জন্য auto-unlink বন্ধ রাখা হয়েছে। Admin Support-এ যোগাযোগ করুন।"
-        : "❌ নিরাপদে unlink করা যায়নি। কোনো balance পরিবর্তন করা হয়নি। Support-এ যোগাযোগ করুন।";
-      return send(chatId, message, await mainMenuForTelegramUser(m.from.id));
-    }
-    await setState(chatId, "", { recent_bot_message_ids: [] });
-    return handleUpdate({ message: { text: "/start", chat: { id: chatId }, from: m.from } });
+    return send(chatId, "⚠️ <b>Unlink Website Account?</b>\n\nআপনি কি নিশ্চিত যে Telegram-এর সঙ্গে যুক্ত website account আনলিঙ্ক করতে চান? Confirm না করা পর্যন্ত account unlink হবে না।", {
+      inline_keyboard: [
+        [{ text: "✅ Confirm Unlink", callback_data: `unlinkconfirm:yes_${m.from.id}` }],
+        [{ text: "❌ Cancel / Keep Linked", callback_data: `unlinkconfirm:no_${m.from.id}` }],
+      ],
+    });
   }
   switch (text) {
     case "🛍 Products": return showProducts(chatId);
@@ -646,6 +641,26 @@ async function handleCallback(cq: any) {
       inline_keyboard: [[{ text: "🆕 Create account", url: `${SITE_URL}/auth?mode=register` }]],
     });
   }
+  if (kind === "unlinkconfirm") {
+    const [decision, ownerId] = id.split("_");
+    if (String(cq.from.id) !== ownerId) return screen(chatId, cq.message?.message_id, "এই confirmation শুধু যে account থেকে unlink শুরু হয়েছে সেই Telegram user ব্যবহার করতে পারবেন।");
+    if (decision !== "yes") return screen(chatId, cq.message?.message_id, "✅ বাতিল করা হয়েছে। আপনার website account আগের মতো linked আছে।", await mainMenuForTelegramUser(cq.from.id));
+    const db = await admin();
+    const { data: link } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
+    if (!link) return screen(chatId, cq.message?.message_id, "এই Telegram account-এর সঙ্গে কোনো website account linked নেই।", GUEST_AUTH);
+    const { error: unlinkError } = await db.rpc("bot_unlink_telegram_account", { p_telegram_user_id: cq.from.id }).maybeSingle();
+    if (unlinkError) {
+      console.error("Telegram account unlink failed", unlinkError);
+      const message = String(unlinkError.message ?? "").includes("SPLIT_METADATA_MISSING")
+        ? "⚠️ এই account-এর মূল balance ratio সংরক্ষিত নেই। ভুলভাবে টাকা ভাগ না করার জন্য unlink বন্ধ রাখা হয়েছে। Admin Support-এ যোগাযোগ করুন।"
+        : "❌ নিরাপদে unlink করা যায়নি। কোনো balance পরিবর্তন করা হয়নি। Support-এ যোগাযোগ করুন।";
+      return screen(chatId, cq.message?.message_id, message, await mainMenuForTelegramUser(cq.from.id));
+    }
+    invalidateTelegramIdentity(cq.from.id);
+    await setState(chatId, "", { recent_bot_message_ids: [] });
+    await screen(chatId, cq.message?.message_id, "✅ <b>Website Successfully Unlinked</b>", await mainMenuForTelegramUser(cq.from.id));
+    return handleUpdate({ message: { text: "/start", chat: { id: chatId }, from: cq.from } });
+  }
   if (!user) return welcome(chatId, null, undefined, cq.from.id);
   const db = await admin();
   if (kind === "menu") {
@@ -687,24 +702,13 @@ async function handleCallback(cq: any) {
     }
     if (id === "logout") {
       const { data: link } = await db.from("telegram_links").select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
-      if (!link) {
-        await setState(chatId, "", { phone_shared: true });
-        await screen(chatId, cq.message?.message_id, "আপনার Telegram account কোনো website account-এর সঙ্গে linked নেই।");
-        return welcome(chatId, null, undefined, cq.from.id);
-      }
-      const { data: split, error: unlinkError } = await db.rpc("bot_unlink_telegram_account", { p_telegram_user_id: cq.from.id }).maybeSingle();
-      if (!unlinkError) invalidateTelegramIdentity(cq.from.id);
-      if (unlinkError) {
-        console.error("Telegram account unlink failed", unlinkError);
-        const message = String(unlinkError.message ?? "").includes("SPLIT_METADATA_MISSING")
-          ? "⚠️ এই account আগে link করা হয়েছিল, কিন্তু link করার সময়কার মূল balance ratio সংরক্ষিত নেই। ভুলভাবে টাকা ভাগ না করার জন্য auto-unlink বন্ধ রাখা হয়েছে। Admin Support-এ যোগাযোগ করুন।"
-          : "❌ নিরাপদে unlink করা যায়নি। কোনো balance পরিবর্তন করা হয়নি। Support-এ যোগাযোগ করুন।";
-        return screen(chatId, cq.message?.message_id, message, await mainMenuForTelegramUser(cq.from.id));
-      }
-      await setState(chatId, "", { recent_bot_message_ids: [] });
-      await screen(chatId, cq.message?.message_id, "<b>Website Successfully Unlinked ‼️</b>", await mainMenuForTelegramUser(cq.from.id));
-      // Run the same guest start flow as /start; do not show Login/Create Account buttons.
-      return handleUpdate({ message: { text: "/start", chat: { id: chatId }, from: cq.from } });
+      if (!link) return screen(chatId, cq.message?.message_id, "আপনার Telegram account কোনো website account-এর সঙ্গে linked নেই।", GUEST_AUTH);
+      return screen(chatId, cq.message?.message_id, "⚠️ <b>Unlink Website Account?</b>\n\nআপনি কি নিশ্চিত যে Telegram-এর সঙ্গে যুক্ত website account আনলিঙ্ক করতে চান? Confirm না করা পর্যন্ত account unlink হবে না।", {
+        inline_keyboard: [
+          [{ text: "✅ Confirm Unlink", callback_data: `unlinkconfirm:yes_${cq.from.id}` }],
+          [{ text: "❌ Cancel / Keep Linked", callback_data: `unlinkconfirm:no_${cq.from.id}` }],
+        ],
+      });
     }
     if (id === "profile") {
       const [ordersResult, spentResult, referralResult] = await Promise.all([
