@@ -139,9 +139,9 @@ export function SiteLayout({ children }: { children: ReactNode }) {
               <Button asChild variant="ghost" size="icon" className="header-action-button relative overflow-visible" aria-label="Shopping cart"><Link to="/cart"><ShoppingCart className="h-5 w-5" />{cartCount > 0 && <span className="pointer-events-none absolute -right-1 -top-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground shadow-sm">{cartCount > 99 ? "99+" : cartCount}</span>}</Link></Button>
               <DropdownMenu open={notificationsOpen} onOpenChange={setNotificationsOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
+                  <Button variant="ghost" size="icon" className="header-action-button relative overflow-visible" aria-label="Notifications">
                     <Bell className="h-5 w-5" />
-                    {unreadNotificationCount > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">{unreadNotificationCount}</span>}
+                    {unreadNotificationCount > 0 && <span className="pointer-events-none absolute -right-1 -top-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-destructive px-1 text-[10px] font-bold leading-none text-white shadow-sm">{unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}</span>}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[min(22rem,calc(100vw-1.5rem))]">
