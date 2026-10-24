@@ -10,13 +10,11 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       <img
         src={officialLogoUrl}
         alt={settings.site_name || "PANEL BAZAR BD"}
-        className={compact ? "h-7 w-auto max-w-28 object-contain" : "h-9 w-auto max-w-40 object-contain"}
+        className={compact ? "h-9 w-auto max-w-32 rounded-lg object-contain" : "h-9 w-auto max-w-40 rounded-lg object-contain"}
         loading="eager"
         onError={(event) => { event.currentTarget.style.display = "none"; }}
       />
-      <span className={`truncate font-semibold tracking-tight ${compact ? "text-sm" : "text-base sm:text-lg"}`}>
-        {settings.site_name || "PANEL BAZAR BD"}
-      </span>
+      {!compact && <span className="truncate text-base font-semibold tracking-tight sm:text-lg">{settings.site_name || "PANEL BAZAR BD"}</span>}
     </Link>
   );
 }
