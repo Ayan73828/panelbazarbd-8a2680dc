@@ -136,7 +136,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
           <div className="flex shrink-0 items-center gap-1.5">
             {user && (
               <>
-              <Button asChild variant="ghost" size="icon" className="relative" aria-label="Shopping cart"><Link to="/cart"><ShoppingCart className="h-5 w-5" />{cartCount > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">{cartCount}</span>}</Link></Button>
+              <Button asChild variant="ghost" size="icon" className="header-action-button relative overflow-visible" aria-label="Shopping cart"><Link to="/cart"><ShoppingCart className="h-5 w-5" />{cartCount > 0 && <span className="pointer-events-none absolute -right-1 -top-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground shadow-sm">{cartCount > 99 ? "99+" : cartCount}</span>}</Link></Button>
               <DropdownMenu open={notificationsOpen} onOpenChange={setNotificationsOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
