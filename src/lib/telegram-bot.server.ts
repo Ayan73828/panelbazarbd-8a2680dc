@@ -48,6 +48,27 @@ const GUEST_AUTH = {
   inline_keyboard: [[{ text: "🔐 LOGIN", callback_data: "guest:login" }, { text: "🆕 CREATE ACCOUNT", callback_data: "guest:register" }]],
 };
 
+async function getTelegramMaintenanceMode(): Promise<boolean> {
+  const db = await admin();
+  const { data, error } = await db.from("site_settings").select("value").eq("key", "telegram_maintenance_mode").maybeSingle();
+  if (error) {
+    console.error("Telegram maintenance setting read failed", error);
+    return false;
+  }
+  return String(data?.value ?? "false").toLowerCase() === "true";
+}
+async function setTelegramMaintenanceMode(enabled: boolean) {
+  const db = await admin();
+  const { error } = await db.from("site_settings").upsert(
+    { key: "telegram_maintenance_mode", value: enabled ? "true" : "false" },
+    { onConflict: "key" },
+  );
+  if (error) throw new Error(error.message);
+}
+function telegramMaintenanceNotice() {
+  return "🛠️ <b>PANEL BAZAR BD — Telegram Update চলছে</b>\n\nআমাদের Telegram Bot-এ বর্তমানে maintenance/update চলছে। অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন। সার্ভিস চালু হলে আবার ব্যবহার করতে পারবেন।\n\nআপনার account ও balance নিরাপদ আছে।";
+}
+
 async function admin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin as any;
@@ -228,10 +249,18 @@ export async function handleUpdate(u: any) {
   const ownerChatForAdmin = process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
   if (text === "/admin") {
     if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) return send(chatId, "এই কমান্ডটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
-    return send(chatId, "👑 <b>Panel Bazar Admin</b>\n\nনিচের অপশন থেকে Redeem Code তৈরি করুন।", {
-      inline_keyboard: [[{ text: "🎟️ Create Redeem Code", callback_data: "adminredeem:create" }]],
+    const maintenanceOn = await getTelegramMaintenanceMode();
+    return send(chatId, "👑 <b>Panel Bazar Admin</b>\n\nTelegram Maintenance Mode: <b>" + (maintenanceOn ? "ON 🛠️" : "OFF ✅") + "</b>\n\nMaintenance চালু থাকলে সাধারণ ব্যবহারকারীরা bot-এর shop, order, balance ও account options ব্যবহার করতে পারবেন না।", {
+      inline_keyboard: [
+        [{ text: maintenanceOn ? "🟢 Turn Maintenance OFF" : "🛠️ Turn Maintenance ON", callback_data: maintenanceOn ? "adminmaintenance:off" : "adminmaintenance:on" }],
+        [{ text: "🎟️ Create Redeem Code", callback_data: "adminredeem:create" }],
+      ],
     });
   }
+  if (String(chatId) !== String(ownerChatForAdmin) && await getTelegramMaintenanceMode()) {
+    return send(chatId, telegramMaintenanceNotice());
+  }
+
   if (st.state === "admin_redeem_amount" && text) {
     if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Redeem code তৈরি বাতিল হয়েছে।"); }
     if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) { await setState(chatId, ""); return send(chatId, "অনুমতি নেই।"); }
@@ -598,6 +627,26 @@ async function handleCallback(cq: any) {
   if (!user) user = await ensureTelegramAccount(cq.from.id, chatId, cq.from.username, cq.from.first_name);
   const [kind, id] = String(cq.data ?? "").split(":");
   const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+  if (kind === "adminmaintenance") {
+    if (!ownerChatId || String(chatId) !== String(ownerChatId)) return screen(chatId, cq.message?.message_id, "এই অপশনটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
+    if (id !== "on" && id !== "off") return screen(chatId, cq.message?.message_id, "Invalid maintenance action.");
+    try {
+      await setTelegramMaintenanceMode(id === "on");
+      const enabled = id === "on";
+      return screen(chatId, cq.message?.message_id, "👑 <b>Panel Bazar Admin</b>\n\nTelegram Maintenance Mode: <b>" + (enabled ? "ON 🛠️" : "OFF ✅") + "</b>\n\n" + (enabled ? "সাধারণ ব্যবহারকারীরা এখন maintenance notice দেখবেন।" : "Telegram Bot আবার ব্যবহার করার জন্য চালু হয়েছে।"), {
+        inline_keyboard: [
+          [{ text: enabled ? "🟢 Turn Maintenance OFF" : "🛠️ Turn Maintenance ON", callback_data: enabled ? "adminmaintenance:off" : "adminmaintenance:on" }],
+          [{ text: "🎟️ Create Redeem Code", callback_data: "adminredeem:create" }],
+        ],
+      });
+    } catch (error) {
+      console.error("Telegram maintenance toggle failed", error);
+      return screen(chatId, cq.message?.message_id, "❌ Maintenance setting update করা যায়নি। আবার চেষ্টা করুন।");
+    }
+  }
+  if (String(chatId) !== String(ownerChatId) && await getTelegramMaintenanceMode()) {
+    return screen(chatId, cq.message?.message_id, telegramMaintenanceNotice());
+  }
   if (kind === "adminredeem") {
     if (!ownerChatId || String(chatId) !== String(ownerChatId)) return screen(chatId, cq.message?.message_id, "এই অপশনটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
     if (id === "create") {
