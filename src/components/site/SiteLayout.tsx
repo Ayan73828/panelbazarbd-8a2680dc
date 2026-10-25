@@ -122,9 +122,9 @@ export function SiteLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="mx-auto flex min-h-screen w-full min-w-0 max-w-6xl flex-col overflow-x-hidden border-x border-border/60">
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur">
-        <div className="flex h-14 w-full items-center justify-between gap-2 px-3">
+    <div className="mx-auto flex min-h-screen w-full min-w-0 max-w-7xl flex-col overflow-x-hidden bg-background">
+      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 shadow-sm shadow-black/[0.03] backdrop-blur-xl">
+        <div className="mx-auto flex h-16 w-full items-center justify-between gap-3 px-3 sm:px-5 lg:px-7">
           <Brand compact />
           {isAdmin && (
             <Button asChild variant="ghost" size="sm">
@@ -191,8 +191,8 @@ export function SiteLayout({ children }: { children: ReactNode }) {
 
       <main className="min-w-0 flex-1 overflow-x-hidden pb-24">{children}</main>
 
-      <footer className="border-t border-border/70 bg-surface/60 pb-24 pt-10">
-        <div className="grid w-full grid-cols-2 gap-8 px-4">
+      <footer className="border-t border-border/70 bg-gradient-to-b from-surface/70 to-background pb-24 pt-12">
+        <div className="mx-auto grid w-full max-w-7xl grid-cols-2 gap-x-6 gap-y-9 px-4 sm:gap-x-10 sm:px-6 lg:grid-cols-4 lg:px-8">
           <div className="space-y-3">
             <Brand />
             <p className="text-sm text-muted-foreground">{settings.footer_text}</p>
