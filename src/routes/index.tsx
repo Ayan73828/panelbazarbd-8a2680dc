@@ -35,7 +35,7 @@ export const Route = createFileRoute("/")({
 
 function useHomeProducts() {
   return useQuery({
-    queryKey: ["products", "home"],
+    queryKey: ["products", "public"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
@@ -46,6 +46,7 @@ function useHomeProducts() {
       if (error) throw error;
       return (data ?? []) as ProductRow[];
     },
+    staleTime: 30_000,
   });
 }
 
