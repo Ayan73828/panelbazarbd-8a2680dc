@@ -67,26 +67,26 @@ export function ProductCard({
           <span className="truncate">{categoryName ?? "Uncategorized"}</span>
         </div>
 
-        <Link to="/products/$slug" params={{ slug: product.slug }}>
-          <h3 className="line-clamp-2 min-h-[2.6em] text-sm font-bold leading-snug tracking-tight transition-colors group-hover:text-primary sm:text-base">
+        <Link to="/products/$slug" params={{ slug: product.slug }} className="block">
+          <h3 className="line-clamp-2 text-sm font-bold leading-snug tracking-tight transition-colors group-hover:text-primary sm:text-base">
             {product.name}
           </h3>
         </Link>
 
-        {product.short_description && (
-          <p className="line-clamp-2 text-xs text-muted-foreground">{product.short_description}</p>
-        )}
-
-        <div className="flex items-end gap-2 pt-0.5">
-          <span className="text-base font-black tracking-tight text-primary sm:text-xl">
+        <div className="flex items-end gap-2">
+          <span className="text-base font-black leading-tight tracking-tight text-primary sm:text-xl">
             {money(hasDiscount ? product.discount_price : product.price, currency)}
           </span>
           {hasDiscount && (
-            <span className="text-xs text-muted-foreground line-through">
+            <span className="text-xs leading-tight text-muted-foreground line-through">
               {money(product.price, currency)}
             </span>
           )}
         </div>
+
+        {product.short_description && (
+          <p className="line-clamp-2 text-xs text-muted-foreground">{product.short_description}</p>
+        )}
 
         <div className="mt-2 flex gap-2 border-t border-border/60 pt-3 [&_button]:min-h-10">
           <Button asChild size="sm" className="flex-1 rounded-full">
