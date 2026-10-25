@@ -64,7 +64,7 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle?: string | 
 
 function HomePage() {
   const { settings } = useSettings();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const sections = useSections();
   const categories = useCategories();
   const announcements = useActiveAnnouncements();
@@ -138,7 +138,7 @@ function HomePage() {
                 <Button asChild size="lg" className="rounded-full px-6 shadow-lg shadow-primary/20">
                   <Link to="/products">Explore products <ArrowRight className="ml-2 h-4 w-4" /></Link>
                 </Button>
-                {!user && (
+                {!authLoading && !user && (
                   <Button asChild size="lg" variant="outline" className="rounded-full border-border/80 bg-background/60 px-6 backdrop-blur">
                     <Link to="/auth" search={{ mode: "register" }}>Create account</Link>
                   </Button>
