@@ -122,7 +122,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="mx-auto flex min-h-screen w-full min-w-0 max-w-lg flex-col overflow-x-hidden border-x border-border/60">
+    <div className="mx-auto flex min-h-screen w-full min-w-0 max-w-6xl flex-col overflow-x-hidden border-x border-border/60">
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur">
         <div className="flex h-14 w-full items-center justify-between gap-2 px-3">
           <Brand compact />
