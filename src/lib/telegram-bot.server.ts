@@ -296,9 +296,9 @@ export async function handleUpdate(u: any) {
     if (Number.isInteger(previousStartMessageId) && previousStartMessageId > 0 && previousStartMessageId !== m.message_id) {
       await tg("deleteMessage", { chat_id: chatId, message_id: previousStartMessageId }).catch(() => undefined);
     }
-    for (const message_id of oldIds) {
-      if (!persistentIds.has(message_id)) await tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined);
-    }
+    await Promise.all(oldIds
+      .filter((message_id: number) => !persistentIds.has(message_id))
+      .map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)));
     const payload = text.split(/\s+/)[1] ?? "";
     const rawReferrerId = payload.startsWith("ref_") ? payload.slice(4) : "";
     const validReferrerId = /^\d+$/.test(rawReferrerId) && Number(rawReferrerId) !== m.from.id
@@ -849,7 +849,10 @@ async function handleCallback(cq: any) {
             [{ text: "🏠 Main Menu", callback_data: "menu:home" }],
           ],
         };
-        return screen(chatId, cq.message?.message_id, `✅ অর্ডার সফল!\n<b>${esc(result.product_name || pkg.name)}</b>\n🔑 Key: <code>${esc(keys.join("\\n"))}</code>\nOrder #${String(result.order_id).slice(0, 8)}`, successKeyboard);
+        const orderMessage = await send(chatId, `✅ <b>অর্ডার সফল!</b>\n━━━━━━━━━━━━━━━━━━\n📦 ${esc(result.product_name || pkg.name)}\n\n🔑 <b>আপনার Key</b>\n<code>${esc(keys.join("\\n"))}</code>\n\n🧾 Order #${String(result.order_id).slice(0, 8)}\n\nএই Key মেসেজটি আলাদা করে রাখা হয়েছে—পরেরবার /start দিলেও এটি মুছে যাবে না।`, successKeyboard);
+        const orderMessageId = orderMessage?.result?.message_id;
+        if (typeof orderMessageId === "number") await preserveOrderMessage(chatId, orderMessageId);
+        return orderMessage;
       }
       if (result.status === "failed") {
         return screen(chatId, cq.message?.message_id, `❌ ${esc(result.message || "অর্ডার সম্পন্ন হয়নি। টাকা ফেরত দেওয়া হয়েছে।")}`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
@@ -888,6 +891,9 @@ async function handleCallback(cq: any) {
     const { data: o } = await db.from("orders").select("*").eq("id", oid).maybeSingle();
     await preserveOrderMessage(chatId, cq.message?.message_id);
     await notifyOwner(`🛒 Telegram purchase\nUser: <b>${esc(user.username || user.email)}</b>\n${esc(o?.product_name)}\n${tk(o?.total ?? 0)} · Order #${String(oid).slice(0, 8)}`);
-    return screen(chatId, cq.message?.message_id, `✅ কেনা সফল!\n<b>${esc(o?.product_name)}</b>\n🔑 Key: <code>${esc(o?.delivered_key)}</code>\nOrder #${String(oid).slice(0, 8)}`, orderSuccessKeyboard);
+    const orderMessage = await send(chatId, `✅ <b>অর্ডার সফল!</b>\n━━━━━━━━━━━━━━━━━━\n📦 ${esc(o?.product_name || pkg.name)}\n\n🔑 <b>আপনার Key</b>\n<code>${esc(o?.delivered_key || "Key details দেখতে My Orders খুলুন")}</code>\n\n🧾 Order #${String(oid).slice(0, 8)}\n\nএই Key মেসেজটি আলাদা করে রাখা হয়েছে—পরেরবার /start দিলেও এটি মুছে যাবে না।`, orderSuccessKeyboard);
+    const orderMessageId = orderMessage?.result?.message_id;
+    if (typeof orderMessageId === "number") await preserveOrderMessage(chatId, orderMessageId);
+    return orderMessage;
   }
 }
