@@ -34,16 +34,25 @@ function RedeemCodesPage() {
     if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 10000) { toast.error("সঠিক ব্যবহার সংখ্যা দিন"); return; }
     setBusy(true);
     try {
-      const { data, error } = await (supabase as any).rpc("create_redeem_code", { p_amount: value, p_max_uses: maxUses, p_expires_at: null });
-      if (error) throw error;
-      const code = String(data?.code ?? "");
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("আবার লগইন করে চেষ্টা করুন");
+      const response = await fetch("/api/admin/redeem-code-create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+        body: JSON.stringify({ amount: value, maxUses }),
+      });
+      const result = await response.json() as { code?: string; error?: string };
+      if (!response.ok) throw new Error(result.error || "Redeem code তৈরি করা যায়নি");
+      const code = String(result.code ?? "");
       if (!code) throw new Error("কোড তৈরি হয়নি");
       setCreatedCode(code);
       toast.success("Redeem code তৈরি হয়েছে");
       await queryClient.invalidateQueries({ queryKey: ["admin", "redeem-codes"] });
     } catch (e) {
       const message = String((e as { message?: string })?.message ?? e);
-      toast.error(message.includes("Admin only") ? "শুধু Admin কোড তৈরি করতে পারবেন" : "Redeem code তৈরি করা যায়নি");
+      toast.error(message.includes("Admin only") ? "শুধু Admin কোড তৈরি করতে পারবেন" : message || "Redeem code তৈরি করা যায়নি");
     } finally { setBusy(false); }
   };
   const copy = async (code: string) => {
