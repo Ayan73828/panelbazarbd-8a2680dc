@@ -65,12 +65,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (bootstrapError) throw bootstrapError;
       const [{ data: profile }, { data: roles }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", userId),
+        supabase.from("user_roles").select("user_id, role, created_at"),
       ]);
+      const adminRows = (roles ?? []).filter((r) => r.role === "admin").sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
       return {
         profile: (profile as Profile | null) ?? null,
-        isAdmin: (roles ?? []).some((r) => ["admin", "owner", "super_admin"].includes(r.role)),
-        isOwner: (roles ?? []).some((r) => ["owner", "super_admin"].includes(r.role)),
+        isAdmin: adminRows.some((r) => r.user_id === userId),
+        // The first-created admin is treated as the site owner; the current schema only has user/admin roles.
+        isOwner: adminRows[0]?.user_id === userId,
       };
     },
   });
