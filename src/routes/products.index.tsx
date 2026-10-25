@@ -87,9 +87,9 @@ function ProductsPage() {
 
   return (
     <SiteLayout>
-      <div className="mx-auto w-full max-w-6xl px-4 py-8">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:py-8">
         <PageHeader title="Products" description="Search, filter and buy instantly with your wallet balance." />
-        <div className="panel mb-6 grid gap-3 p-3">
+        <div className="panel mb-5 grid gap-3 border-white/[0.07] bg-gradient-to-br from-white/[0.035] to-transparent p-3 sm:mb-6 sm:grid-cols-2 sm:p-4 lg:grid-cols-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -126,7 +126,7 @@ function ProductsPage() {
         {products.isError ? (
           <ErrorState message="Could not load products." onRetry={() => products.refetch()} />
         ) : products.isLoading ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)}
           </div>
         ) : filtered.length === 0 ? (
@@ -138,7 +138,7 @@ function ProductsPage() {
           />
         ) : (
           <>
-            <p className="mb-3 text-xs text-muted-foreground">{filtered.length} product(s)</p>
+            <div className="mb-3 flex items-center justify-between gap-3"><p className="text-sm font-medium">{filtered.length} product{filtered.length === 1 ? "" : "s"} found</p>{(search.q || search.category || search.min !== undefined || search.max !== undefined || (search.sort && search.sort !== "default")) && <Button variant="ghost" size="sm" onClick={() => navigate({ search: {}, replace: true })}>Clear filters</Button>}</div>
             <div className="grid grid-cols-2 gap-3">
               {filtered.map((p) => (
                 <ProductCard
