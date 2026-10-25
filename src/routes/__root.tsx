@@ -172,6 +172,8 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrandTheme />
+        {/* Keep music mounted across navigation so playback position is preserved. */}
+        <audio id="panelbazarbd-background-music" src="https://standard-plum-2cflgaxh.edgeone.dev/" loop preload="auto" />
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <MaintenanceGate><Outlet /></MaintenanceGate>
         <Toaster position="top-center" />
