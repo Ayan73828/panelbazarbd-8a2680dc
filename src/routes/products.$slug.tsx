@@ -133,16 +133,16 @@ function ProductDetail() {
 
   return (
     <SiteLayout>
-      <div className="mx-auto w-full max-w-6xl px-4 py-8">
-        <nav className="mb-4 text-xs text-muted-foreground">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:py-8">
+        <nav className="mb-5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
           <Link to="/products" className="hover:text-foreground">Products</Link>
           {cat && <> / <Link to="/products" search={{ category: cat.slug }} className="hover:text-foreground">{cat.name}</Link></>}
         </nav>
-        <div className="grid gap-8">
+        <div className="grid items-start gap-5 sm:gap-7 lg:grid-cols-2 lg:gap-10">
           <div>
-            <div className="panel aspect-[4/3] overflow-hidden bg-surface-2">
+            <div className="panel group relative aspect-[4/3] overflow-hidden border-white/[0.08] bg-surface-2 shadow-glow">
               {images[active] ? (
-                <img src={images[active]} alt={p.name} className="h-full w-full object-cover" />
+                <img src={images[active]} alt={p.name} fetchPriority="high" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
               ) : (
                 <div className="flex h-full items-center justify-center text-muted-foreground"><ImageIcon className="h-10 w-10" /></div>
               )}
@@ -157,13 +157,13 @@ function ProductDetail() {
               </div>
             )}
           </div>
-          <div className="space-y-5">
+          <div className="space-y-5 rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.035] to-transparent p-4 sm:p-6 lg:sticky lg:top-24">
             <div className="flex flex-wrap gap-2">
               {cat && <Badge variant="secondary">{cat.name}</Badge>}
               {p.is_featured && <Badge>Featured</Badge>}
               {p.is_best_seller && <Badge variant="outline">Best Seller</Badge>}
             </div>
-            <h1 className="font-display text-2xl font-bold sm:text-3xl">{p.name}</h1>
+            <h1 className="font-display text-2xl font-bold leading-tight tracking-tight sm:text-3xl">{p.name}</h1>
             {p.short_description && <p className="text-muted-foreground">{p.short_description}</p>}
             {hasPackages ? (
               <div className="space-y-3">
@@ -171,7 +171,7 @@ function ProductDetail() {
                   <span className="text-sm text-muted-foreground">From</span>
                   <span className="font-display text-3xl font-bold text-primary">{money(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price)), cur)}</span>
                 </div>
-                <p className="text-sm text-muted-foreground">{packages.length} variant available</p>
+                <p className="text-sm text-muted-foreground">{packages.length} purchase option{packages.length === 1 ? "" : "s"} available</p>
                 <Button size="lg" className="h-12 w-full rounded-full" disabled={!packages.some((x) => x.price > 0)} onClick={() => setOpen(true)}>
                   <ShoppingCart className="mr-2 h-4 w-4" /> Buy Now
                 </Button>
@@ -205,13 +205,13 @@ function ProductDetail() {
           </div>
         </div>
         {p.full_description && (
-          <section className="panel mt-8 p-5">
+          <section className="panel mt-6 p-4 sm:mt-8 sm:p-6">
             <h2 className="mb-3 text-lg font-semibold">Description</h2>
             <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{p.full_description}</p>
           </section>
         )}
         {(related.data?.length ?? 0) > 0 && (
-          <section className="mt-10">
+          <section className="mt-8 sm:mt-10">
             <h2 className="mb-4 text-lg font-semibold">Related products</h2>
             <div className="grid grid-cols-2 gap-3">
               {related.data!.map((r) => <ProductCard key={r.id} product={r as ProductRow} categoryName={cat?.name} currency={cur} />)}
