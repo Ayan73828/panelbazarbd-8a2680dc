@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { ArrowRight, Megaphone, MessageCircle, Phone, Send, ShieldCheck, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,7 @@ function HomePage() {
   const categories = useCategories();
   const announcements = useActiveAnnouncements();
   const products = useHomeProducts();
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   const enabled = (key: string) => {
     const row = sections.data?.find((s) => s.key === key);
@@ -159,29 +161,26 @@ function HomePage() {
             <EmptyState title="No categories yet" description="Add categories from the Admin Panel." />
           ) : (
             <div className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-2" style={{ WebkitOverflowScrolling: "touch" }}>
+              <button type="button" aria-pressed={selectedCategoryId === null} onClick={() => setSelectedCategoryId(null)} className={`panel inline-flex min-h-10 shrink-0 snap-start items-center rounded-full border px-4 py-2 text-sm font-medium ${selectedCategoryId === null ? "border-primary bg-primary/15 text-primary" : "border-border/70 bg-surface"}`}>All Products</button>
               {categories.data!.map((c) => (
-                <Link
-                  key={c.id}
-                  to="/products"
-                  search={{ category: c.slug }}
-                  className="panel inline-flex min-h-10 shrink-0 snap-start items-center gap-2 rounded-full border border-border/70 bg-surface px-4 py-2 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]"
-                >
-                  {c.image_url ? (
-                    <img src={c.image_url} alt="" className="h-5 w-5 rounded-full object-cover" />
-                  ) : (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <Zap className="h-3 w-3" />
-                    </span>
-                  )}
+                <button key={c.id} type="button" aria-pressed={selectedCategoryId === c.id} onClick={() => setSelectedCategoryId((current) => current === c.id ? null : c.id)} className={`panel inline-flex min-h-10 shrink-0 snap-start items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors active:scale-[0.98] ${selectedCategoryId === c.id ? "border-primary bg-primary/15 text-primary" : "border-border/70 bg-surface hover:border-primary/50 hover:bg-primary/5"}`}>
+                  {c.image_url ? <img src={c.image_url} alt="" loading="lazy" className="h-5 w-5 rounded-full object-cover" /> : <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary"><Zap className="h-3 w-3" /></span>}
                   <span className="whitespace-nowrap">{c.name}</span>
-                </Link>
+                </button>
               ))}
             </div>
           )}
         </section>
       )}
 
-      {enabled("featured") && (
+      {selectedCategoryId && (
+        <section className="mx-auto w-full max-w-6xl px-4 pb-10" aria-live="polite">
+          <SectionTitle title={categories.data?.find((c) => c.id === selectedCategoryId)?.name || "Selected category"} subtitle="Selected category products" />
+          {products.isLoading ? <div className="grid grid-cols-2 gap-3">{Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)}</div> : products.isError ? <ErrorState onRetry={() => products.refetch()} /> : (products.data ?? []).filter((p) => p.category_id === selectedCategoryId).length === 0 ? <EmptyState title="No products in this category" description="Choose another category or check back later." /> : <div className="grid grid-cols-2 gap-3">{(products.data ?? []).filter((p) => p.category_id === selectedCategoryId).map((p) => <ProductCard key={p.id} product={p} categoryName={categoryName(p.category_id)} currency={currency} />)}</div>}
+        </section>
+      )}
+
+      {!selectedCategoryId && enabled("featured") && (
         <section className="mx-auto w-full max-w-6xl px-4 pb-10">
           <SectionTitle
             title={section("featured")?.title || "Featured Products"}
@@ -215,7 +214,7 @@ function HomePage() {
         </section>
       )}
 
-      {(categories.data ?? []).map((c) => {
+      {!selectedCategoryId && (categories.data ?? []).map((c) => {
         const list = (products.data ?? []).filter((p) => p.category_id === c.id);
         if (list.length === 0) return null;
         return (
@@ -233,7 +232,7 @@ function HomePage() {
         );
       })}
 
-      {enabled("latest") && (
+      {!selectedCategoryId && enabled("latest") && (
         <section className="mx-auto w-full max-w-6xl px-4 pb-10">
           <SectionTitle
             title={section("latest")?.title || "Latest Products"}
