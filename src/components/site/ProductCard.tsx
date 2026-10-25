@@ -33,23 +33,23 @@ export function ProductCard({
   const hasDiscount = !!product.discount_price && Number(product.discount_price) > 0;
 
   return (
-    <article className="panel group relative flex flex-col overflow-hidden border-white/[0.08] bg-gradient-to-b from-white/[0.035] to-transparent transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-sm shadow-black/[0.03] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/[0.08]">
       <Link to="/products/$slug" params={{ slug: product.slug }} className="block">
-        <div className="relative aspect-[16/10] w-full overflow-hidden bg-surface-2">
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-muted/70 via-surface-2 to-primary/10">
           {product.image_url ? (
             <img
               src={product.image_url}
               alt={product.name}
               loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
+              className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
             />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
               <ImageIcon className="h-8 w-8" />
             </div>
           )}
-          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent pointer-events-none" />
-          <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
+          <div className="absolute left-2 top-2 flex flex-wrap gap-1.5 sm:left-3 sm:top-3">
             {product.is_featured && (
               <Badge className="bg-primary text-primary-foreground">Featured</Badge>
             )}
@@ -62,13 +62,13 @@ export function ProductCard({
         </div>
       </Link>
 
-      <div className="flex flex-1 flex-col gap-2.5 p-3.5 sm:p-4">
-        <div className="text-xs text-muted-foreground">
+      <div className="flex flex-1 flex-col gap-3 p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">
           <span className="truncate">{categoryName ?? "Uncategorized"}</span>
         </div>
 
         <Link to="/products/$slug" params={{ slug: product.slug }}>
-          <h3 className="line-clamp-2 text-sm font-semibold leading-snug sm:text-base">
+          <h3 className="line-clamp-2 min-h-[2.6em] text-sm font-bold leading-snug tracking-tight transition-colors group-hover:text-primary sm:text-base">
             {product.name}
           </h3>
         </Link>
@@ -78,7 +78,7 @@ export function ProductCard({
         )}
 
         <div className="mt-auto flex items-end gap-2 pt-2">
-          <span className="text-base font-extrabold tracking-tight text-primary sm:text-lg">
+          <span className="text-base font-black tracking-tight text-primary sm:text-xl">
             {money(hasDiscount ? product.discount_price : product.price, currency)}
           </span>
           {hasDiscount && (
@@ -88,10 +88,10 @@ export function ProductCard({
           )}
         </div>
 
-        <div className="flex gap-2 pt-1 [&_button]:min-h-9">
+        <div className="flex gap-2 border-t border-border/60 pt-3 [&_button]:min-h-10">
           <Button asChild size="sm" className="flex-1 rounded-full">
             <Link to="/products/$slug" params={{ slug: product.slug }}>
-              Buy Now
+              View product
             </Link>
           </Button>
           {product.demo_url && (
