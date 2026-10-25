@@ -87,41 +87,73 @@ function HomePage() {
   return (
     <SiteLayout>
       {enabled("hero") && (
-        <section className="hero-glow border-b border-border/60">
-          <div className="grid w-full items-center gap-5 px-4 py-5 sm:gap-6 sm:py-7">
-            <div className="space-y-3 sm:space-y-4">
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                <Zap className="h-3.5 w-3.5" /> Instant wallet checkout
+        <section className="relative isolate overflow-hidden border-b border-border/60 bg-[radial-gradient(ellipse_at_top_left,hsl(var(--primary)/0.18),transparent_55%),radial-gradient(ellipse_at_bottom_right,hsl(var(--accent)/0.12),transparent_45%)]">
+          <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.16] [background-image:linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] [background-size:36px_36px]" />
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-9 sm:py-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12 lg:py-20">
+            <div className="space-y-5 sm:space-y-6">
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary shadow-sm">
+                <Zap className="h-3.5 w-3.5" /> DIGITAL PRODUCTS · FAST DELIVERY
               </span>
-              <h1 className="text-2xl font-bold leading-tight sm:text-4xl">
-                <span className="text-gradient-brand">{settings.hero_title}</span>
-              </h1>
-              <p className="max-w-xl text-sm text-muted-foreground sm:text-base">
-                {settings.hero_subtitle || settings.site_description}
-              </p>
+              <div className="space-y-3">
+                <h1 className="max-w-2xl text-3xl font-black leading-[1.12] tracking-tight sm:text-5xl lg:text-6xl">
+                  <span className="text-gradient-brand">{settings.hero_title}</span>
+                </h1>
+                <p className="max-w-xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
+                  {settings.hero_subtitle || settings.site_description}
+                </p>
+              </div>
               <div className="flex flex-wrap gap-3">
+                <Button asChild size="lg" className="rounded-full px-6 shadow-lg shadow-primary/20">
+                  <Link to="/products">Explore products <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                </Button>
                 {!user && (
-                  <Button asChild size="default" variant="secondary" className="rounded-full">
-                    <Link to="/auth" search={{ mode: "register" }}>
-                      Create account
-                    </Link>
+                  <Button asChild size="lg" variant="outline" className="rounded-full border-border/80 bg-background/60 px-6 backdrop-blur">
+                    <Link to="/auth" search={{ mode: "register" }}>Create account</Link>
                   </Button>
                 )}
               </div>
-              <div className="flex flex-wrap gap-4 pt-0.5 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <ShieldCheck className="h-4 w-4 text-primary" /> Secure accounts
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Zap className="h-4 w-4 text-primary" /> Fast delivery
-                </span>
+              <div className="grid max-w-xl grid-cols-3 gap-2 pt-1 sm:gap-3">
+                <div className="rounded-2xl border border-border/70 bg-background/55 p-3 backdrop-blur sm:p-4">
+                  <Zap className="mb-2 h-4 w-4 text-primary" />
+                  <p className="text-xs font-bold sm:text-sm">Fast delivery</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground sm:text-xs">Quick order flow</p>
+                </div>
+                <div className="rounded-2xl border border-border/70 bg-background/55 p-3 backdrop-blur sm:p-4">
+                  <ShieldCheck className="mb-2 h-4 w-4 text-primary" />
+                  <p className="text-xs font-bold sm:text-sm">Secure checkout</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground sm:text-xs">Wallet payments</p>
+                </div>
+                <div className="rounded-2xl border border-border/70 bg-background/55 p-3 backdrop-blur sm:p-4">
+                  <MessageCircle className="mb-2 h-4 w-4 text-primary" />
+                  <p className="text-xs font-bold sm:text-sm">Need help?</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground sm:text-xs">Support available</p>
+                </div>
               </div>
             </div>
-            {settings.hero_image_url && (
-              <div className="panel overflow-hidden">
-                <img src={settings.hero_image_url} alt={settings.hero_title} className="aspect-[16/11] w-full object-cover" />
+            <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
+              <div className="absolute -inset-5 rounded-[2rem] bg-primary/10 blur-2xl" />
+              <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-card/80 p-3 shadow-2xl shadow-black/20 backdrop-blur sm:p-4">
+                {settings.hero_image_url ? (
+                  <img src={settings.hero_image_url} alt={settings.hero_title} fetchPriority="high" className="aspect-[5/4] w-full rounded-[1.25rem] object-cover" />
+                ) : (
+                  <div className="relative flex aspect-[5/4] flex-col justify-between overflow-hidden rounded-[1.25rem] bg-[radial-gradient(ellipse_at_25%_20%,hsl(var(--primary)/0.34),transparent_45%),linear-gradient(145deg,hsl(var(--card)),hsl(var(--background)))] p-5 sm:p-7">
+                    <div className="flex items-center justify-between">
+                      <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">PANEL BAZAR BD</span>
+                      <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg"><Zap className="h-5 w-5" /></span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">Your digital store</p>
+                      <p className="mt-2 text-2xl font-black tracking-tight sm:text-4xl">Shop smarter.<br /><span className="text-gradient-brand">Get it instantly.</span></p>
+                    </div>
+                    <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/65 p-3 backdrop-blur">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary"><ShieldCheck className="h-5 w-5" /></span>
+                      <div className="min-w-0 flex-1"><p className="text-sm font-bold">Simple & secure</p><p className="text-xs text-muted-foreground">Browse · Order · Receive</p></div>
+                      <ArrowRight className="h-4 w-4 text-primary" />
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </section>
       )}
@@ -187,7 +219,7 @@ function HomePage() {
             subtitle={section("featured")?.subtitle}
           />
           {products.isLoading ? (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <ProductCardSkeleton key={i} />
               ))}
@@ -200,7 +232,7 @@ function HomePage() {
               description="Mark products as featured from the Admin Panel."
             />
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {featured.map((p) => (
                 <ProductCard
                   key={p.id}
@@ -223,7 +255,7 @@ function HomePage() {
               <h2 className="text-lg font-bold uppercase tracking-wide sm:text-2xl">{c.name}</h2>
               <Link to="/products" search={{ category: c.slug }} className="text-sm text-primary">See all</Link>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {list.slice(0, 6).map((p) => (
                 <ProductCard key={p.id} product={p} categoryName={c.name} currency={currency} />
               ))}
@@ -239,7 +271,7 @@ function HomePage() {
             subtitle={section("latest")?.subtitle}
           />
           {products.isLoading ? (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <ProductCardSkeleton key={i} />
               ))}
@@ -247,7 +279,7 @@ function HomePage() {
           ) : latest.length === 0 ? (
             <EmptyState title="No products yet" description="Add products from the Admin Panel." />
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {latest.map((p) => (
                 <ProductCard
                   key={p.id}
