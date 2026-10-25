@@ -21,7 +21,7 @@ export function settingsQueryOptions() {
 export function useSettings() {
   const query = useQuery({
     ...settingsQueryOptions(),
-    refetchInterval: 5_000,
+    // Settings change infrequently; refresh on focus/reconnect without polling every 5 seconds.
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
