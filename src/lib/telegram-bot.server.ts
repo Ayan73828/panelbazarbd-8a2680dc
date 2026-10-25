@@ -190,13 +190,37 @@ const screen = async (chat_id: number, message_id: number | undefined, text: str
   return send(chat_id, text, reply_markup);
 };
 
+async function trackRecentBotMessage(chatId: number, messageId: number) {
+  try {
+    const db = await admin();
+    const current = await getState(chatId);
+    const data = current.data ?? {};
+    const persistent = Array.isArray(data.persistent_order_message_ids)
+      ? data.persistent_order_message_ids.filter((id: unknown): id is number => typeof id === "number")
+      : [];
+    if (persistent.includes(messageId)) return;
+    const recent = Array.isArray(data.recent_bot_message_ids)
+      ? data.recent_bot_message_ids.filter((id: unknown): id is number => typeof id === "number")
+      : [];
+    await db.from("telegram_sessions").upsert({
+      chat_id: chatId,
+      state: current.state ?? "",
+      data: { ...data, recent_bot_message_ids: [...new Set([...recent, messageId])].slice(-100) },
+      updated_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Telegram message cleanup tracking failed", error);
+  }
+}
+
 const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
   if (!String(text ?? "").trim()) {
     console.error("Telegram send skipped: empty text", { chat_id });
     return { ok: false, description: "Empty message text" };
   }
   const result = await tg("sendMessage", { chat_id, text, parse_mode: "HTML", disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) });
-  // Avoid an extra database read/write for every outgoing Telegram message.
+  const messageId = result?.result?.message_id;
+  if (result?.ok && typeof messageId === "number") await trackRecentBotMessage(chat_id, messageId);
   return result;
 };
 
@@ -293,8 +317,14 @@ export async function handleUpdate(u: any) {
   if (text === "Restart 🔁") {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
     const persistentIds = new Set<number>(Array.isArray(st.data?.persistent_order_message_ids) ? st.data.persistent_order_message_ids : []);
-    await Promise.all(oldIds.filter((message_id: number) => !persistentIds.has(message_id)).map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)));
-    await setState(chatId, "", { recent_bot_message_ids: [...persistentIds], persistent_order_message_ids: [...persistentIds] });
+    await Promise.all([
+      ...oldIds.filter((message_id: number) => !persistentIds.has(message_id)).map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)),
+      tg("deleteMessage", { chat_id: chatId, message_id: m.message_id }).catch(() => undefined),
+      ...(Number.isInteger(Number(st.data?.last_start_message_id)) && Number(st.data?.last_start_message_id) > 0
+        ? [tg("deleteMessage", { chat_id: chatId, message_id: Number(st.data.last_start_message_id) }).catch(() => undefined)]
+        : []),
+    ]);
+    await setState(chatId, "", { recent_bot_message_ids: [...persistentIds], persistent_order_message_ids: [...persistentIds], last_start_message_id: null });
     const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
     return welcome(chatId, account, undefined, m.from.id);
   }
@@ -323,6 +353,7 @@ export async function handleUpdate(u: any) {
       last_start_message_id: m.message_id,
     };
     await setState(chatId, "", nextData);
+    await tg("deleteMessage", { chat_id: chatId, message_id: m.message_id }).catch(() => undefined);
     const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
     if (validReferrerId && !st.data?.phone_shared) {
       return send(chatId,
