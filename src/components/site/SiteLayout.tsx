@@ -434,7 +434,6 @@ function HeaderMusicToggle() {
 
   return (
     <>
-      <audio id="panelbazarbd-background-music" src="https://standard-plum-2cflgaxh.edgeone.dev/" loop preload="auto" />
       <Button
         type="button"
         variant="ghost"
