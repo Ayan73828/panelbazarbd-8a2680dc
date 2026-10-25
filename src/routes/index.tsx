@@ -86,6 +86,38 @@ function HomePage() {
 
   return (
     <SiteLayout>
+      {!selectedCategoryId && enabled("featured") && (
+        <section className="mx-auto w-full max-w-7xl px-4 pb-6 pt-4 sm:pb-8 sm:pt-6">
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-black tracking-tight sm:text-2xl">
+                {section("featured")?.title || "Explore Products"}
+              </h1>
+              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                {section("featured")?.subtitle || "Browse products and choose what you need"}
+              </p>
+            </div>
+            <Link to="/products" className="shrink-0 text-sm font-semibold text-primary">
+              View all <ArrowRight className="ml-1 inline h-4 w-4" />
+            </Link>
+          </div>
+          {products.isLoading ? (
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)}
+            </div>
+          ) : products.isError ? (
+            <ErrorState onRetry={() => products.refetch()} />
+          ) : (featured.length > 0 ? featured : latest).length === 0 ? (
+            <EmptyState title="No products yet" description="Products will appear here when available." />
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {(featured.length > 0 ? featured : latest).slice(0, 8).map((p) => (
+                <ProductCard key={p.id} product={p} categoryName={categoryName(p.category_id)} currency={currency} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
       {enabled("hero") && (
         <section className="relative isolate overflow-hidden border-b border-border/60 bg-[radial-gradient(ellipse_at_top_left,hsl(var(--primary)/0.18),transparent_55%),radial-gradient(ellipse_at_bottom_right,hsl(var(--accent)/0.12),transparent_45%)]">
           <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.16] [background-image:linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] [background-size:36px_36px]" />
@@ -209,40 +241,6 @@ function HomePage() {
         <section className="mx-auto w-full max-w-6xl px-4 pb-10" aria-live="polite">
           <SectionTitle title={categories.data?.find((c) => c.id === selectedCategoryId)?.name || "Selected category"} subtitle="Selected category products" />
           {products.isLoading ? <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)}</div> : products.isError ? <ErrorState onRetry={() => products.refetch()} /> : (products.data ?? []).filter((p) => p.category_id === selectedCategoryId).length === 0 ? <EmptyState title="No products in this category" description="Choose another category or check back later." /> : <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">{(products.data ?? []).filter((p) => p.category_id === selectedCategoryId).map((p) => <ProductCard key={p.id} product={p} categoryName={categoryName(p.category_id)} currency={currency} />)}</div>}
-        </section>
-      )}
-
-      {!selectedCategoryId && enabled("featured") && (
-        <section className="mx-auto w-full max-w-6xl px-4 pb-8 sm:pb-10">
-          <SectionTitle
-            title={section("featured")?.title || "Featured Products"}
-            subtitle={section("featured")?.subtitle}
-          />
-          {products.isLoading ? (
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <ProductCardSkeleton key={i} />
-              ))}
-            </div>
-          ) : products.isError ? (
-            <ErrorState onRetry={() => products.refetch()} />
-          ) : featured.length === 0 ? (
-            <EmptyState
-              title="No featured products"
-              description="Mark products as featured from the Admin Panel."
-            />
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-              {featured.map((p) => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  categoryName={categoryName(p.category_id)}
-                  currency={currency}
-                />
-              ))}
-            </div>
-          )}
         </section>
       )}
 
