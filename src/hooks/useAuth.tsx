@@ -22,6 +22,7 @@ type AuthContextValue = {
   user: User | null;
   profile: Profile | null;
   isAdmin: boolean;
+  isOwner: boolean;
   loading: boolean;
   profileLoading: boolean;
   signOut: () => Promise<void>;
@@ -59,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["me", userId],
     enabled: !!userId,
     queryFn: async () => {
-      if (!userId) return { profile: null, isAdmin: false };
+      if (!userId) return { profile: null, isAdmin: false, isOwner: false };
       const {error: bootstrapError} = await supabase.rpc("ensure_profile");
       if (bootstrapError) throw bootstrapError;
       const [{ data: profile }, { data: roles }] = await Promise.all([
@@ -68,7 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ]);
       return {
         profile: (profile as Profile | null) ?? null,
-        isAdmin: (roles ?? []).some((r) => r.role === "admin"),
+        isAdmin: (roles ?? []).some((r) => ["admin", "owner", "super_admin"].includes(r.role)),
+        isOwner: (roles ?? []).some((r) => ["owner", "super_admin"].includes(r.role)),
       };
     },
   });
@@ -79,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       profile: meQuery.data?.profile ?? null,
       isAdmin: !!meQuery.data?.isAdmin,
+      isOwner: !!meQuery.data?.isOwner,
       loading,
       profileLoading: !!userId && meQuery.isLoading,
       signOut: async () => {
