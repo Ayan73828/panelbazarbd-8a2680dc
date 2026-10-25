@@ -34,12 +34,6 @@ const MENU = {
     [premiumButton({ text: "🔗 Linked Website Account", callback_data: "menu:link_account" }, "primary")],
   ],
 };
-const RESTART_KEYBOARD = {
-  keyboard: [[{ text: "Restart 🔁" }]],
-  resize_keyboard: true,
-  is_persistent: true,
-  input_field_placeholder: "Restart the bot",
-};
 const SHARE_NUMBER = {
   keyboard: [[{ text: "📱 SHARE MY NUMBER", request_contact: true }]],
   resize_keyboard: true,
@@ -81,17 +75,6 @@ async function setState(chatId: number, state: string, data: Record<string, unkn
     chat_id: chatId,
     state,
     data: { ...(current.data ?? {}), ...data },
-    updated_at: new Date().toISOString(),
-  });
-}
-async function rememberMessage(chatId: number, messageId: number) {
-  const db = await admin();
-  const current = await getState(chatId);
-  const ids = Array.isArray(current.data?.recent_bot_message_ids) ? current.data.recent_bot_message_ids : [];
-  await db.from("telegram_sessions").upsert({
-    chat_id: chatId,
-    state: current.state ?? "",
-    data: { ...(current.data ?? {}), recent_bot_message_ids: [...ids, messageId].slice(-80) },
     updated_at: new Date().toISOString(),
   });
 }
@@ -203,8 +186,7 @@ const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
     return { ok: false, description: "Empty message text" };
   }
   const result = await tg("sendMessage", { chat_id, text, parse_mode: "HTML", disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) });
-  const id = result?.result?.message_id;
-  if (typeof id === "number") await rememberMessage(chat_id, id).catch((e) => console.error("telegram message tracking", e));
+  // Avoid an extra database read/write for every outgoing Telegram message.
   return result;
 };
 
@@ -231,7 +213,6 @@ async function welcome(chatId: number, user: any, messageId?: number, tgUserId?:
     const welcomeText = `🏪 ━━ <b>Panel Bazar BD</b> ━━ 🏪\n\n👋 Welcome back, <b>${esc(user.name || user.username || "Customer")}</b>\n\n⭐ ━ <b>REGULAR HIGHLIGHTS</b> ━ ⭐\n\n│ 🔑 Wholesale Game Keys &amp; VIP Stocks\n│ ⚡ Priority Auto-Delivery 24/7\n│ 🎁 Tiered Referral\n│ 📞 Dedicated VIP Partner Support\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🚀 <b>Tap Shop Now to Start!</b>`;
     if (typeof messageId === "number") await screen(chatId, messageId, welcomeText, mainMenu);
     else await send(chatId, welcomeText, mainMenu);
-    if (typeof messageId !== "number") await send(chatId, " ", RESTART_KEYBOARD);
   } else {
     await send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nএখনই Telegram থেকেই Shop Now, Add Balance ও My Order ব্যবহার করতে পারবেন। Website account যুক্ত করা ঐচ্ছিক।", mainMenu);
   }
