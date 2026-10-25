@@ -4,6 +4,9 @@ import {
   Home,
   Bell,
   BadgeCheck,
+  ShieldCheck,
+  Crown,
+  Sparkles,
   Gift,
   KeyRound,
   LifeBuoy,
@@ -43,7 +46,7 @@ const bottomNav = [
 
 export function SiteLayout({ children }: { children: ReactNode }) {
   const { settings } = useSettings();
-  const { user, profile, isAdmin, loading: authLoading } = useAuth();
+  const { user, profile, isAdmin, isOwner, loading: authLoading } = useAuth();
   const orders = useMyOrders();
   const transactions = useMyTransactions();
   const announcements = useActiveAnnouncements();
@@ -169,7 +172,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
                 <span className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
                   {money(profile?.balance, settings.currency_symbol)}
                 </span>
-                <ProfileMenu name={profile?.name || profile?.username || profile?.email || "Account"} email={profile?.email ?? ""} isReseller={!!profile?.is_reseller} />
+                <ProfileMenu name={profile?.name || profile?.username || profile?.email || "Account"} email={profile?.email ?? ""} isReseller={!!profile?.is_reseller} isAdmin={isAdmin} isOwner={isOwner} />
               </>
             ) : (
               <>
@@ -318,7 +321,7 @@ export function PageHeader({
   );
 }
 
-function ProfileMenu({ name, email, isReseller }: { name: string; email: string; isReseller: boolean }) {
+function ProfileMenu({ name, email, isReseller, isAdmin, isOwner }: { name: string; email: string; isReseller: boolean; isAdmin: boolean; isOwner: boolean }) {
   const { signOut } = useAuth();
   const items = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -340,9 +343,18 @@ function ProfileMenu({ name, email, isReseller }: { name: string; email: string;
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
-          <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
+          <p className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm font-semibold">
             <span className="truncate">{name}</span>
-            {isReseller && <BadgeCheck className="h-4 w-4 shrink-0 fill-primary/15 text-primary" aria-label="Verified reseller" title="Verified reseller" />}
+            {isOwner ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-400/50 bg-gradient-to-r from-amber-300/25 via-yellow-200/20 to-orange-400/25 px-2 py-0.5 text-[10px] font-extrabold tracking-wide text-amber-600 shadow-sm">
+                <Crown className="h-3 w-3 animate-pulse fill-amber-400/30" /> KING
+                <Sparkles className="h-3 w-3 animate-pulse" />
+              </span>
+            ) : isAdmin ? (
+              <ShieldCheck className="h-[17px] w-[17px] shrink-0 fill-blue-500/15 text-blue-500" aria-label="Verified admin" title="Verified admin" />
+            ) : isReseller ? (
+              <BadgeCheck className="h-[17px] w-[17px] shrink-0 fill-emerald-500/15 text-emerald-500" aria-label="Verified reseller" title="Verified reseller" />
+            ) : null}
           </p>
           <p className="truncate text-xs font-normal text-muted-foreground">{email}</p>
         </DropdownMenuLabel>
