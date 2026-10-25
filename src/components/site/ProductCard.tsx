@@ -62,7 +62,7 @@ export function ProductCard({
         </div>
       </Link>
 
-      <div className="flex flex-1 flex-col gap-3 p-3 sm:p-4">
+      <div className="flex flex-1 flex-col gap-2 p-3 sm:p-4">
         <div className="flex items-center justify-between gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">
           <span className="truncate">{categoryName ?? "Uncategorized"}</span>
         </div>
@@ -77,7 +77,7 @@ export function ProductCard({
           <p className="line-clamp-2 text-xs text-muted-foreground">{product.short_description}</p>
         )}
 
-        <div className="mt-auto flex items-end gap-2 pt-2">
+        <div className="flex items-end gap-2 pt-0.5">
           <span className="text-base font-black tracking-tight text-primary sm:text-xl">
             {money(hasDiscount ? product.discount_price : product.price, currency)}
           </span>
@@ -88,7 +88,7 @@ export function ProductCard({
           )}
         </div>
 
-        <div className="flex gap-2 border-t border-border/60 pt-3 [&_button]:min-h-10">
+        <div className="mt-2 flex gap-2 border-t border-border/60 pt-3 [&_button]:min-h-10">
           <Button asChild size="sm" className="flex-1 rounded-full">
             <Link to="/products/$slug" params={{ slug: product.slug }}>
               View product
