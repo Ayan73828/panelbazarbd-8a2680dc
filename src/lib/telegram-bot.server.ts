@@ -865,10 +865,10 @@ async function handleCallback(cq: any) {
         return orderMessage;
       }
       if (result.status === "failed") {
-        return screen(chatId, cq.message?.message_id, `❌ ${esc(result.message || "অর্ডার সম্পন্ন হয়নি। টাকা ফেরত দেওয়া হয়েছে।")}`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
+        return screen(chatId, cq.message?.message_id, `❌ ${esc(result.message || "অর্ডার সম্পন্ন হয়নি। টাকা ফেরত দেওয়া হয়েছে।")}`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
       }
       if (result.status === "unavailable") {
-        return screen(chatId, cq.message?.message_id, `⚠️ ${esc(result.message || "এই প্যাকেজটি আপাতত পাওয়া যাচ্ছে না।")}`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
+        return screen(chatId, cq.message?.message_id, `⚠️ ${esc(result.message || "এই প্যাকেজটি আপাতত পাওয়া যাচ্ছে না।")}`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
       }
       if (result.error === "INSUFFICIENT_BALANCE") {
         const shortfall = Math.max(1, Math.ceil(Number(pkg.price) - Number(user.balance ?? 0)));
@@ -896,7 +896,7 @@ async function handleCallback(cq: any) {
         });
       }
       const msg = error.message.includes("NO_KEYS") ? "এই প্যাকেজের Key বর্তমানে শেষ।" : "❌ এই মুহূর্তে অর্ডার সম্পন্ন করা যায়নি।";
-      return screen(chatId, cq.message?.message_id, msg, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "⬅️ Back to Shop", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
+      return screen(chatId, cq.message?.message_id, msg, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Shop", callback_data: `p:${pkg.product_id}` }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]] });
     }
     const { data: o } = await db.from("orders").select("*").eq("id", oid).maybeSingle();
     await preserveOrderMessage(chatId, cq.message?.message_id);
