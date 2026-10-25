@@ -139,7 +139,7 @@ function HomePage() {
       )}
 
       {enabled("categories") && (
-        <section className="mx-auto w-full max-w-6xl px-4 py-4 sm:py-6">
+        <section className="mx-auto w-full max-w-6xl px-4 py-5 sm:py-7">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-base font-semibold tracking-tight sm:text-lg">
@@ -176,12 +176,12 @@ function HomePage() {
       {selectedCategoryId && (
         <section className="mx-auto w-full max-w-6xl px-4 pb-10" aria-live="polite">
           <SectionTitle title={categories.data?.find((c) => c.id === selectedCategoryId)?.name || "Selected category"} subtitle="Selected category products" />
-          {products.isLoading ? <div className="grid grid-cols-2 gap-3">{Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)}</div> : products.isError ? <ErrorState onRetry={() => products.refetch()} /> : (products.data ?? []).filter((p) => p.category_id === selectedCategoryId).length === 0 ? <EmptyState title="No products in this category" description="Choose another category or check back later." /> : <div className="grid grid-cols-2 gap-3">{(products.data ?? []).filter((p) => p.category_id === selectedCategoryId).map((p) => <ProductCard key={p.id} product={p} categoryName={categoryName(p.category_id)} currency={currency} />)}</div>}
+          {products.isLoading ? <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)}</div> : products.isError ? <ErrorState onRetry={() => products.refetch()} /> : (products.data ?? []).filter((p) => p.category_id === selectedCategoryId).length === 0 ? <EmptyState title="No products in this category" description="Choose another category or check back later." /> : <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">{(products.data ?? []).filter((p) => p.category_id === selectedCategoryId).map((p) => <ProductCard key={p.id} product={p} categoryName={categoryName(p.category_id)} currency={currency} />)}</div>}
         </section>
       )}
 
       {!selectedCategoryId && enabled("featured") && (
-        <section className="mx-auto w-full max-w-6xl px-4 pb-10">
+        <section className="mx-auto w-full max-w-6xl px-4 pb-8 sm:pb-10">
           <SectionTitle
             title={section("featured")?.title || "Featured Products"}
             subtitle={section("featured")?.subtitle}
