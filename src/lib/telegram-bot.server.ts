@@ -42,14 +42,23 @@ const GUEST_AUTH = {
   inline_keyboard: [[{ text: "🔐 LOGIN", callback_data: "guest:login" }, { text: "🆕 CREATE ACCOUNT", callback_data: "guest:register" }]],
 };
 
+// Short-lived process cache prevents a database round-trip for every Telegram update.
+// Admin changes update this cache immediately; cold starts always read the persisted setting.
+let telegramMaintenanceCache: { value: boolean; expiresAt: number } | null = null;
+const TELEGRAM_MAINTENANCE_CACHE_TTL_MS = 5_000;
 async function getTelegramMaintenanceMode(): Promise<boolean> {
+  if (telegramMaintenanceCache && telegramMaintenanceCache.expiresAt > Date.now()) {
+    return telegramMaintenanceCache.value;
+  }
   const db = await admin();
   const { data, error } = await db.from("site_settings").select("value").eq("key", "telegram_maintenance_mode").maybeSingle();
   if (error) {
     console.error("Telegram maintenance setting read failed", error);
     return false;
   }
-  return String(data?.value ?? "false").toLowerCase() === "true";
+  const value = String(data?.value ?? "false").toLowerCase() === "true";
+  telegramMaintenanceCache = { value, expiresAt: Date.now() + TELEGRAM_MAINTENANCE_CACHE_TTL_MS };
+  return value;
 }
 async function setTelegramMaintenanceMode(enabled: boolean) {
   const db = await admin();
@@ -58,6 +67,7 @@ async function setTelegramMaintenanceMode(enabled: boolean) {
     { onConflict: "key" },
   );
   if (error) throw new Error(error.message);
+  telegramMaintenanceCache = { value: enabled, expiresAt: Date.now() + TELEGRAM_MAINTENANCE_CACHE_TTL_MS };
 }
 function telegramMaintenanceNotice() {
   return "🛠️ <b>PANEL BAZAR BD — Telegram Update চলছে</b>\n\nআমাদের Telegram Bot-এ বর্তমানে maintenance/update চলছে। অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন। সার্ভিস চালু হলে আবার ব্যবহার করতে পারবেন।\n\nআপনার account ও balance নিরাপদ আছে।";
