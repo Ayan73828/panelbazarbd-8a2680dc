@@ -1,8 +1,14 @@
 // Server-only helpers for UddoktaPay (Paymently) auto deposits.
 export function paymentBaseUrl() {
-  const url = process.env["UDDOKTAPAY_BASE_URL"];
-  if (!url) throw new Error("Payment gateway is not configured yet");
-  return url;
+  const configuredUrl = process.env["UDDOKTAPAY_BASE_URL"];
+  if (!configuredUrl) throw new Error("Payment gateway is not configured yet");
+
+  // UddoktaPay API endpoints live under /api. Accept either a domain-only
+  // base URL or one that already includes /api, avoiding missing/double paths.
+  const url = new URL(configuredUrl.trim().replace(/\\/+$/, ""));
+  const path = url.pathname.replace(/\\/+$/, "");
+  if (!path.endsWith("/api")) url.pathname = `${path}/api`.replace(/^\\/api$/, "/api");
+  return url.toString().replace(/\\/+$/, "");
 }
 
 
