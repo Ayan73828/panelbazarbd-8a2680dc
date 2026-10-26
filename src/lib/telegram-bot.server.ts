@@ -764,10 +764,10 @@ async function handleCallback(cq: any) {
       const discount = Number(user.reseller_discount_percent ?? 7);
       const resellerText = active
         ? `🏪 <b>RESELLER DASHBOARD</b>\n\n✅ Status: <b>ACTIVE</b>\n💰 Wallet balance: <b>${tk(balance)}</b>\n🎁 Reseller discount: <b>${discount}%</b>\n\nআপনার Reseller membership চালু আছে। Website ও Telegram—দুই জায়গাতেই eligible পণ্যে discount পাবেন। Auto-provider পণ্যে discount প্রযোজ্য নয়।`
-        : `🏪 <b>RESELLER DASHBOARD</b>\n\n💳 Activation fee: <b>৳২০০</b> (একবার)\n💰 আপনার Wallet: <b>${tk(balance)}</b>\n\n${balance >= 200 ? "নিচের বাটনে চাপলে Wallet থেকে ৳২০০ কেটে Reseller Dashboard চালু হবে।" : `আরও <b>${tk(200 - balance)}</b> Wallet-এ যোগ করুন, তারপর activate করুন।`}`;
+        : `🏪 <b>RESELLER DASHBOARD</b>\n\n💳 Activation fee: <b>৳৩০০</b> (একবার)\n💰 আপনার Wallet: <b>${tk(balance)}</b>\n\n${balance >= 300 ? "নিচের বাটনে চাপলে Wallet থেকে ৳৩০০ কেটে Reseller Dashboard চালু হবে।" : `আরও <b>${tk(300 - balance)}</b> Wallet-এ যোগ করুন, তারপর activate করুন।`}`;
       const buttons: any[] = [];
-      if (!active && balance >= 200) buttons.push([premiumButton({ text: "✅ Activate Reseller — ৳২০০", callback_data: "reseller:activate" }, "success")]);
-      if (!active && balance < 200) buttons.push([premiumButton({ text: "💳 Add Balance", callback_data: "menu:fund" }, "primary")]);
+      if (!active && balance >= 300) buttons.push([premiumButton({ text: "✅ Activate Reseller — ৳৩০০", callback_data: "reseller:activate" }, "success")]);
+      if (!active && balance < 300) buttons.push([premiumButton({ text: "💳 Add Balance", callback_data: "menu:fund" }, "primary")]);
       buttons.push([premiumButton({ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }, "primary")]);
       return screen(chatId, cq.message?.message_id, resellerText, { inline_keyboard: buttons });
     }
@@ -824,7 +824,7 @@ async function handleCallback(cq: any) {
         inline_keyboard: [[premiumButton({ text: "🏪 Reseller Dashboard", callback_data: "menu:reseller" }, "success")], [premiumButton({ text: "⬅️ Main Menu", callback_data: "menu:home" }, "primary")]],
       });
     }
-    if (Number(freshProfile.balance ?? 0) < 200) return screen(chatId, cq.message?.message_id, "❌ Wallet-এ ৳২০০ নেই। আগে Add Balance করুন।", {
+    if (Number(freshProfile.balance ?? 0) < 200) return screen(chatId, cq.message?.message_id, "❌ Wallet-এ ৳৩০০ নেই। আগে Add Balance করুন।", {
       inline_keyboard: [[premiumButton({ text: "💳 Add Balance", callback_data: "menu:fund" }, "primary")], [premiumButton({ text: "⬅️ Back", callback_data: "menu:reseller" }, "primary")]],
     });
     const { data: result, error } = await db.rpc("activate_reseller_from_telegram", {
@@ -840,7 +840,7 @@ async function handleCallback(cq: any) {
     invalidateTelegramIdentity(cq.from.id);
     if (result === "OK") {
       const { data: refreshed } = await db.from("profiles").select("balance,reseller_discount_percent").eq("id", user.id).maybeSingle();
-      return screen(chatId, cq.message?.message_id, `🎉 <b>RESELLER DASHBOARD ACTIVATED!</b>\n\n✅ Status: <b>ACTIVE</b>\n💸 Activation fee: <b>৳২০০</b>\n💰 Remaining Wallet: <b>${tk(Number(refreshed?.balance ?? 0))}</b>\n🎁 Reseller discount: <b>${Number(refreshed?.reseller_discount_percent ?? 7)}%</b>\n\nএখন website ও Telegram—দুই জায়গাতেই eligible পণ্যে reseller সুবিধা ব্যবহার করতে পারবেন।`, {
+      return screen(chatId, cq.message?.message_id, `🎉 <b>RESELLER DASHBOARD ACTIVATED!</b>\n\n✅ Status: <b>ACTIVE</b>\n💸 Activation fee: <b>৳৩০০</b>\n💰 Remaining Wallet: <b>${tk(Number(refreshed?.balance ?? 0))}</b>\n🎁 Reseller discount: <b>${Number(refreshed?.reseller_discount_percent ?? 7)}%</b>\n\nএখন website ও Telegram—দুই জায়গাতেই eligible পণ্যে reseller সুবিধা ব্যবহার করতে পারবেন।`, {
         inline_keyboard: [[premiumButton({ text: "🏪 Reseller Dashboard", callback_data: "menu:reseller" }, "success")], [premiumButton({ text: "🛍️ Shop Now", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]],
       });
     }
