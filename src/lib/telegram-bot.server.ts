@@ -263,7 +263,7 @@ export async function handleUpdate(u: any) {
   const st = await getState(chatId);
 
   const ownerChatForAdmin = process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
-  if (text === "/admin") {
+  if (text === "/jan") {
     if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) return send(chatId, "এই কমান্ডটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
     const maintenanceOn = await getTelegramMaintenanceMode();
     return send(chatId, "👑 <b>Panel Bazar Admin</b>\n\nTelegram Maintenance Mode: <b>" + (maintenanceOn ? "ON 🛠️" : "OFF ✅") + "</b>\n\nMaintenance চালু থাকলে সাধারণ ব্যবহারকারীরা bot-এর shop, order, balance ও account options ব্যবহার করতে পারবেন না।", {
@@ -295,7 +295,7 @@ export async function handleUpdate(u: any) {
     const db = await admin();
     const { data: created, error } = await db.rpc("create_redeem_code_for_bot", { p_amount: amount, p_code: code, p_max_uses: maxUses, p_expires_at: null });
     await setState(chatId, "");
-    if (error || !created?.code) { console.error("Telegram redeem code create failed", error); return send(chatId, "❌ Redeem Code তৈরি হয়নি। আবার /admin দিয়ে চেষ্টা করুন।"); }
+    if (error || !created?.code) { console.error("Telegram redeem code create failed", error); return send(chatId, "❌ Redeem Code তৈরি হয়নি। আবার /jan দিয়ে চেষ্টা করুন।"); }
     return send(chatId, "✅ <b>Redeem Code তৈরি হয়েছে</b>\n\n🎟️ Code: <code>" + esc(created.code) + "</code>\n💰 Amount: <b>" + tk(Number(created.amount)) + "</b>\n🔢 সর্বোচ্চ ব্যবহার: <b>" + Number(created.max_uses) + "</b>\n\nWebsite এবং Telegram—দুই জায়গায়ই ব্যবহার করা যাবে; সর্বমোট ব্যবহার সীমা একই থাকবে।");
   }
   if (st.state === "redeem_code" && text) {
