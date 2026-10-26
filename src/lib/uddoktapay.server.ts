@@ -5,10 +5,10 @@ export function paymentBaseUrl() {
 
   // UddoktaPay API endpoints live under /api. Accept either a domain-only
   // base URL or one that already includes /api, avoiding missing/double paths.
-  const url = new URL(configuredUrl.trim().replace(/\\/+$/, ""));
-  const path = url.pathname.replace(/\\/+$/, "");
-  if (!path.endsWith("/api")) url.pathname = `${path}/api`.replace(/^\\/api$/, "/api");
-  return url.toString().replace(/\\/+$/, "");
+  const url = new URL(configuredUrl.trim().replace(/\/+$/, ""));
+  const path = url.pathname.replace(/\/+$/, "");
+  if (!path.endsWith("/api")) url.pathname = path ? `${path}/api` : "/api";
+  return url.toString().replace(/\/+$/, "");
 }
 
 
