@@ -3,11 +3,16 @@ export function paymentBaseUrl() {
   const configuredUrl = process.env["UDDOKTAPAY_BASE_URL"];
   if (!configuredUrl) throw new Error("Payment gateway is not configured yet");
 
-  // UddoktaPay API endpoints live under /api. Accept either a domain-only
-  // base URL or one that already includes /api, avoiding missing/double paths.
+  // Accept a domain, an API root (/api), or a full endpoint
+  // (/api/checkout-v2 or /api/verify-payment) from Render env settings.
+  // Normalize all forms to the shared API root used by web and Telegram.
   const url = new URL(configuredUrl.trim().replace(/\/+$/, ""));
-  const path = url.pathname.replace(/\/+$/, "");
-  if (!path.endsWith("/api")) url.pathname = path ? `${path}/api` : "/api";
+  let path = url.pathname.replace(/\/+$/, "");
+  path = path.replace(/\/(?:checkout-v2|verify-payment)$/i, "");
+  if (!path.endsWith("/api")) path = path ? `${path}/api` : "/api";
+  url.pathname = path;
+  url.search = "";
+  url.hash = "";
   return url.toString().replace(/\/+$/, "");
 }
 
