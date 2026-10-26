@@ -30,6 +30,7 @@ const MENU = {
     [premiumButton({ text: "🧾 My Order", callback_data: "menu:orders" }, "primary"), premiumButton({ text: "👑 Profile", callback_data: "menu:profile" }, "primary")],
     [premiumButton({ text: "💳 Add Balance", callback_data: "menu:fund" }, "primary"), premiumButton({ text: "🎟️ Redeem Code", callback_data: "menu:redeem" }, "primary")],
     [premiumButton({ text: "🤝 Referral", callback_data: "menu:referral" }, "primary")],
+    [premiumButton({ text: "🏪 Reseller Dashboard", callback_data: "menu:reseller" }, "success")],
     [premiumButton({ text: "💬 Support", callback_data: "menu:support" }, "primary")],
     [premiumButton({ text: "🔗 Linked Website Account", callback_data: "menu:link_account" }, "primary")],
   ],
@@ -757,6 +758,19 @@ async function handleCallback(cq: any) {
     if (id === "orders") return showOrders(chatId, user, false, cq.message?.message_id);
     if (id === "keys") return showOrders(chatId, user, true, cq.message?.message_id);
     if (id === "support") return showSupport(chatId, cq.message?.message_id);
+    if (id === "reseller") {
+      const active = Boolean(user.is_reseller);
+      const balance = Number(user.balance ?? 0);
+      const discount = Number(user.reseller_discount_percent ?? 7);
+      const resellerText = active
+        ? `🏪 <b>RESELLER DASHBOARD</b>\n\n✅ Status: <b>ACTIVE</b>\n💰 Wallet balance: <b>${tk(balance)}</b>\n🎁 Reseller discount: <b>${discount}%</b>\n\nআপনার Reseller membership চালু আছে। Website ও Telegram—দুই জায়গাতেই eligible পণ্যে discount পাবেন। Auto-provider পণ্যে discount প্রযোজ্য নয়।`
+        : `🏪 <b>RESELLER DASHBOARD</b>\n\n💳 Activation fee: <b>৳২০০</b> (একবার)\n💰 আপনার Wallet: <b>${tk(balance)}</b>\n🎁 Activation-এর পর eligible পণ্যে <b>৭% discount</b> পাবেন।\n\n${balance >= 200 ? "নিচের বাটনে চাপলে Wallet থেকে ৳২০০ কেটে Reseller Dashboard চালু হবে।" : `আরও <b>${tk(200 - balance)}</b> Wallet-এ যোগ করুন, তারপর activate করুন।`}`;
+      const buttons: any[] = [];
+      if (!active && balance >= 200) buttons.push([premiumButton({ text: "✅ Activate Reseller — ৳২০০", callback_data: "reseller:activate" }, "success")]);
+      if (!active && balance < 200) buttons.push([premiumButton({ text: "💳 Add Balance", callback_data: "menu:fund" }, "primary")]);
+      buttons.push([premiumButton({ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }, "primary")]);
+      return screen(chatId, cq.message?.message_id, resellerText, { inline_keyboard: buttons });
+    }
     if (id === "referral") {
       const { data: telegramAccount } = await db.from("telegram_accounts")
         .select("telegram_user_id").eq("telegram_user_id", cq.from.id).maybeSingle();
@@ -798,6 +812,43 @@ async function handleCallback(cq: any) {
       return screen(chatId, cq.message?.message_id, profileText, { inline_keyboard: profileKeyboard });
     }
     if (id === "home") return welcome(chatId, user, cq.message?.message_id, cq.from.id);
+  }
+  if (kind === "reseller" && id === "activate") {
+    const { data: freshProfile, error: profileError } = await db.from("profiles")
+      .select("id,balance,is_reseller,reseller_discount_percent")
+      .eq("id", user.id).maybeSingle();
+    if (profileError || !freshProfile) return screen(chatId, cq.message?.message_id, "❌ Account তথ্য যাচাই করা যায়নি। আবার চেষ্টা করুন।");
+    if (freshProfile.is_reseller) {
+      invalidateTelegramIdentity(cq.from.id);
+      return screen(chatId, cq.message?.message_id, `✅ <b>Reseller Dashboard আগেই Active</b>\n\nআপনার discount: <b>${Number(freshProfile.reseller_discount_percent ?? 7)}%</b>`, {
+        inline_keyboard: [[premiumButton({ text: "🏪 Reseller Dashboard", callback_data: "menu:reseller" }, "success")], [premiumButton({ text: "⬅️ Main Menu", callback_data: "menu:home" }, "primary")]],
+      });
+    }
+    if (Number(freshProfile.balance ?? 0) < 200) return screen(chatId, cq.message?.message_id, "❌ Wallet-এ ৳২০০ নেই। আগে Add Balance করুন।", {
+      inline_keyboard: [[premiumButton({ text: "💳 Add Balance", callback_data: "menu:fund" }, "primary")], [premiumButton({ text: "⬅️ Back", callback_data: "menu:reseller" }, "primary")]],
+    });
+    const { data: result, error } = await db.rpc("activate_reseller_from_telegram", {
+      p_telegram_user_id: cq.from.id,
+      p_user_id: user.id,
+    });
+    if (error) {
+      console.error("Telegram reseller activation failed", error);
+      return screen(chatId, cq.message?.message_id, "❌ Activation সম্পন্ন হয়নি। কোনো টাকা কাটা হলে support-এ যোগাযোগ করুন। আবার চেষ্টা করার আগে Reseller Dashboard status দেখুন।", {
+        inline_keyboard: [[premiumButton({ text: "🏪 Check Reseller Status", callback_data: "menu:reseller" }, "primary")], [premiumButton({ text: "💬 Support", callback_data: "menu:support" }, "primary")]],
+      });
+    }
+    invalidateTelegramIdentity(cq.from.id);
+    if (result === "OK") {
+      const { data: refreshed } = await db.from("profiles").select("balance,reseller_discount_percent").eq("id", user.id).maybeSingle();
+      return screen(chatId, cq.message?.message_id, `🎉 <b>RESELLER DASHBOARD ACTIVATED!</b>\n\n✅ Status: <b>ACTIVE</b>\n💸 Activation fee: <b>৳২০০</b>\n💰 Remaining Wallet: <b>${tk(Number(refreshed?.balance ?? 0))}</b>\n🎁 Reseller discount: <b>${Number(refreshed?.reseller_discount_percent ?? 7)}%</b>\n\nএখন website ও Telegram—দুই জায়গাতেই eligible পণ্যে reseller সুবিধা ব্যবহার করতে পারবেন।`, {
+        inline_keyboard: [[premiumButton({ text: "🏪 Reseller Dashboard", callback_data: "menu:reseller" }, "success")], [premiumButton({ text: "🛍️ Shop Now", callback_data: "menu:products" }, "primary")], [premiumButton({ text: "🏠 Main Menu", callback_data: "menu:home" }, "primary")]],
+      });
+    }
+    if (result === "ALREADY_RESELLER") {
+      return screen(chatId, cq.message?.message_id, "আপনার Reseller Dashboard আগেই Active আছে।", { inline_keyboard: [[premiumButton({ text: "🏪 Reseller Dashboard", callback_data: "menu:reseller" }, "success")]] });
+    }
+    if (result === "INSUFFICIENT_BALANCE") return screen(chatId, cq.message?.message_id, "Wallet balance পর্যাপ্ত নয়। ৳২০০ যোগ করে আবার চেষ্টা করুন।", { inline_keyboard: [[premiumButton({ text: "💳 Add Balance", callback_data: "menu:fund" }, "primary")]] });
+    return screen(chatId, cq.message?.message_id, "❌ Reseller activation করা যায়নি। Support-এ যোগাযোগ করুন।");
   }
   if (kind === "fundshort" && id) {
     const amount = Number(id);
