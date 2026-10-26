@@ -22,8 +22,8 @@ function ResellerDashboard() {
 
   async function activate() {
     if (busy || active) return;
-    if (balance < 200) {
-      toast.error("Reseller upgrade-এর জন্য Wallet-এ কমপক্ষে ৳২০০ রাখুন।");
+    if (balance < 300) {
+      toast.error("Reseller upgrade-এর জন্য Wallet-এ কমপক্ষে ৳৩০০ রাখুন।");
       return;
     }
     setBusy(true);
@@ -56,7 +56,7 @@ function ResellerDashboard() {
           <div className="rounded-xl bg-primary/10 p-3 text-primary"><Store className="h-6 w-6" /></div>
           <div className="min-w-0 flex-1">
             <h2 className="font-semibold">{active ? "Reseller membership active" : "Upgrade to Reseller"}</h2>
-            <p className="text-sm text-muted-foreground">{active ? "আপনার অ্যাকাউন্টে Reseller status চালু আছে।" : "একবারের activation fee ৳২০০।"}</p>
+            <p className="text-sm text-muted-foreground">{active ? "আপনার অ্যাকাউন্টে Reseller status চালু আছে।" : "একবারের activation fee ৳৩০০।"}</p>
           </div>
           {active && <BadgeCheck className="h-6 w-6 text-primary" />}
         </div>
@@ -76,10 +76,10 @@ function ResellerDashboard() {
         </div>
         {!active ? (
           <>
-            <p className="text-sm text-muted-foreground">Upgrade করলে Wallet থেকে ৳২০০ কাটা হবে এবং Reseller status চালু হবে।</p>
-            {balance < 200 && <div className="rounded-lg bg-muted p-3 text-sm">আপনার Wallet-এ আরও ৳{Math.ceil(200 - balance)} দরকার। <Link className="font-semibold text-primary underline" to="/dashboard/wallet">Wallet-এ টাকা যোগ করুন</Link></div>}
-            <Button className="w-full" onClick={activate} disabled={busy || balance < 200}>
-              {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing…</> : "Upgrade Now — ৳২০০"}
+            <p className="text-sm text-muted-foreground">Upgrade করলে Wallet থেকে ৳৩০০ কাটা হবে এবং Reseller status চালু হবে।</p>
+            {balance < 300 && <div className="rounded-lg bg-muted p-3 text-sm">আপনার Wallet-এ আরও ৳{Math.ceil(300 - balance)} দরকার। <Link className="font-semibold text-primary underline" to="/dashboard/wallet">Wallet-এ টাকা যোগ করুন</Link></div>}
+            <Button className="w-full" onClick={activate} disabled={busy || balance < 300}>
+              {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing…</> : "Upgrade Now — ৳৩০০"}
             </Button>
           </>
         ) : (
