@@ -764,7 +764,7 @@ async function handleCallback(cq: any) {
       const discount = Number(user.reseller_discount_percent ?? 7);
       const resellerText = active
         ? `🏪 <b>RESELLER DASHBOARD</b>\n\n✅ Status: <b>ACTIVE</b>\n💰 Wallet balance: <b>${tk(balance)}</b>\n🎁 Reseller discount: <b>${discount}%</b>\n\nআপনার Reseller membership চালু আছে। Website ও Telegram—দুই জায়গাতেই eligible পণ্যে discount পাবেন। Auto-provider পণ্যে discount প্রযোজ্য নয়।`
-        : `🏪 <b>RESELLER DASHBOARD</b>\n\n💳 Activation fee: <b>৳২০০</b> (একবার)\n💰 আপনার Wallet: <b>${tk(balance)}</b>\n🎁 Activation-এর পর eligible পণ্যে <b>৭% discount</b> পাবেন।\n\n${balance >= 200 ? "নিচের বাটনে চাপলে Wallet থেকে ৳২০০ কেটে Reseller Dashboard চালু হবে।" : `আরও <b>${tk(200 - balance)}</b> Wallet-এ যোগ করুন, তারপর activate করুন।`}`;
+        : `🏪 <b>RESELLER DASHBOARD</b>\n\n💳 Activation fee: <b>৳২০০</b> (একবার)\n💰 আপনার Wallet: <b>${tk(balance)}</b>\n\n${balance >= 200 ? "নিচের বাটনে চাপলে Wallet থেকে ৳২০০ কেটে Reseller Dashboard চালু হবে।" : `আরও <b>${tk(200 - balance)}</b> Wallet-এ যোগ করুন, তারপর activate করুন।`}`;
       const buttons: any[] = [];
       if (!active && balance >= 200) buttons.push([premiumButton({ text: "✅ Activate Reseller — ৳২০০", callback_data: "reseller:activate" }, "success")]);
       if (!active && balance < 200) buttons.push([premiumButton({ text: "💳 Add Balance", callback_data: "menu:fund" }, "primary")]);
