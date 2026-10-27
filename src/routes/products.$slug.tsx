@@ -225,7 +225,7 @@ function ProductDetail() {
       <BuyDialog
         open={open}
         onOpenChange={setOpen}
-        product={{ id: p.id, name: p.name, slug: p.slug, unit: discounted(effectivePrice(p)), stock: p.stock }}
+        product={{ id: p.id, name: p.name, slug: p.slug, unit: effectivePrice(p), stock: p.stock }}
         packages={packages}
       />
     </SiteLayout>
