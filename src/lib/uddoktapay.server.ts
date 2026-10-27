@@ -1,4 +1,4 @@
-async function privateSetting(key: string) { const { supabaseAdmin } = await import("@/integrations/supabase/client.server"); const { data } = await supabaseAdmin.from("admin_private_settings").select("value").eq("key", key).maybeSingle(); return data?.value || ""; }
+export async function privateSetting(key: string) { const { supabaseAdmin } = await import("@/integrations/supabase/client.server"); const { data } = await supabaseAdmin.from("admin_private_settings").select("value").eq("key", key).maybeSingle(); return data?.value || ""; }
 
 // Server-only helpers for UddoktaPay (Paymently) auto deposits.
 export async function paymentBaseUrl() {
