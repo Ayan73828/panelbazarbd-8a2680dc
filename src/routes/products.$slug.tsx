@@ -126,7 +126,10 @@ function ProductDetail() {
   });
 
   if (!p) return null;
-  const hasDiscount = !!p.discount_price && Number(p.discount_price) > 0;
+  const campaignActive = settings.global_discount_enabled === "true" && Number(settings.global_discount_percent) > 0 && Number(settings.global_discount_percent) <= 90 && !!settings.global_discount_until && new Date(settings.global_discount_until).getTime() > Date.now();
+  const campaignPercent = campaignActive ? Number(settings.global_discount_percent) : 0;
+  const discounted = (price: number) => campaignPercent ? Math.round(price * (100 - campaignPercent)) / 100 : price;
+  const hasDiscount = (!!p.discount_price && Number(p.discount_price) > 0) || campaignActive;
   const cat = p.categories as { name: string; slug: string } | null;
   const packages = pkgs.data ?? [];
   const hasPackages = packages.length > 0;
@@ -169,9 +172,9 @@ function ProductDetail() {
               <div className="space-y-3">
                 <div className="flex items-end gap-2">
                   <span className="text-sm text-muted-foreground">From</span>
-                  <span className="font-display text-3xl font-bold text-primary">{money(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price)), cur)}</span>
+                  <span className="font-display text-3xl font-bold text-primary">{money(discounted(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price))), cur)}</span>
                 </div>
-                <p className="text-sm text-muted-foreground">{packages.length} purchase option{packages.length === 1 ? "" : "s"} available</p>
+                <p className="text-sm text-muted-foreground">{packages.length} purchase option{packages.length === 1 ? "" : "s"} available</p>{campaignActive && <Badge variant="destructive">{campaignPercent}% OFF</Badge>}
                 <Button size="lg" className="h-12 w-full rounded-full" disabled={!packages.some((x) => x.price > 0)} onClick={() => setOpen(true)}>
                   <ShoppingCart className="mr-2 h-4 w-4" /> Buy Now
                 </Button>
@@ -179,8 +182,8 @@ function ProductDetail() {
             ) : (
               <>
                 <div className="flex items-end gap-3">
-                  <span className="text-3xl font-bold text-primary">{money(effectivePrice(p), cur)}</span>
-                  {hasDiscount && <span className="text-muted-foreground line-through">{money(p.price, cur)}</span>}
+                  <span className="text-3xl font-bold text-primary">{money(discounted(effectivePrice(p)), cur)}</span>
+                  {hasDiscount && <span className="text-muted-foreground line-through">{money(effectivePrice(p), cur)}</span>}{campaignActive && <Badge variant="destructive">{campaignPercent}% OFF</Badge>}
                 </div>
                 <Button size="lg" className="h-12 w-full rounded-full" disabled={pkgs.isLoading} onClick={() => setOpen(true)}>
                   <ShoppingCart className="mr-2 h-4 w-4" /> Buy Now
@@ -222,7 +225,7 @@ function ProductDetail() {
       <BuyDialog
         open={open}
         onOpenChange={setOpen}
-        product={{ id: p.id, name: p.name, slug: p.slug, unit: effectivePrice(p), stock: p.stock }}
+        product={{ id: p.id, name: p.name, slug: p.slug, unit: discounted(effectivePrice(p)), stock: p.stock }}
         packages={packages}
       />
     </SiteLayout>
@@ -245,10 +248,13 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const [minDepositOpen, setMinDepositOpen] = useState(false);
   const hasPk = packages.length > 0;
   const sel = packages.find((x) => x.id === pkgId) ?? null;
-  const unit = hasPk ? (sel?.price ?? 0) : product.unit;
+  const campaignActive = settings.global_discount_enabled === "true" && Number(settings.global_discount_percent) > 0 && Number(settings.global_discount_percent) <= 90 && !!settings.global_discount_until && new Date(settings.global_discount_until).getTime() > Date.now();
+  const campaignPercent = campaignActive ? Number(settings.global_discount_percent) : 0;
+  const rawUnit = hasPk ? (sel?.price ?? 0) : product.unit;
+  const unit = campaignPercent ? Math.round(rawUnit * (100 - campaignPercent)) / 100 : rawUnit;
   const maxQty = Math.max(1, Math.min(20, hasPk ? (sel?.provider_auto_api ? 20 : (sel?.available ?? 1)) : product.stock));
   const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
-  const discountEligible = discountPercent > 0 && !sel?.provider_auto_api;
+  const discountEligible = discountPercent > 0 && !sel?.provider_auto_api && !campaignActive;
   const effectiveUnit = discountEligible ? Math.round(unit * (100 - discountPercent)) / 100 : unit;
   const originalTotal = unit * qty;
   const total = effectiveUnit * qty;
