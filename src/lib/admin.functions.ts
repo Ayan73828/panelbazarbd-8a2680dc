@@ -210,6 +210,12 @@ export const adminSendSupportEmail = createServerFn({ method: "POST" })
     });
     const result = await response.json().catch(() => ({})) as { id?: string; message?: string; name?: string };
     if (!response.ok) throw new Error(result.message || result.name || "Email provider rejected the message");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: recipient } = await supabaseAdmin.from("profiles").select("id").ilike("email", data.to.trim()).maybeSingle();
+    if (recipient?.id) {
+      const { error: noticeError } = await supabaseAdmin.from("support_mail_notifications").insert({ user_id: recipient.id, subject: data.subject.trim(), message: data.message.trim() });
+      if (noticeError) throw new Error("Email sent, but website notification could not be saved: " + noticeError.message);
+    }
     return { ok: true, id: result.id ?? null, to: data.to.trim().toLowerCase() };
   });
 
@@ -232,7 +238,7 @@ export const adminSendSupportEmailAll = createServerFn({ method: "POST" })
     let offset = 0, sent = 0, failed = 0, skipped = 0;
     const pageSize = 500;
     while (true) {
-      const { data: rows, error } = await supabaseAdmin.from("profiles").select("email").not("email", "is", null).order("id", { ascending: true }).range(offset, offset + pageSize - 1);
+      const { data: rows, error } = await supabaseAdmin.from("profiles").select("id,email").not("email", "is", null).order("id", { ascending: true }).range(offset, offset + pageSize - 1);
       if (error) throw new Error("Could not load website users: " + error.message);
       for (const row of rows ?? []) {
         const to = String(row.email ?? "").trim().toLowerCase();
@@ -243,7 +249,11 @@ export const adminSendSupportEmailAll = createServerFn({ method: "POST" })
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({ from: "PANEL BAZAR BD <verification@panelbazarbd.shop>", to: [to], subject: data.subject.trim(), text: data.message.trim(), html }),
           });
-          if (response.ok) sent++; else failed++;
+          if (response.ok) {
+            sent++;
+            const { error: noticeError } = await supabaseAdmin.from("support_mail_notifications").insert({ user_id: row.id, subject: data.subject.trim(), message: data.message.trim() });
+            if (noticeError) failed++;
+          } else failed++;
         } catch { failed++; }
         await new Promise((resolve) => setTimeout(resolve, 550));
       }
