@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
-import { adminSendSupportEmail } from "@/lib/admin.functions";
+import { adminSendSupportEmail, adminSendSupportEmailAll } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/support-mail")({ component: AdminSupportMail });
 
@@ -15,7 +15,9 @@ function AdminSupportMail() {
   const { user } = useAuth();
   const users = useTable("profiles");
   const sendEmail = useServerFn(adminSendSupportEmail);
+  const sendAllEmail = useServerFn(adminSendSupportEmailAll);
   const [to, setTo] = useState("");
+  const [sendToAll, setSendToAll] = useState(false);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -36,10 +38,16 @@ function AdminSupportMail() {
       toast.error("Only the main admin can send Support Mail");
       return;
     }
+    if (sendToAll && !window.confirm("Send this email to every website user with a registered email? This may take time and cannot be undone.")) return;
     setBusy(true);
     try {
-      const result = await sendEmail({ data: { to, subject, message } });
-      toast.success(`Email sent to ${result.to}`);
+      if (sendToAll) {
+        const result = await sendAllEmail({ data: { subject, message } });
+        toast.success(`Broadcast finished: ${result.sent} sent, ${result.failed} failed, ${result.skipped} skipped (total ${result.total})`);
+      } else {
+        const result = await sendEmail({ data: { to, subject, message } });
+        toast.success(`Email sent to ${result.to}`);
+      }
       setSubject("");
       setMessage("");
     } catch (error) {
@@ -51,7 +59,7 @@ function AdminSupportMail() {
 
   return (
     <div className="space-y-4">
-      <AdminHeader title="Support Mail" description="Send a custom email from verification@panelbazarbd.shop to a registered or unregistered email address." />
+      <AdminHeader title="Support Mail" description="Send an email to one address or the same email to all registered website users." />
       <section className="panel space-y-4 p-4">
         <div className="space-y-1">
           <h2 className="font-semibold">Find a website user</h2>
@@ -68,7 +76,7 @@ function AdminSupportMail() {
           </div> : <p className="text-sm text-muted-foreground">No matching registered users. You can still type any email address below.</p>}
         </Loadable>
       </section>
-      <form onSubmit={(event) => void submit(event)} className="panel space-y-4 p-4">
+      <form onSubmit={(event) => void submit(event)} className="panel space-y-4 p-4">\n        <label className="flex items-start gap-3 rounded-lg border border-border p-3 text-sm"><input type="checkbox" className="mt-1" checked={sendToAll} onChange={(event) => setSendToAll(event.target.checked)} /><span><strong>Send to all website users</strong><span className="mt-1 block text-xs text-muted-foreground">এক ক্লিকে একই ইমেইল সব registered website user-এর কাছে যাবে।</span></span></label>
         <div className="space-y-1.5">
           <label htmlFor="support-mail-to" className="text-sm font-medium">Recipient Gmail / email</label>
           <Input id="support-mail-to" type="email" required maxLength={254} value={to} onChange={(event) => setTo(event.target.value)} placeholder="customer@gmail.com" />
@@ -83,7 +91,7 @@ function AdminSupportMail() {
           <Textarea id="support-mail-message" required minLength={2} maxLength={10000} rows={8} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Write your message here…" />
         </div>
         <p className="text-xs text-muted-foreground">The email is sent through the site's Resend setup. Never ask customers to share passwords or verification codes.</p>
-        <Button type="submit" disabled={busy || String(user?.email ?? "").toLowerCase() !== "ishak777998@gmail.com"} className="w-full">{busy ? "Sending email…" : "Send Support Mail"}</Button>
+        <Button type="submit" disabled={busy || String(user?.email ?? "").toLowerCase() !== "ishak777998@gmail.com" || (!sendToAll && !to.trim())} className="w-full">{busy ? (sendToAll ? "Sending to website users…" : "Sending email…") : sendToAll ? "Send to All Website Users" : "Send Support Mail"}</Button>
       </form>
     </div>
   );
