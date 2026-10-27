@@ -254,7 +254,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const unit = campaignPercent ? Math.round(rawUnit * (100 - campaignPercent)) / 100 : rawUnit;
   const maxQty = Math.max(1, Math.min(20, hasPk ? (sel?.provider_auto_api ? 20 : (sel?.available ?? 1)) : product.stock));
   const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
-  const discountEligible = discountPercent > 0 && !sel?.provider_auto_api && !campaignActive;
+  const discountEligible = discountPercent > 0 && !sel?.provider_auto_api;
   const effectiveUnit = discountEligible ? Math.round(unit * (100 - discountPercent)) / 100 : unit;
   const originalTotal = unit * qty;
   const total = effectiveUnit * qty;
