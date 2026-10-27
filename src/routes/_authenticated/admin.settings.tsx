@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,54 @@ function AdminSettings() {
   const queryClient = useQueryClient();
   const { settings } = useSettings();
   const [savingMaintenance, setSavingMaintenance] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState("10");
+  const [discountDays, setDiscountDays] = useState("1");
+  const [discountEnabled, setDiscountEnabled] = useState(false);
+  const [savingDiscount, setSavingDiscount] = useState(false);
+  const discountQuery = useQuery({
+    queryKey: ["global-discount-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("site_settings").select("key,value").in("key", ["global_discount_percent", "global_discount_until", "global_discount_enabled"]);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((row) => [row.key, row.value ?? ""]));
+    },
+  });
+  useEffect(() => {
+    const d = discountQuery.data;
+    if (!d) return;
+    setDiscountPercent(d.global_discount_percent || "10");
+    setDiscountEnabled(d.global_discount_enabled === "true" && !!d.global_discount_until && new Date(d.global_discount_until).getTime() > Date.now());
+  }, [discountQuery.data]);
+  async function startDiscount() {
+    const percent = Number(discountPercent), days = Number(discountDays);
+    if (!Number.isFinite(percent) || percent < 1 || percent > 90) { toast.error("Discount must be between 1% and 90%"); return; }
+    if (!Number.isFinite(days) || days < 1 || days > 30) { toast.error("Duration must be 1–30 days"); return; }
+    setSavingDiscount(true);
+    try {
+      const until = new Date(Date.now() + days * 86400000).toISOString();
+      const { error } = await supabase.from("site_settings").upsert([
+        { key: "global_discount_percent", value: String(percent) },
+        { key: "global_discount_until", value: until },
+        { key: "global_discount_enabled", value: "true" },
+      ], { onConflict: "key" });
+      if (error) throw error;
+      await queryClient.invalidateQueries();
+      setDiscountEnabled(true);
+      toast.success(`${percent}% discount started for ${days} day(s)`);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not start discount"); }
+    finally { setSavingDiscount(false); }
+  }
+  async function stopDiscount() {
+    setSavingDiscount(true);
+    try {
+      const { error } = await supabase.from("site_settings").upsert({ key: "global_discount_enabled", value: "false" }, { onConflict: "key" });
+      if (error) throw error;
+      await queryClient.invalidateQueries();
+      setDiscountEnabled(false);
+      toast.success("Discount stopped");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not stop discount"); }
+    finally { setSavingDiscount(false); }
+  }
   const logoQuery = useQuery({
     queryKey: ["site-logo-setting"],
     queryFn: async () => {
@@ -117,6 +165,16 @@ function AdminSettings() {
         <h2 className="font-semibold">Telegram notifications</h2>
         <p className="text-sm text-muted-foreground">After adding TELEGRAM_BOT_TOKEN and TELEGRAM_OWNER_CHAT_ID in Render, connect the bot webhook here.</p>
         <Button onClick={() => void connectTelegram()} disabled={connectingTelegram}>{connectingTelegram ? "Connecting…" : "Connect Telegram bot"}</Button>
+      </section>
+      <section className="panel space-y-4 p-4">
+        <h2 className="font-semibold">Global Discount / Special Sale</h2>
+        <p className="text-sm text-muted-foreground">Set a percentage and duration for a site-wide campaign. For example, 10% for 1 day (24 hours).</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1 text-sm">Discount percentage (%)<Input type="number" min="1" max="90" value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} /></label>
+          <label className="space-y-1 text-sm">Duration (days)<Input type="number" min="1" max="30" value={discountDays} onChange={(e) => setDiscountDays(e.target.value)} /></label>
+        </div>
+        <p className="text-sm font-medium">Status: {discountEnabled ? "Active" : "Off"}</p>
+        <div className="flex flex-wrap gap-2"><Button onClick={() => void startDiscount()} disabled={savingDiscount}>{savingDiscount ? "Saving…" : "Start discount"}</Button><Button variant="outline" onClick={() => void stopDiscount()} disabled={savingDiscount || !discountEnabled}>Stop discount</Button></div>
       </section>
       <h2 className="font-semibold">General</h2>
       <SettingsForm fields={[
