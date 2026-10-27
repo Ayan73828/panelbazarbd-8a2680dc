@@ -1,6 +1,8 @@
+async function privateSetting(key: string) { const { supabaseAdmin } = await import("@/integrations/supabase/client.server"); const { data } = await supabaseAdmin.from("admin_private_settings").select("value").eq("key", key).maybeSingle(); return data?.value || ""; }
+
 // Server-only helpers for UddoktaPay (Paymently) auto deposits.
-export function paymentBaseUrl() {
-  const configuredUrl = process.env["UDDOKTAPAY_BASE_URL"];
+export async function paymentBaseUrl() {
+  const configuredUrl = (await privateSetting("uddoktapay_base_url")) || process.env["UDDOKTAPAY_BASE_URL"];
   if (!configuredUrl) throw new Error("Payment gateway is not configured yet");
 
   // Accept a domain, an API root (/api), or a full endpoint
@@ -19,8 +21,8 @@ export function paymentBaseUrl() {
 
 export async function notifyOwner(text: string, replyMarkup?: Record<string, unknown>) {
   try {
-    const token = process.env["TELEGRAM_BOT_TOKEN"];
-    const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"];
+    const token = (await privateSetting("telegram_bot_token")) || process.env["TELEGRAM_BOT_TOKEN"];
+    const ownerChatId = (await privateSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"];
     if (!token || !ownerChatId) {
       console.error("telegram notify skipped: TELEGRAM_BOT_TOKEN or TELEGRAM_OWNER_CHAT_ID missing");
       return false;
@@ -57,7 +59,7 @@ export type VerifyOutcome = { status: "completed" | "pending" | "failed" | "canc
  * `onlyUserId` restricts matching to that user's rows (customer-initiated verify).
  */
 export async function verifyAndCredit(invoiceId: string, onlyUserId?: string): Promise<VerifyOutcome> {
-  const apiKey = process.env["UDDOKTAPAY_API_KEY"];
+  const apiKey = (await privateSetting("uddoktapay_api_key")) || process.env["UDDOKTAPAY_API_KEY"];
   if (!apiKey) throw new Error("UddoktaPay is not configured yet");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -66,7 +68,7 @@ export async function verifyAndCredit(invoiceId: string, onlyUserId?: string): P
   if (row && onlyUserId && row.user_id !== onlyUserId) throw new Error("Forbidden");
   if (row?.status === "completed") return { status: "completed", amount: Number(row.amount) };
 
-  const res = await fetch(`${paymentBaseUrl()}/verify-payment`, {
+  const res = await fetch(`${await paymentBaseUrl()}/verify-payment`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json", "RT-UDDOKTAPAY-API-KEY": apiKey },
     body: JSON.stringify({ invoice_id: invoiceId }),
