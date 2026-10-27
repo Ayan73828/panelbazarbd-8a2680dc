@@ -1,11 +1,11 @@
 // Server-only Telegram bot logic. Uses the same database as the website.
-import { notifyOwner } from "@/lib/uddoktapay.server";
+import { notifyOwner, privateSetting } from "@/lib/uddoktapay.server";
 
 export const SITE_URL = process.env["SITE_URL"] || "https://panelbazarbd.shop";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 async function tg(method: string, body: Record<string, unknown>) {
-  const token = process.env["TELEGRAM_BOT_TOKEN"];
+  const token = (await privateSetting("telegram_bot_token")) || process.env["TELEGRAM_BOT_TOKEN"];
   if (!token) throw new Error("TELEGRAM_BOT_TOKEN missing");
   const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST",
@@ -262,7 +262,7 @@ export async function handleUpdate(u: any) {
   const user = await linkedUser(m.from.id);
   const st = await getState(chatId);
 
-  const ownerChatForAdmin = process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+  const ownerChatForAdmin = (await privateSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
   if (text === "/jan") {
     if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) return send(chatId, "এই কমান্ডটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
     const maintenanceOn = await getTelegramMaintenanceMode();
@@ -364,7 +364,7 @@ export async function handleUpdate(u: any) {
     return welcome(chatId, account, undefined, m.from.id);
   }
   if (st.state === "admin_support_reply" && text) {
-    const supportOperatorChatId = process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+    const supportOperatorChatId = (await privateSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
     if (String(chatId) !== String(supportOperatorChatId)) return;
     if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Reply বাতিল করা হয়েছে।"); }
     const ticketId = String(st.data?.support_ticket_id ?? "");
@@ -409,7 +409,7 @@ export async function handleUpdate(u: any) {
     }
     await setState(chatId, "");
     const ticketNotice = "🎫 <b>New Support Ticket</b>\\nTicket: <code>" + esc(ticket.id) + "</code>\\nSource: Telegram Bot\\nUser: <code>" + esc(ownerId) + "</code>\\nTelegram ID: <code>" + m.from.id + "</code>\\nDetails: " + esc(details);
-    const ownerChatId = process.env["TELEGRAM_OWNER_CHAT_ID"];
+    const ownerChatId = (await privateSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"];
     const keyboard = { inline_keyboard: [[{ text: "↩️ Reply", callback_data: "supportreply:" + ticket.id }, { text: "✅ Close", callback_data: "supportclose:" + ticket.id }]] };
     if (photo && ownerChatId) await tg("sendPhoto", { chat_id: ownerChatId, photo, caption: ticketNotice, parse_mode: "HTML", reply_markup: keyboard });
     else if (ownerChatId) await tg("sendMessage", { chat_id: ownerChatId, text: ticketNotice, parse_mode: "HTML", reply_markup: keyboard });
@@ -571,7 +571,7 @@ async function startTelegramPayment(chatId: number, user: any, amount: number, m
   });
   if (insErr) return screen(chatId, messageId, "❌ Payment request তৈরি হয়নি। আবার চেষ্টা করুন।");
   const origin = SITE_URL.replace(/\/$/, "");
-  const res = await fetch(`${paymentBaseUrl()}/checkout-v2`, {
+  const res = await fetch(`${await paymentBaseUrl()}/checkout-v2`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json", "RT-UDDOKTAPAY-API-KEY": apiKey },
     body: JSON.stringify({
