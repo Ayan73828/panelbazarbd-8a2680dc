@@ -289,7 +289,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     if (hasPk && !sel) { toast.error("আগে Validity / Duration নির্বাচন করুন"); return; }
     setCouponBusy(true);
     try {
-      const { data, error } = await (supabase as any).rpc("validate_discount_coupon", { p_code: code, p_subtotal: effectiveUnit * qty });
+      const { data, error } = await (supabase as any).rpc("validate_discount_coupon", { p_code: code, p_subtotal: effectiveUnit * qty, p_product_id: product.id });
       if (error) throw error;
       setCouponApplied(data);
       setCouponCode(code);
@@ -298,7 +298,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
       setCouponApplied(null);
       const msg = String(e?.message || "");
       const minMatch = msg.match(/COUPON_MIN_ORDER:([0-9.]+)/);
-      toast.error(msg.includes("COUPON_EXPIRED") ? "এই coupon-এর মেয়াদ শেষ" : msg.includes("COUPON_LIMIT_REACHED") ? "Coupon ব্যবহারের সীমা শেষ" : minMatch ? "এই coupon ব্যবহার করতে ন্যূনতম ৳" + minMatch[1] + " অর্ডার করতে হবে" : msg.includes("COUPON_MIN_ORDER") ? "এই coupon-এর minimum order পূরণ হয়নি" : "Coupon সঠিক নয় বা বর্তমানে চালু নেই");
+      toast.error(msg.includes("COUPON_EXPIRED") ? "এই coupon-এর মেয়াদ শেষ" : msg.includes("COUPON_LIMIT_REACHED") ? "Coupon ব্যবহারের সীমা শেষ" : msg.includes("COUPON_PRODUCT_NOT_ELIGIBLE") ? "এই coupon এই প্রোডাক্টে ব্যবহার করা যাবে না" : minMatch ? "এই coupon ব্যবহার করতে ন্যূনতম ৳" + minMatch[1] + " অর্ডার করতে হবে" : msg.includes("COUPON_MIN_ORDER") ? "এই coupon-এর minimum order পূরণ হয়নি" : "Coupon সঠিক নয় বা বর্তমানে চালু নেই");
     } finally { setCouponBusy(false); }
   }
 
