@@ -57,8 +57,13 @@ function AdminLayout() {
   if (loading || profileLoading || !permissionsLoaded) return <div className="mx-auto max-w-5xl p-6"><RowSkeleton rows={6} /></div>;
   if (!canEnterAdmin)
     return (
-      <div className="mx-auto max-w-md p-6 pt-20">
-        <EmptyState icon={<ShieldAlert className="h-6 w-6" />} title="Access denied" description="This area is for administrators only." action={<Button asChild size="sm"><Link to="/dashboard">Go to my dashboard</Link></Button>} />
+      <div className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center p-6 text-center">
+        <div className="mb-4 rounded-2xl border border-border bg-surface-2 px-5 py-3">
+          <span className="text-4xl font-bold tracking-tight text-muted-foreground">404</span>
+        </div>
+        <h1 className="text-xl font-semibold">Page not found</h1>
+        <p className="mt-2 text-sm text-muted-foreground">The page you are looking for could not be found.</p>
+        <Button asChild size="sm" className="mt-5"><Link to="/">Go to homepage</Link></Button>
       </div>
     );
   return (
