@@ -261,7 +261,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const effectiveUnit = discountEligible ? Math.round(unit * (100 - discountPercent)) / 100 : unit;
   const originalTotal = unit * qty;
   const baseTotal = effectiveUnit * qty;
-  const couponDiscount = couponApplied ? Number(couponApplied.discount) * qty : 0;
+  const couponDiscount = couponApplied ? Number(couponApplied.discount) : 0;
   const total = Math.max(0, baseTotal - couponDiscount);
   const balance = Number(profile?.balance ?? 0);
   const insufficient = balance < total;
@@ -273,7 +273,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     if (hasPk && !sel) { toast.error("আগে Validity / Duration নির্বাচন করুন"); return; }
     setCouponBusy(true);
     try {
-      const { data, error } = await (supabase as any).rpc("validate_discount_coupon", { p_code: code, p_subtotal: effectiveUnit });
+      const { data, error } = await (supabase as any).rpc("validate_discount_coupon", { p_code: code, p_subtotal: effectiveUnit * qty });
       if (error) throw error;
       setCouponApplied(data);
       setCouponCode(code);
@@ -281,7 +281,8 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     } catch (e: any) {
       setCouponApplied(null);
       const msg = String(e?.message || "");
-      toast.error(msg.includes("COUPON_EXPIRED") ? "এই coupon-এর মেয়াদ শেষ" : msg.includes("COUPON_LIMIT_REACHED") ? "Coupon ব্যবহারের সীমা শেষ" : msg.includes("COUPON_MIN_ORDER") ? "এই coupon-এর minimum order পূরণ হয়নি" : "Coupon সঠিক নয় বা বর্তমানে চালু নেই");
+      const minMatch = msg.match(/COUPON_MIN_ORDER:([0-9.]+)/);
+      toast.error(msg.includes("COUPON_EXPIRED") ? "এই coupon-এর মেয়াদ শেষ" : msg.includes("COUPON_LIMIT_REACHED") ? "Coupon ব্যবহারের সীমা শেষ" : minMatch ? "এই coupon ব্যবহার করতে ন্যূনতম ৳" + minMatch[1] + " অর্ডার করতে হবে" : msg.includes("COUPON_MIN_ORDER") ? "এই coupon-এর minimum order পূরণ হয়নি" : "Coupon সঠিক নয় বা বর্তমানে চালু নেই");
     } finally { setCouponBusy(false); }
   }
 
