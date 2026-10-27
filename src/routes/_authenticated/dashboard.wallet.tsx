@@ -50,6 +50,11 @@ function WalletPage() {
   const txs = useMyTransactions();
   const wa = waLink(settings.whatsapp_number, `Hi, I want to add balance. My username: ${profile?.username ?? profile?.email ?? ""}`);
   const tg = tgLink(settings.telegram_username);
+  const indianPaymentMessage = [
+    "Hello Panel Bazar, I want to make a deposit using Indian Payment / UPI. Please help me with the payment process.",
+    `My username: ${profile?.username ?? profile?.email ?? "Not available"}`,
+  ].join("\n");
+  const indianPaymentLink = tg ? `${tg}?text=${encodeURIComponent(indianPaymentMessage)}` : "";
   return (
     <div className="space-y-6">
       <PageHeader title="Wallet" description="Your balance and transaction history." />
@@ -60,6 +65,17 @@ function WalletPage() {
           {wa && <Button asChild size="sm" className="rounded-full"><a href={wa} target="_blank" rel="noreferrer"><MessageCircle className="mr-1 h-4 w-4" /> WhatsApp</a></Button>}
           {tg && <Button asChild size="sm" variant="secondary" className="rounded-full"><a href={tg} target="_blank" rel="noreferrer"><Send className="mr-1 h-4 w-4" /> Telegram</a></Button>}
         </div>
+      </div>
+      <div className="panel space-y-3 p-4">
+        <div className="flex items-center gap-2"><Send className="h-5 w-5 text-primary" /><h2 className="font-semibold">Indian Payment / UPI</h2></div>
+        <p className="text-sm text-muted-foreground">ভারতীয় পেমেন্ট বা UPI দিয়ে ব্যালেন্স যোগ করতে Telegram-এ আমাদের মেসেজ পাঠান। মেসেজটি আগে থেকেই লেখা থাকবে—আপনাকে শুধু Send চাপতে হবে।</p>
+        {indianPaymentLink ? (
+          <Button asChild className="w-full rounded-full">
+            <a href={indianPaymentLink} target="_blank" rel="noreferrer"><Send className="mr-2 h-4 w-4" /> Indian Payment / UPI</a>
+          </Button>
+        ) : (
+          <p className="text-sm text-destructive">Telegram username সেট করা নেই। Admin Settings-এ Telegram username যোগ করুন।</p>
+        )}
       </div>
       <AddFund initialAmount={amount} autoStart={auto} />
       <div className="panel space-y-3 p-4">
