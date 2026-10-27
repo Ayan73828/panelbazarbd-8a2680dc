@@ -245,6 +245,9 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponApplied, setCouponApplied] = useState<any>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
   const [minDepositOpen, setMinDepositOpen] = useState(false);
   const hasPk = packages.length > 0;
   const sel = packages.find((x) => x.id === pkgId) ?? null;
@@ -257,9 +260,30 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const discountEligible = discountPercent > 0 && !sel?.provider_auto_api;
   const effectiveUnit = discountEligible ? Math.round(unit * (100 - discountPercent)) / 100 : unit;
   const originalTotal = unit * qty;
-  const total = effectiveUnit * qty;
+  const baseTotal = effectiveUnit * qty;
+  const couponDiscount = couponApplied ? Number(couponApplied.discount) * qty : 0;
+  const total = Math.max(0, baseTotal - couponDiscount);
   const balance = Number(profile?.balance ?? 0);
   const insufficient = balance < total;
+
+  async function applyCoupon() {
+    const code = couponCode.trim().toUpperCase();
+    if (!code) { toast.error("Discount coupon code লিখুন"); return; }
+    if (sel?.provider_auto_api) { toast.error("এই auto-delivery product-এ coupon এখন সমর্থিত নয়"); return; }
+    if (hasPk && !sel) { toast.error("আগে Validity / Duration নির্বাচন করুন"); return; }
+    setCouponBusy(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("validate_discount_coupon", { p_code: code, p_subtotal: effectiveUnit });
+      if (error) throw error;
+      setCouponApplied(data);
+      setCouponCode(code);
+      toast.success("Coupon " + code + " apply হয়েছে");
+    } catch (e: any) {
+      setCouponApplied(null);
+      const msg = String(e?.message || "");
+      toast.error(msg.includes("COUPON_EXPIRED") ? "এই coupon-এর মেয়াদ শেষ" : msg.includes("COUPON_LIMIT_REACHED") ? "Coupon ব্যবহারের সীমা শেষ" : msg.includes("COUPON_MIN_ORDER") ? "এই coupon-এর minimum order পূরণ হয়নি" : "Coupon সঠিক নয় বা বর্তমানে চালু নেই");
+    } finally { setCouponBusy(false); }
+  }
 
   function close(v: boolean) {
     onOpenChange(v);
@@ -328,8 +352,12 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
     } else {
       for (let i = 0; i < qty; i++) {
         const result = sel
-          ? await supabase.rpc("purchase_package", { p_package_id: sel.id })
-          : await supabase.rpc("purchase_product", { p_product_id: product.id, p_quantity: 1 });
+          ? (couponApplied
+              ? await supabase.rpc("purchase_package_with_coupon", { p_package_id: sel.id, p_coupon_code: couponApplied.code })
+              : await supabase.rpc("purchase_package", { p_package_id: sel.id }))
+          : (couponApplied
+              ? await supabase.rpc("purchase_product_with_coupon", { p_product_id: product.id, p_coupon_code: couponApplied.code })
+              : await supabase.rpc("purchase_product", { p_product_id: product.id, p_quantity: 1 }));
         if (result.error || typeof result.data !== "string") {
           failure = result.error?.message || "অর্ডারের নিশ্চিত ফলাফল পাওয়া যায়নি। My Orders দেখে নিন।";
           break;
@@ -395,7 +423,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                 {hasPk && (
                   <label className="block space-y-1.5">
                     <span className="font-medium">Choose Validity / Duration</span>
-                    <select className="h-11 w-full rounded-lg border border-input bg-background px-3" value={pkgId} onChange={(e) => { setPkgId(e.target.value); setQty(1); }}>
+                    <select className="h-11 w-full rounded-lg border border-input bg-background px-3" value={pkgId} onChange={(e) => { setPkgId(e.target.value); setQty(1); setCouponApplied(null); }}>
                       <option value="">Select an option</option>
                       {packages.map((pk) => (
                         <option key={pk.id} value={pk.id} disabled={pk.price <= 0}>
@@ -408,10 +436,22 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                 <div className="space-y-1.5">
                   <span className="font-medium">Quantity</span>
                   <div className="flex items-center gap-3">
-                    <Button type="button" size="icon" variant="secondary" onClick={() => setQty((q) => Math.max(1, q - 1))}>−</Button>
+                    <Button type="button" size="icon" variant="secondary" onClick={() => { setQty((q) => Math.max(1, q - 1)); setCouponApplied(null); }}>−</Button>
                     <span className="w-8 text-center text-lg font-bold">{qty}</span>
-                    <Button type="button" size="icon" variant="secondary" onClick={() => setQty((q) => Math.min(maxQty, q + 1))}>+</Button>
+                    <Button type="button" size="icon" variant="secondary" onClick={() => { setQty((q) => Math.min(maxQty, q + 1)); setCouponApplied(null); }}>+</Button>
                   </div>
+                </div>
+                <div className="space-y-2 rounded-lg border border-border p-3">
+                  <label className="block space-y-1.5">
+                    <span className="font-medium">Discount Coupon</span>
+                    <span className="text-xs text-muted-foreground">কুপন থাকলে কোড দিন, না থাকলে ফাঁকা রাখুন।</span>
+                    <div className="flex gap-2">
+                      <input className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 uppercase" value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponApplied(null); }} placeholder="ENTER COUPON CODE" maxLength={40} />
+                      <Button type="button" variant="secondary" disabled={couponBusy || !couponCode.trim() || !!sel?.provider_auto_api} onClick={() => void applyCoupon()}>{couponBusy ? "Checking…" : couponApplied ? "Apply again" : "Apply"}</Button>
+                    </div>
+                  </label>
+                  {couponApplied && <div className="flex items-center justify-between text-sm text-emerald-600"><span>Coupon {couponApplied.code} applied</span><span>−{money(couponDiscount, cur)}</span></div>}
+                  {sel?.provider_auto_api && <p className="text-xs text-muted-foreground">Auto-delivery items currently do not support discount coupons.</p>}
                 </div>
                 <div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Total</span><span className="text-primary">{money(total, cur)}</span></div>
                 {discountEligible && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Reseller discount ({discountPercent}%)</span><span><span className="mr-2 text-muted-foreground line-through">{money(originalTotal, cur)}</span><span className="text-primary">−{money(originalTotal - total, cur)}</span></span></div>}
