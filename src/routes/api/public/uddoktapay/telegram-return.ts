@@ -19,7 +19,8 @@ export const Route = createFileRoute("/api/public/uddoktapay/telegram-return")({
           const { data: payment } = await supabaseAdmin.from("uddoktapay_payments").select("user_id,amount,status").eq("invoice_id", invoiceId).maybeSingle();
           if (payment?.user_id) {
             const { data: account } = await supabaseAdmin.from("telegram_accounts").select("telegram_chat_id").eq("user_id", payment.user_id).maybeSingle();
-            const token = process.env["TELEGRAM_BOT_TOKEN"];
+            const { privateSetting } = await import("@/lib/uddoktapay.server");
+            const token = (await privateSetting("telegram_bot_token")) || process.env["TELEGRAM_BOT_TOKEN"];
             if (account?.telegram_chat_id && token && result.status === "completed") {
               await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
                 method: "POST",
