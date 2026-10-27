@@ -269,7 +269,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   async function applyCoupon() {
     const code = couponCode.trim().toUpperCase();
     if (!code) { toast.error("Discount coupon code লিখুন"); return; }
-    if (sel?.provider_auto_api) { toast.error("এই auto-delivery product-এ coupon এখন সমর্থিত নয়"); return; }
+    
     if (hasPk && !sel) { toast.error("আগে Validity / Duration নির্বাচন করুন"); return; }
     setCouponBusy(true);
     try {
@@ -335,7 +335,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
 
     if (sel?.provider_auto_api && sel.provider_product_id && sel.provider_duration) {
       const { data, error } = await supabase.functions.invoke("banti-checkout", {
-        body: { package_id: sel.id, quantity: qty, idempotency_key: crypto.randomUUID() },
+        body: { package_id: sel.id, quantity: qty, idempotency_key: crypto.randomUUID(), ...(couponApplied ? { coupon_code: couponApplied.code } : {}) },
       });
       if (error) {
         failure = error.message || "অটো অর্ডার ব্যর্থ হয়েছে।";
@@ -451,8 +451,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                     </div>
                   </label>
                   {couponApplied && <div className="flex items-center justify-between text-sm text-emerald-600"><span>Coupon {couponApplied.code} applied</span><span>−{money(couponDiscount, cur)}</span></div>}
-                  {sel?.provider_auto_api && <p className="text-xs text-destructive">Auto-delivery product-এ coupon discount এখনো checkout-এ সমর্থিত নয়।</p>}
-                  {sel?.provider_auto_api && <p className="text-xs text-muted-foreground">Auto-delivery items currently do not support discount coupons.</p>}
+                  
                 </div>
                 <div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Total</span><span className="text-primary">{money(total, cur)}</span></div>
                 {discountEligible && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Reseller discount ({discountPercent}%)</span><span><span className="mr-2 text-muted-foreground line-through">{money(originalTotal, cur)}</span><span className="text-primary">−{money(originalTotal - total, cur)}</span></span></div>}
