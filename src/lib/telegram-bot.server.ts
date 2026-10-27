@@ -270,11 +270,44 @@ export async function handleUpdate(u: any) {
       inline_keyboard: [
         [{ text: maintenanceOn ? "🟢 Turn Maintenance OFF" : "🛠️ Turn Maintenance ON", callback_data: maintenanceOn ? "adminmaintenance:off" : "adminmaintenance:on" }],
         [{ text: "🎟️ Create Redeem Code", callback_data: "adminredeem:create" }],
+        [{ text: "🏷️ Create Discount Coupon", callback_data: "admincoupon:create" }],
       ],
     });
   }
   if (String(chatId) !== String(ownerChatForAdmin) && await getTelegramMaintenanceMode()) {
     return send(chatId, telegramMaintenanceNotice());
+  }
+
+
+  if (st.state.startsWith("admin_coupon_") && text) {
+    if (text === "/cancel") { await setState(chatId, ""); return send(chatId, "Discount coupon তৈরি বাতিল হয়েছে।"); }
+    if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) { await setState(chatId, ""); return send(chatId, "অনুমতি নেই।"); }
+    if (st.state === "admin_coupon_code") {
+      if (!/^[A-Za-z0-9_-]{3,40}$/.test(text)) return send(chatId, "৩–৪০ অক্ষরের code দিন (letters/numbers/_/-)।");
+      await setState(chatId, "admin_coupon_type", { coupon_code: text.toUpperCase() });
+      return send(chatId, "Discount type বাছাই করুন:", { inline_keyboard: [[{text:"Percentage (%)",callback_data:"admincoupon:type_percent"},{text:"Fixed (৳)",callback_data:"admincoupon:type_fixed"}]] });
+    }
+    if (st.state === "admin_coupon_value") {
+      const value=Number(text.replace(/[৳,% ]/g,""));
+      if (!Number.isFinite(value)||value<=0||(st.data?.coupon_type==="percent"&&value>100)) return send(chatId,"সঠিক discount value দিন। Percent হলে 1–100।");
+      await setState(chatId,"admin_coupon_min",{...st.data,coupon_value:value});
+      return send(chatId,"Minimum order amount লিখুন (না থাকলে 0):");
+    }
+    if (st.state === "admin_coupon_min") {
+      const min=Number(text.replace(/[৳, ]/g,""));
+      if(!Number.isFinite(min)||min<0)return send(chatId,"সঠিক minimum amount দিন।");
+      await setState(chatId,"admin_coupon_uses",{...st.data,coupon_min:min});
+      return send(chatId,"সর্বোচ্চ কতবার ব্যবহার হবে? (1–1000000):");
+    }
+    if (st.state === "admin_coupon_uses") {
+      const uses=Number(text.trim());
+      if(!Number.isInteger(uses)||uses<1||uses>1000000)return send(chatId,"১ থেকে ১০,০০,০০০-এর মধ্যে পূর্ণসংখ্যা দিন।");
+      const db=await admin();
+      const {data,error}=await db.rpc("admin_create_discount_coupon",{p_code:st.data.coupon_code,p_discount_type:st.data.coupon_type,p_discount_value:st.data.coupon_value,p_min_order:st.data.coupon_min,p_max_uses:uses,p_expires_at:null});
+      await setState(chatId,"");
+      if(error||!data?.code){console.error("Telegram coupon create failed",error);return send(chatId,"❌ Coupon তৈরি হয়নি। Code আগে থেকে থাকলে নতুন code দিন। /jan দিয়ে আবার চেষ্টা করুন।");}
+      return send(chatId,"✅ <b>Discount Coupon তৈরি হয়েছে</b>\n\n🏷️ Code: <code>"+esc(data.code)+"</code>\n🎁 Discount: <b>"+(data.discount_type==="percent"?data.discount_value+"%":tk(Number(data.discount_value)))+"</b>\n🛒 Minimum order: "+tk(Number(data.min_order))+"\n🔢 Maximum uses: "+data.max_uses+"\n\nWebsite admin-এর Discount Coupons তালিকাতেও দেখা যাবে।");
+    }
   }
 
   if (st.state === "admin_redeem_amount" && text) {
@@ -670,6 +703,22 @@ async function handleCallback(cq: any) {
   if (String(chatId) !== String(ownerChatId) && await getTelegramMaintenanceMode()) {
     return screen(chatId, cq.message?.message_id, telegramMaintenanceNotice());
   }
+
+  if (kind === "admincoupon") {
+    if (!ownerChatId || String(chatId) !== String(ownerChatId)) return screen(chatId, cq.message?.message_id, "এই অপশনটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
+    if (id === "create") {
+      await setState(chatId, "admin_coupon_code");
+      return screen(chatId, cq.message?.message_id, "🏷️ <b>Create Discount Coupon</b>\\n\\nকুপন code লিখুন (৩–৪০ অক্ষর)। /cancel দিয়ে বাতিল করতে পারবেন।");
+    }
+    if (id === "type_percent" || id === "type_fixed") {
+      const stNow=await getState(chatId);
+      if(stNow.state!=="admin_coupon_type")return screen(chatId,cq.message?.message_id,"Coupon creation session শেষ হয়েছে। /jan দিয়ে আবার শুরু করুন।");
+      const type=id==="type_percent"?"percent":"fixed";
+      await setState(chatId,"admin_coupon_value",{...stNow.data,coupon_type:type});
+      return screen(chatId,cq.message?.message_id,type==="percent"?"কত percent discount? (1–100)":"কত টাকা discount?");
+    }
+  }
+
   if (kind === "adminredeem") {
     if (!ownerChatId || String(chatId) !== String(ownerChatId)) return screen(chatId, cq.message?.message_id, "এই অপশনটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
     if (id === "create") {
