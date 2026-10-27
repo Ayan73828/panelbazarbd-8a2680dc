@@ -399,7 +399,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                       <option value="">Select an option</option>
                       {packages.map((pk) => (
                         <option key={pk.id} value={pk.id} disabled={pk.price <= 0}>
-                          {pk.duration || pk.name} — {money(pk.price, cur)}
+                          {pk.duration || pk.name} — {campaignPercent ? <><span className="line-through text-muted-foreground">{money(pk.price, cur)}</span> <span className="font-semibold text-primary">{money(Math.round(pk.price * (100 - campaignPercent)) / 100, cur)}</span></> : money(pk.price, cur)}
                         </option>
                       ))}
                     </select>
