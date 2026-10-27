@@ -66,18 +66,7 @@ function WalletPage() {
           {tg && <Button asChild size="sm" variant="secondary" className="rounded-full"><a href={tg} target="_blank" rel="noreferrer"><Send className="mr-1 h-4 w-4" /> Telegram</a></Button>}
         </div>
       </div>
-      <div className="panel space-y-3 p-4">
-        <div className="flex items-center gap-2"><Send className="h-5 w-5 text-primary" /><h2 className="font-semibold">Indian Payment / UPI</h2></div>
-        <p className="text-sm text-muted-foreground">ভারতীয় পেমেন্ট বা UPI দিয়ে ব্যালেন্স যোগ করতে Telegram-এ আমাদের মেসেজ পাঠান। মেসেজটি আগে থেকেই লেখা থাকবে—আপনাকে শুধু Send চাপতে হবে।</p>
-        {indianPaymentLink ? (
-          <Button asChild className="w-full rounded-full">
-            <a href={indianPaymentLink} target="_blank" rel="noreferrer"><Send className="mr-2 h-4 w-4" /> Indian Payment / UPI</a>
-          </Button>
-        ) : (
-          <p className="text-sm text-destructive">Telegram username সেট করা নেই। Admin Settings-এ Telegram username যোগ করুন।</p>
-        )}
-      </div>
-      <AddFund initialAmount={amount} autoStart={auto} />
+      <AddFund initialAmount={amount} autoStart={auto} indianPaymentLink={indianPaymentLink} />
       <div className="panel space-y-3 p-4">
         <div className="flex items-center gap-2"><Gift className="h-5 w-5 text-primary" /><h2 className="font-semibold">Redeem Code</h2></div>
         <p className="text-sm text-muted-foreground">আপনার Redeem Code দিয়ে ওয়ালেটে ব্যালেন্স যোগ করুন। প্রতিটি কোড একবারই ব্যবহার করা যাবে—ওয়েবসাইট বা Telegram যেকোনো এক জায়গায়।</p>
