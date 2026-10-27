@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   Home,
   Bell,
@@ -35,6 +36,8 @@ import { useMyOrders, useMyTransactions } from "@/hooks/useMyData";
 import { money, tgLink, telLink, waLink } from "@/lib/site";
 import { useEffect, useState } from "react";
 import { getCartCount } from "@/lib/cart";
+import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const bottomNav = [
   { to: "/", label: "Home", icon: Home },
@@ -50,6 +53,10 @@ export function SiteLayout({ children }: { children: ReactNode }) {
   const orders = useMyOrders();
   const transactions = useMyTransactions();
   const announcements = useActiveAnnouncements();
+  const supportMail = useQuery({ queryKey: ["support-mail-notifications", user?.id], enabled: !!user?.id, queryFn: async () => { const { data, error } = await supabase.from("support_mail_notifications").select("id,subject,message,created_at,read_at").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(10); if (error) throw error; return data ?? []; } });
+  const [selectedNotification, setSelectedNotification] = useState<{ title: string; message: string; createdAt: string } | null>(null);
+  const [dismissedPopupIds, setDismissedPopupIds] = useState<string[]>([]);
+  const activePopup = (announcements.data ?? []).find((notice) => notice.type === "popup" && !dismissedPopupIds.includes(notice.id));
   const notificationItems = [
     ...(transactions.data ?? []).map((tx) => ({
       id: `tx-${tx.id}`,
@@ -72,6 +79,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
       createdAt: order.created_at,
       kind: "order" as const,
     })),
+    ...(supportMail.data ?? []).map((notice) => ({ id: "support-mail-" + notice.id, title: notice.subject, message: notice.message, createdAt: notice.created_at, kind: "support" as const })),
     ...(announcements.data ?? []).filter((notice) => notice.type !== "popup").map((notice) => ({
       id: `announcement-${notice.id}`,
       title: notice.title,
@@ -79,7 +87,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
       createdAt: notice.created_at,
       kind: "announcement" as const,
     })),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10);
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 15);
   const wa = waLink(settings.whatsapp_number);
   const tg = tgLink(settings.telegram_username);
   const [cartCount, setCartCount] = useState(0);
@@ -153,7 +161,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
                   <DropdownMenuSeparator />
                   {notificationItems.length === 0 ? <div className="px-2 py-5 text-center text-sm text-muted-foreground">No notifications yet.</div> : <div className="max-h-[60vh] overflow-y-auto">{notificationItems.map((item) => {
                     const isRead = readNotificationIds.includes(item.id);
-                    return <button type="button" key={item.id} onClick={() => markNotificationRead(item.id)} className={`flex w-full gap-2 border-b border-border/60 px-2 py-3 text-left last:border-0 hover:bg-muted/60 ${isRead ? "opacity-65" : "bg-primary/5"}`} aria-label={`${item.title}, ${isRead ? "read" : "unread"}`}>
+                    return <button type="button" key={item.id} onClick={() => { markNotificationRead(item.id); setSelectedNotification({ title: item.title, message: item.message, createdAt: item.createdAt }); if (item.kind === "support") { const id = item.id.replace("support-mail-", ""); void supabase.from("support_mail_notifications").update({ read_at: new Date().toISOString() }).eq("id", id).eq("user_id", user!.id); } }} className={`flex w-full gap-2 border-b border-border/60 px-2 py-3 text-left last:border-0 hover:bg-muted/60 ${isRead ? "opacity-65" : "bg-primary/5"}`} aria-label={`${item.title}, ${isRead ? "read" : "unread"}`}>
                       <span className="mt-0.5 text-primary">{item.kind === "referral" ? <Gift className="h-4 w-4" /> : item.kind === "wallet" ? <Wallet className="h-4 w-4" /> : item.kind === "order" ? <ReceiptText className="h-4 w-4" /> : <Bell className="h-4 w-4" />}</span>
                       <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{item.title}</span>{!isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />}</span><span className="block text-xs text-muted-foreground">{item.message}</span><span className="mt-1 block text-[10px] text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</span></span>
                     </button>;
@@ -278,6 +286,8 @@ export function SiteLayout({ children }: { children: ReactNode }) {
         </div>
       </footer>
 
+      <Dialog open={!!selectedNotification} onOpenChange={(open) => { if (!open) setSelectedNotification(null); }}><DialogContent className="max-h-[80vh] overflow-y-auto"><DialogHeader><DialogTitle>{selectedNotification?.title}</DialogTitle></DialogHeader><div className="whitespace-pre-wrap break-words text-sm leading-6">{selectedNotification?.message}</div>{selectedNotification && <p className="text-xs text-muted-foreground">{new Date(selectedNotification.createdAt).toLocaleString()}</p>}</DialogContent></Dialog>
+      {activePopup && <aside className="fixed bottom-24 right-3 z-50 w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-primary/20 bg-background/95 p-4 shadow-2xl backdrop-blur-xl sm:bottom-6 sm:right-6" role="status"><div className="flex items-start gap-3"><span className="rounded-xl bg-primary/10 p-2 text-primary"><Gift className="h-5 w-5" /></span><div className="min-w-0 flex-1"><p className="font-semibold">{activePopup.title}</p><p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">{activePopup.message}</p></div><Button type="button" variant="ghost" size="sm" aria-label="Close offer popup" onClick={() => setDismissedPopupIds((ids) => [...ids, activePopup.id])}>×</Button></div></aside>}
       <FloatingContact />
       <SupportChat />
 
