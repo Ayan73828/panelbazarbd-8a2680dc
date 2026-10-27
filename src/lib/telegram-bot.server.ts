@@ -563,7 +563,7 @@ async function showFundAmounts(chatId: number, user: any, method = "", messageId
 async function startTelegramPayment(chatId: number, user: any, amount: number, method = "UddoktaPay", messageId?: number) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { paymentBaseUrl } = await import("@/lib/uddoktapay.server");
-  const apiKey = process.env["UDDOKTAPAY_API_KEY"];
+  const apiKey = (await privateSetting("uddoktapay_api_key")) || process.env["UDDOKTAPAY_API_KEY"];
   if (!apiKey) return screen(chatId, messageId, "⚠️ Payment gateway এখন কনফিগার করা নেই। Admin-এর সাথে যোগাযোগ করুন।", { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:fund" }]] });
   const ref = crypto.randomUUID();
   const { error: insErr } = await supabaseAdmin.from("uddoktapay_payments").insert({
