@@ -212,3 +212,43 @@ export const adminSendSupportEmail = createServerFn({ method: "POST" })
     if (!response.ok) throw new Error(result.message || result.name || "Email provider rejected the message");
     return { ok: true, id: result.id ?? null, to: data.to.trim().toLowerCase() };
   });
+
+
+export const adminSendSupportEmailAll = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    subject: z.string().trim().min(2).max(200),
+    message: z.string().trim().min(2).max(10000),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    if (String(context.claims?.email ?? "").toLowerCase() !== "ishak777998@gmail.com") {
+      throw new Error("Only the main admin can send Support Mail");
+    }
+    const apiKey = process.env["RESEND_API_KEY"] || process.env["RESEND_API_TOKEN"];
+    if (!apiKey) throw new Error("RESEND_API_KEY is not configured on the website server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.6;white-space:pre-wrap">${escapeHtml(data.message.trim())}<hr><p style="font-size:12px;color:#6b7280">PANEL BAZAR BD Support</p></body></html>`;
+    let offset = 0, sent = 0, failed = 0, skipped = 0;
+    const pageSize = 500;
+    while (true) {
+      const { data: rows, error } = await supabaseAdmin.from("profiles").select("email").not("email", "is", null).order("id", { ascending: true }).range(offset, offset + pageSize - 1);
+      if (error) throw new Error("Could not load website users: " + error.message);
+      for (const row of rows ?? []) {
+        const to = String(row.email ?? "").trim().toLowerCase();
+        if (!to || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(to)) { skipped++; continue; }
+        try {
+          const response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ from: "PANEL BAZAR BD <verification@panelbazarbd.shop>", to: [to], subject: data.subject.trim(), text: data.message.trim(), html }),
+          });
+          if (response.ok) sent++; else failed++;
+        } catch { failed++; }
+        await new Promise((resolve) => setTimeout(resolve, 550));
+      }
+      if (!rows || rows.length < pageSize) break;
+      offset += pageSize;
+    }
+    return { ok: true, sent, failed, skipped, total: sent + failed + skipped };
+  });
