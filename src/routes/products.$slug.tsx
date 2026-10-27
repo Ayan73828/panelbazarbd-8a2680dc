@@ -447,10 +447,11 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                     <span className="text-xs text-muted-foreground">কুপন থাকলে কোড দিন, না থাকলে ফাঁকা রাখুন।</span>
                     <div className="flex gap-2">
                       <input className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 uppercase" value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponApplied(null); }} placeholder="ENTER COUPON CODE" maxLength={40} />
-                      <Button type="button" variant="secondary" disabled={couponBusy || !couponCode.trim() || !!sel?.provider_auto_api} onClick={() => void applyCoupon()}>{couponBusy ? "Checking…" : couponApplied ? "Apply again" : "Apply"}</Button>
+                      <Button type="button" variant="secondary" disabled={couponBusy || !couponCode.trim()} onClick={() => void applyCoupon()}>{couponBusy ? "Checking…" : couponApplied ? "Applied ✓" : "Apply"}</Button>
                     </div>
                   </label>
                   {couponApplied && <div className="flex items-center justify-between text-sm text-emerald-600"><span>Coupon {couponApplied.code} applied</span><span>−{money(couponDiscount, cur)}</span></div>}
+                  {sel?.provider_auto_api && <p className="text-xs text-destructive">Auto-delivery product-এ coupon discount এখনো checkout-এ সমর্থিত নয়।</p>}
                   {sel?.provider_auto_api && <p className="text-xs text-muted-foreground">Auto-delivery items currently do not support discount coupons.</p>}
                 </div>
                 <div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Total</span><span className="text-primary">{money(total, cur)}</span></div>
