@@ -19,6 +19,30 @@ function AdminSettings() {
   const queryClient = useQueryClient();
   const { settings } = useSettings();
   const [savingMaintenance, setSavingMaintenance] = useState(false);
+  const [integration, setIntegration] = useState({ telegram_bot_token: "", telegram_chat_id: "", uddoktapay_api_key: "", uddoktapay_base_url: "" });
+  const [savingIntegration, setSavingIntegration] = useState(false);
+  const integrationQuery = useQuery({
+    queryKey: ["admin-private-integrations"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("admin_private_settings").select("key,value").in("key", ["telegram_bot_token", "telegram_chat_id", "uddoktapay_api_key", "uddoktapay_base_url"]);
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((row) => [row.key, row.value ?? ""]));
+    },
+  });
+  useEffect(() => {
+    const v = integrationQuery.data;
+    if (v) setIntegration({ telegram_bot_token: v.telegram_bot_token ?? "", telegram_chat_id: v.telegram_chat_id ?? "", uddoktapay_api_key: v.uddoktapay_api_key ?? "", uddoktapay_base_url: v.uddoktapay_base_url ?? "" });
+  }, [integrationQuery.data]);
+  async function saveIntegration() {
+    setSavingIntegration(true);
+    try {
+      const { error } = await supabase.from("admin_private_settings").upsert(Object.entries(integration).map(([key, value]) => ({ key, value, updated_at: new Date().toISOString() })), { onConflict: "key" });
+      if (error) throw error;
+      toast.success("Private integration settings saved");
+      await queryClient.invalidateQueries({ queryKey: ["admin-private-integrations"] });
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not save integration settings"); }
+    finally { setSavingIntegration(false); }
+  }
   const [discountPercent, setDiscountPercent] = useState("10");
   const [discountDays, setDiscountDays] = useState("1");
   const [discountEnabled, setDiscountEnabled] = useState(false);
@@ -160,6 +184,15 @@ function AdminSettings() {
         {uploadingLogo && <p className="text-sm text-muted-foreground">Uploading logo…</p>}
         {shownLogo && <div className="flex items-center gap-3 rounded-lg border p-3"><img src={shownLogo} alt="Logo preview" className="h-16 w-16 rounded-lg object-contain" /><Button type="button" variant="ghost" onClick={() => setLogoUrl("")}>Choose another</Button></div>}
         <Button type="button" onClick={() => void saveLogo()} disabled={!logoUrl || uploadingLogo}>Save logo</Button>
+      </section>
+      <section className="panel space-y-4 p-4">
+        <h2 className="font-semibold">Telegram & UddoktaPay Integration</h2>
+        <p className="text-sm text-muted-foreground">Credentials are stored in a separate admin-only table.</p>
+        <label className="block space-y-1 text-sm">Telegram Bot Token<Input type="password" autoComplete="new-password" value={integration.telegram_bot_token} onChange={(e) => setIntegration(v => ({ ...v, telegram_bot_token: e.target.value }))} placeholder="Enter bot token" /></label>
+        <label className="block space-y-1 text-sm">Telegram Chat ID<Input value={integration.telegram_chat_id} onChange={(e) => setIntegration(v => ({ ...v, telegram_chat_id: e.target.value }))} placeholder="Chat ID" /></label>
+        <label className="block space-y-1 text-sm">UddoktaPay API Key<Input type="password" autoComplete="new-password" value={integration.uddoktapay_api_key} onChange={(e) => setIntegration(v => ({ ...v, uddoktapay_api_key: e.target.value }))} placeholder="Enter API key" /></label>
+        <label className="block space-y-1 text-sm">UddoktaPay Base URL<Input value={integration.uddoktapay_base_url} onChange={(e) => setIntegration(v => ({ ...v, uddoktapay_base_url: e.target.value }))} placeholder="https://..." /></label>
+        <Button onClick={() => void saveIntegration()} disabled={savingIntegration}>{savingIntegration ? "Saving…" : "Save integration settings"}</Button>
       </section>
       <section className="panel space-y-2 p-4">
         <h2 className="font-semibold">Telegram notifications</h2>
