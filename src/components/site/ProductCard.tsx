@@ -3,6 +3,7 @@ import { ExternalLink, ImageIcon, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { money } from "@/lib/site";
+import { useSettings } from "@/hooks/useSite";
 
 export type ProductRow = {
   id: string;
@@ -30,7 +31,15 @@ export function ProductCard({
   categoryName?: string | undefined;
   currency: string;
 }) {
-  const hasDiscount = !!product.discount_price && Number(product.discount_price) > 0;
+  const { settings } = useSettings();
+  const campaignActive = settings.global_discount_enabled === "true"
+    && Number(settings.global_discount_percent) > 0
+    && Number(settings.global_discount_percent) <= 90
+    && !!settings.global_discount_until
+    && new Date(settings.global_discount_until).getTime() > Date.now();
+  const basePrice = !!product.discount_price && Number(product.discount_price) > 0 ? Number(product.discount_price) : Number(product.price);
+  const displayPrice = campaignActive ? Math.round(basePrice * (1 - Number(settings.global_discount_percent) / 100) * 100) / 100 : basePrice;
+  const hasDiscount = (!!product.discount_price && Number(product.discount_price) > 0) || campaignActive;
 
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-sm shadow-black/[0.03] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/[0.08]">
@@ -75,11 +84,11 @@ export function ProductCard({
 
         <div className="flex items-end gap-2">
           <span className="text-base font-black leading-tight tracking-tight text-primary sm:text-xl">
-            {money(hasDiscount ? product.discount_price : product.price, currency)}
+            {money(displayPrice, currency)}
           </span>
           {hasDiscount && (
             <span className="text-xs leading-tight text-muted-foreground line-through">
-              {money(product.price, currency)}
+              {money(campaignActive ? basePrice : product.price, currency)}
             </span>
           )}
         </div>
