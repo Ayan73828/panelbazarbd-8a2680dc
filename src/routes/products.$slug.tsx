@@ -266,6 +266,22 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const balance = Number(profile?.balance ?? 0);
   const insufficient = balance < total;
 
+  async function pasteCoupon() {
+    try {
+      if (!navigator.clipboard?.readText) {
+        toast.error("Paste করতে input-এ চাপ দিয়ে Paste নির্বাচন করুন");
+        return;
+      }
+      const pasted = (await navigator.clipboard.readText()).trim();
+      if (!pasted) { toast.error("Clipboard-এ কোনো coupon code নেই"); return; }
+      setCouponCode(pasted.toUpperCase());
+      setCouponApplied(null);
+      toast.success("Coupon code paste হয়েছে");
+    } catch {
+      toast.error("Paste permission না পেলে input-এ চাপ দিয়ে Paste নির্বাচন করুন");
+    }
+  }
+
   async function applyCoupon() {
     const code = couponCode.trim().toUpperCase();
     if (!code) { toast.error("Discount coupon code লিখুন"); return; }
@@ -446,8 +462,9 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                   <label className="block space-y-1.5">
                     <span className="font-medium">Discount Coupon</span>
                     <span className="text-xs text-muted-foreground">কুপন থাকলে কোড দিন, না থাকলে ফাঁকা রাখুন।</span>
-                    <div className="flex gap-2">
-                      <input className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 uppercase" value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponApplied(null); }} placeholder="ENTER COUPON CODE" maxLength={40} />
+                    <div className="flex flex-wrap gap-2">
+                      <input type="text" inputMode="text" autoComplete="off" autoCorrect="off" spellCheck={false} style={{ fontSize: "16px" }} className="h-10 min-w-0 flex-1 basis-36 rounded-md border border-input bg-background px-3 uppercase" value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponApplied(null); }} placeholder="ENTER COUPON CODE" maxLength={40} />
+                      <Button type="button" variant="outline" onClick={() => void pasteCoupon()}>Paste</Button>
                       <Button type="button" variant="secondary" disabled={couponBusy || !couponCode.trim()} onClick={() => void applyCoupon()}>{couponBusy ? "Checking…" : couponApplied ? "Applied ✓" : "Apply"}</Button>
                     </div>
                   </label>
