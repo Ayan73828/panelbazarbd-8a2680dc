@@ -104,7 +104,7 @@ function AdminSettings() {
   useEffect(() => { if (resellerPercentQuery.data) setResellerPercent(resellerPercentQuery.data); }, [resellerPercentQuery.data]);
   async function saveResellerPercent() {
     const percent = Number(resellerPercent);
-    if (!Number.isFinite(percent) || percent < 1 || percent > 50) { toast.error("Reseller discount must be between 1% and 50%"); return; }
+    if (!Number.isFinite(percent) || percent < 0 || percent > 50) { toast.error("Reseller discount must be between 0% and 50%"); return; }
     setSavingResellerPercent(true);
     try {
       const { error } = await supabase.rpc("admin_set_reseller_discount", { p_percent: percent });
@@ -224,8 +224,8 @@ function AdminSettings() {
       </section>
       <section className="panel space-y-4 p-4">
         <h2 className="font-semibold">Reseller Dashboard Discount</h2>
-        <p className="text-sm text-muted-foreground">Set the hidden product discount for reseller members. The percentage is not shown to reseller users. Changes apply to existing and future resellers.</p>
-        <label className="block space-y-1 text-sm">Reseller discount (%)<Input type="number" min="1" max="50" value={resellerPercent} onChange={(e) => setResellerPercent(e.target.value)} /></label>
+        <p className="text-sm text-muted-foreground">Set the hidden product discount for reseller members. Only the original and reduced prices appear in the Buy Now dialog; the discount percentage is not shown to resellers. Changes apply to existing and future resellers. Set 0% to turn the discount off.</p>
+        <label className="block space-y-1 text-sm">Reseller discount (%)<Input type="number" min="0" max="50" value={resellerPercent} onChange={(e) => setResellerPercent(e.target.value)} /></label>
         <Button onClick={() => void saveResellerPercent()} disabled={savingResellerPercent}>{savingResellerPercent ? "Saving…" : "Save reseller discount"}</Button>
       </section>
       <section className="panel space-y-4 p-4">
