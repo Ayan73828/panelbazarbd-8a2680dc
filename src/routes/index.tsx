@@ -87,7 +87,7 @@ function HomePage() {
   return (
     <SiteLayout>
       <section className="mx-auto flex w-full max-w-7xl justify-end px-4 pt-1 pb-0">
-        <a href="https://github.com/Ayan73828/panelbazarbd-8a2680dc/releases/download/apk-latest/app-debug.apk" className="inline-flex h-7 items-center gap-1 rounded-full border border-primary/25 bg-primary/5 px-2.5 text-[11px] font-medium text-primary transition hover:bg-primary/10 active:scale-[0.98]" aria-label="Download Panel Bazar BD APK">
+        <a href="https://github.com/Ayan73828/panelbazarbd-8a2680dc/releases/download/apk-latest/Panel-Bazar-BD.apk" className="inline-flex h-7 items-center gap-1 rounded-full border border-primary/25 bg-primary/5 px-2.5 text-[11px] font-medium text-primary transition hover:bg-primary/10 active:scale-[0.98]" aria-label="Download Panel Bazar BD APK">
           <Download className="h-3 w-3" /> Download APK
         </a>
       </section>
