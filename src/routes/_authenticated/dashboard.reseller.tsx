@@ -75,7 +75,7 @@ function ResellerDashboard() {
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="reseller-coupon">Discount Coupon (ঐচ্ছিক)</label>
               <Input id="reseller-coupon" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} placeholder="কুপন কোড লিখুন" autoCapitalize="characters" maxLength={40} />
-              <p className="text-xs text-muted-foreground">সাধারণ All Products কুপন প্রযোজ্য হবে; নির্দিষ্ট প্রোডাক্টের কুপন এখানে চলবে না।</p>
+              <p className="text-xs text-muted-foreground">All Products বা Reseller Dashboard-এর জন্য তৈরি কুপন এখানে ব্যবহার করা যাবে; নির্দিষ্ট প্রোডাক্টের কুপন চলবে না।</p>
             </div>
             <Button className="w-full" onClick={activate} disabled={busy}>
               {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing…</> : "Upgrade Now — ৳৩০০"}
