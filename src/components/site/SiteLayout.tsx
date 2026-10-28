@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   ShieldCheck,
   Crown,
+  Download,
   Sparkles,
   Gift,
   KeyRound,
@@ -145,6 +146,9 @@ export function SiteLayout({ children }: { children: ReactNode }) {
             </Button>
           )}
           <div className="flex shrink-0 items-center gap-1.5">
+            <Button asChild variant="outline" size="sm" className="h-9 rounded-full border-primary/30 px-2.5 sm:px-3">
+              <a href="https://github.com/Ayan73828/panelbazarbd-8a2680dc/releases/download/apk-latest/app-debug.apk" aria-label="Download Panel Bazar APK"><Download className="h-4 w-4 sm:mr-1.5" /><span className="hidden sm:inline">Download APK</span></a>
+            </Button>
             {user && (
               <>
               <Button asChild variant="ghost" size="icon" className="header-action-button relative overflow-visible" aria-label="Shopping cart"><Link to="/cart"><ShoppingCart className="h-5 w-5" />{cartCount > 0 && <span className="pointer-events-none absolute -right-1 -top-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground shadow-sm">{cartCount > 99 ? "99+" : cartCount}</span>}</Link></Button>
