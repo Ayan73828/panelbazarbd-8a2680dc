@@ -5,8 +5,8 @@
     <application
         android:allowBackup="false"
         android:label="@string/app_name"
-        android:icon="@drawable/ic_panel_bazar"
-        android:roundIcon="@drawable/ic_panel_bazar"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="false"
         android:theme="@style/AppTheme">
         <activity
