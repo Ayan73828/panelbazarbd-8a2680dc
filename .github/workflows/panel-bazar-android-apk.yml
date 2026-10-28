@@ -41,11 +41,21 @@ jobs:
         working-directory: android-app
         run: gradle assembleDebug
 
-      - name: Upload APK artifact
+      - name: Package APK into ZIP
+        run: |
+          mkdir -p release-package
+          cp android-app/app/build/outputs/apk/debug/app-debug.apk release-package/Panel-Bazar-BD.apk
+          printf '%s\n' 'Panel Bazar BD Android app. Install Panel-Bazar-BD.apk on your Android device.' > release-package/README.txt
+          cd release-package
+          zip -9 ../Panel-Bazar-BD-APK.zip Panel-Bazar-BD.apk README.txt
+
+      - name: Upload APK and ZIP artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: panel-bazar-bd-debug-apk
-          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          name: panel-bazar-bd-apk-package
+          path: |
+            android-app/app/build/outputs/apk/debug/app-debug.apk
+            Panel-Bazar-BD-APK.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -57,7 +67,9 @@ jobs:
           body: "Latest Android APK for Panel Bazar BD. This is a debug-signed build for direct testing."
           prerelease: true
           make_latest: false
-          files: android-app/app/build/outputs/apk/debug/app-debug.apk
+          files: |
+            android-app/app/build/outputs/apk/debug/app-debug.apk
+            Panel-Bazar-BD-APK.zip
           overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
