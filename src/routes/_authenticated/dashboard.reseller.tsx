@@ -4,6 +4,7 @@ import { BadgeCheck, Store, Wallet, Percent, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSite";
 import { money } from "@/lib/site";
@@ -17,20 +18,18 @@ function ResellerDashboard() {
   const { profile, refresh } = useAuth();
   const { settings } = useSettings();
   const [busy, setBusy] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
   const active = !!profile?.is_reseller;
   const balance = Number(profile?.balance ?? 0);
 
   async function activate() {
     if (busy || active) return;
-    if (balance < 300) {
-      toast.error("Reseller upgrade-এর জন্য Wallet-এ কমপক্ষে ৳৩০০ রাখুন।");
-      return;
-    }
     setBusy(true);
     try {
-      const { data, error } = await supabase.rpc("activate_reseller");
+      const { data, error } = await (supabase as any).rpc("activate_reseller_with_coupon", { p_coupon_code: couponCode.trim() || null });
       if (error) throw error;
       if (data === "OK") {
+        setCouponCode("");
         refresh();
         toast.success("Reseller Dashboard চালু হয়েছে!");
       } else if (data === "ALREADY_RESELLER") {
@@ -42,7 +41,8 @@ function ResellerDashboard() {
         toast.error("Upgrade সম্পন্ন করা যায়নি। Support-এ যোগাযোগ করুন।");
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Upgrade failed");
+      const message = String((error as { message?: string })?.message ?? error);
+      toast.error(message.includes("COUPON_INVALID") ? "কুপনটি সঠিক নয় বা নিষ্ক্রিয়।" : message.includes("COUPON_EXPIRED") ? "কুপনের মেয়াদ শেষ।" : message.includes("COUPON_LIMIT_REACHED") ? "কুপনের ব্যবহারসীমা শেষ।" : message.includes("COUPON_MIN_ORDER") ? "এই কুপনের জন্য ন্যূনতম অর্ডার মূল্য পূরণ হয়নি।" : message.includes("COUPON_NOT_ELIGIBLE_FOR_RESELLER") ? "এই কুপনটি Reseller Dashboard activation-এর জন্য প্রযোজ্য নয়।" : message.includes("INSUFFICIENT_BALANCE") ? "কুপন ছাড়ের পরও Wallet balance পর্যাপ্ত নয়।" : message || "Upgrade failed");
     } finally {
       setBusy(false);
     }
@@ -77,8 +77,13 @@ function ResellerDashboard() {
         {!active ? (
           <>
             <p className="text-sm text-muted-foreground">Upgrade করলে Wallet থেকে ৳৩০০ কাটা হবে এবং Reseller status চালু হবে।</p>
-            {balance < 300 && <div className="rounded-lg bg-muted p-3 text-sm">আপনার Wallet-এ আরও ৳{Math.ceil(300 - balance)} দরকার। <Link className="font-semibold text-primary underline" to="/dashboard/wallet">Wallet-এ টাকা যোগ করুন</Link></div>}
-            <Button className="w-full" onClick={activate} disabled={busy || balance < 300}>
+            {balance < 300 && <div className="rounded-lg bg-muted p-3 text-sm">কুপন ব্যবহার করলে মূল্য কমতে পারে। প্রয়োজনে <Link className="font-semibold text-primary underline" to="/dashboard/wallet">Wallet-এ টাকা যোগ করুন</Link>।</div>}
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="reseller-coupon">Discount Coupon (ঐচ্ছিক)</label>
+              <Input id="reseller-coupon" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} placeholder="কুপন কোড লিখুন" autoCapitalize="characters" maxLength={40} />
+              <p className="text-xs text-muted-foreground">সাধারণ All Products কুপন প্রযোজ্য হবে; নির্দিষ্ট প্রোডাক্টের কুপন এখানে চলবে না।</p>
+            </div>
+            <Button className="w-full" onClick={activate} disabled={busy}>
               {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing…</> : "Upgrade Now — ৳৩০০"}
             </Button>
           </>
