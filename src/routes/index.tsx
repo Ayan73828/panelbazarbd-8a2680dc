@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowRight, Megaphone, MessageCircle, Phone, Send, ShieldCheck, Zap } from "lucide-react";
+import { ArrowRight, Download, Megaphone, MessageCircle, Phone, Send, ShieldCheck, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -86,6 +86,20 @@ function HomePage() {
 
   return (
     <SiteLayout>
+      <section className="mx-auto w-full max-w-7xl px-4 pt-4">
+        <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-4 shadow-lg shadow-primary/5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md"><Download className="h-5 w-5" /></span>
+            <div className="min-w-0">
+              <p className="font-bold tracking-tight">Get the Panel Bazar BD App</p>
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground sm:text-sm">Download the Android app for quick access to our website.</p>
+            </div>
+          </div>
+          <a href="https://github.com/Ayan73828/panelbazarbd-8a2680dc/releases/download/apk-latest/app-debug.apk" className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-90 active:scale-[0.98]">
+            <Download className="h-4 w-4" /> Download APK
+          </a>
+        </div>
+      </section>
       {!selectedCategoryId && enabled("featured") && (
         <section className="mx-auto w-full max-w-7xl px-4 pb-6 pt-4 sm:pb-8 sm:pt-6">
           <div className="mb-4 flex items-end justify-between gap-3">
