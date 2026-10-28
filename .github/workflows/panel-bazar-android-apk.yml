@@ -9,7 +9,7 @@ on:
       - '.github/workflows/panel-bazar-android-apk.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-apk:
@@ -48,3 +48,16 @@ jobs:
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish direct APK download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: Panel Bazar BD APK (Latest)
+          body: "Latest Android APK for Panel Bazar BD. This is a debug-signed build for direct testing."
+          prerelease: true
+          make_latest: false
+          files: android-app/app/build/outputs/apk/debug/app-debug.apk
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
