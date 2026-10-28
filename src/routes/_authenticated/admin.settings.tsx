@@ -107,10 +107,8 @@ function AdminSettings() {
     if (!Number.isFinite(percent) || percent < 1 || percent > 50) { toast.error("Reseller discount must be between 1% and 50%"); return; }
     setSavingResellerPercent(true);
     try {
-      const { error: settingError } = await supabase.from("site_settings").upsert({ key: "reseller_discount_percent", value: String(percent) }, { onConflict: "key" });
-      if (settingError) throw settingError;
-      const { error: profileError } = await supabase.from("profiles").update({ reseller_discount_percent: percent }).eq("is_reseller", true);
-      if (profileError) throw profileError;
+      const { error } = await supabase.rpc("admin_set_reseller_discount", { p_percent: percent });
+      if (error) throw error;
       await queryClient.invalidateQueries();
       toast.success(`Reseller discount updated to ${percent}% for current and future resellers`);
     } catch (error) { toast.error(error instanceof Error ? error.message : "Could not update reseller discount"); }
@@ -223,6 +221,12 @@ function AdminSettings() {
         <h2 className="font-semibold">Telegram notifications</h2>
         <p className="text-sm text-muted-foreground">After adding TELEGRAM_BOT_TOKEN and TELEGRAM_OWNER_CHAT_ID in Render, connect the bot webhook here.</p>
         <Button onClick={() => void connectTelegram()} disabled={connectingTelegram}>{connectingTelegram ? "Connecting…" : "Connect Telegram bot"}</Button>
+      </section>
+      <section className="panel space-y-4 p-4">
+        <h2 className="font-semibold">Reseller Dashboard Discount</h2>
+        <p className="text-sm text-muted-foreground">Set the hidden product discount for reseller members. The percentage is not shown to reseller users. Changes apply to existing and future resellers.</p>
+        <label className="block space-y-1 text-sm">Reseller discount (%)<Input type="number" min="1" max="50" value={resellerPercent} onChange={(e) => setResellerPercent(e.target.value)} /></label>
+        <Button onClick={() => void saveResellerPercent()} disabled={savingResellerPercent}>{savingResellerPercent ? "Saving…" : "Save reseller discount"}</Button>
       </section>
       <section className="panel space-y-4 p-4">
         <h2 className="font-semibold">Global Discount / Special Sale</h2>
