@@ -54,7 +54,7 @@ jobs:
         with:
           name: panel-bazar-bd-apk-package
           path: |
-            android-app/app/build/outputs/apk/debug/app-debug.apk
+            Panel-Bazar-BD.apk
             Panel-Bazar-BD-APK.zip
           if-no-files-found: error
           retention-days: 14
