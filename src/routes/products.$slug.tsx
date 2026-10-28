@@ -256,7 +256,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const rawUnit = hasPk ? (sel?.price ?? 0) : product.unit;
   const unit = campaignPercent ? Math.round(rawUnit * (100 - campaignPercent)) / 100 : rawUnit;
   const maxQty = Math.max(1, Math.min(20, hasPk ? (sel?.provider_auto_api ? 20 : (sel?.available ?? 1)) : product.stock));
-  const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
+  const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10))) : 0;
   const discountEligible = discountPercent > 0 && !sel?.provider_auto_api;
   const effectiveUnit = discountEligible ? Math.round(unit * (100 - discountPercent)) / 100 : unit;
   const originalTotal = unit * qty;
@@ -442,11 +442,17 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                     <span className="font-medium">Choose Validity / Duration</span>
                     <select className="h-11 w-full rounded-lg border border-input bg-background px-3" value={pkgId} onChange={(e) => { setPkgId(e.target.value); setQty(1); setCouponApplied(null); }}>
                       <option value="">Select an option</option>
-                      {packages.map((pk) => (
-                        <option key={pk.id} value={pk.id} disabled={pk.price <= 0}>
-                          {pk.duration || pk.name} — {campaignPercent ? <><span className="line-through text-muted-foreground">{money(pk.price, cur)}</span> <span className="font-semibold text-primary">{money(Math.round(pk.price * (100 - campaignPercent)) / 100, cur)}</span></> : money(pk.price, cur)}
-                        </option>
-                      ))}
+                      {packages.map((pk) => {
+                        const campaignPrice = campaignPercent ? Math.round(pk.price * (100 - campaignPercent)) / 100 : pk.price;
+                        const resellerPrice = profile?.is_reseller && !pk.provider_auto_api
+                          ? Math.round(campaignPrice * (100 - Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10)))) / 100)
+                          : campaignPrice;
+                        return (
+                          <option key={pk.id} value={pk.id} disabled={pk.price <= 0}>
+                            {pk.duration || pk.name} — {resellerPrice < pk.price ? `${money(pk.price, cur)} → ${money(resellerPrice, cur)}` : money(pk.price, cur)}
+                          </option>
+                        );
+                      })}
                     </select>
                   </label>
                 )}
@@ -472,7 +478,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                   
                 </div>
                 <div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Total</span><span className="text-primary">{money(total, cur)}</span></div>
-                {discountEligible && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Reseller discount ({discountPercent}%)</span><span><span className="mr-2 text-muted-foreground line-through">{money(originalTotal, cur)}</span><span className="text-primary">−{money(originalTotal - total, cur)}</span></span></div>}
+                {discountEligible && <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Price</span><span className="text-right"><span className="mr-2 text-muted-foreground line-through">{money(originalTotal, cur)}</span><span className="font-semibold text-primary">{money(baseTotal, cur)}</span></span></div>}
               </div>
             )}
             {step === 2 && (
@@ -486,7 +492,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
               <div className="space-y-2">
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Item</span><span className="text-right font-medium">{sel ? sel.name : product.name} × {qty}</span></div>
                 <div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Total</span><span className="text-primary">{money(total, cur)}</span></div>
-                {discountEligible && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Reseller discount ({discountPercent}%)</span><span><span className="mr-2 text-muted-foreground line-through">{money(originalTotal, cur)}</span><span className="text-primary">−{money(originalTotal - total, cur)}</span></span></div>}
+                {discountEligible && <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Price</span><span className="text-right"><span className="mr-2 text-muted-foreground line-through">{money(originalTotal, cur)}</span><span className="font-semibold text-primary">{money(baseTotal, cur)}</span></span></div>}
                 {insufficient && <p className="rounded-lg bg-primary/10 p-3 text-primary">ব্যালেন্স কম। "Add money" চাপলে পেমেন্ট পেজ খুলবে।</p>}
               </div>
             )}
