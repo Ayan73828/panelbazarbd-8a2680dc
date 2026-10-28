@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { BadgeCheck, Store, Wallet, Percent, Loader2 } from "lucide-react";
+import { BadgeCheck, Store, Wallet, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
@@ -66,13 +66,7 @@ function ResellerDashboard() {
             <p className="text-xs text-muted-foreground">Current Wallet</p>
             <p className="font-bold">{money(balance, settings.currency_symbol)}</p>
           </div>
-          {active && (
-            <div className="rounded-xl border border-border p-3">
-              <Percent className="mb-2 h-4 w-4 text-primary" />
-              <p className="text-xs text-muted-foreground">Reseller discount</p>
-              <p className="font-bold">{profile?.reseller_discount_percent ?? 7}%</p>
-            </div>
-          )}
+
         </div>
         {!active ? (
           <>
@@ -91,7 +85,7 @@ function ResellerDashboard() {
           <div className="rounded-lg bg-primary/10 p-3 text-sm text-primary">আপনার Reseller membership active.</div>
         )}
       </div>
-      {active && <p className="text-xs text-muted-foreground">নোট: activation fee সফলভাবে কাটা হলেই status চালু হবে। Reseller Dashboard active থাকলে eligible পণ্যে ৭% discount পাবেন। Auto-provider পণ্যে এই discount প্রযোজ্য নয়।</p>}
+      {active && <p className="text-xs text-muted-foreground">নোট: activation fee সফলভাবে কাটা হলেই status চালু হবে। Reseller Dashboard active থাকলে eligible পণ্যে reseller discount পাবেন। Auto-provider পণ্যে এই discount প্রযোজ্য নয়।</p>}
     </div>
   );
 }
