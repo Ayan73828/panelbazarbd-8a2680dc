@@ -47,6 +47,8 @@ function AdminSettings() {
   const [discountDays, setDiscountDays] = useState("1");
   const [discountEnabled, setDiscountEnabled] = useState(false);
   const [savingDiscount, setSavingDiscount] = useState(false);
+  const [resellerPercent, setResellerPercent] = useState("10");
+  const [savingResellerPercent, setSavingResellerPercent] = useState(false);
   const discountQuery = useQuery({
     queryKey: ["global-discount-settings"],
     queryFn: async () => {
@@ -90,6 +92,29 @@ function AdminSettings() {
       toast.success("Discount stopped");
     } catch (error) { toast.error(error instanceof Error ? error.message : "Could not stop discount"); }
     finally { setSavingDiscount(false); }
+  }
+  const resellerPercentQuery = useQuery({
+    queryKey: ["reseller-discount-percent"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("site_settings").select("value").eq("key", "reseller_discount_percent").maybeSingle();
+      if (error) throw error;
+      return data?.value ?? "10";
+    },
+  });
+  useEffect(() => { if (resellerPercentQuery.data) setResellerPercent(resellerPercentQuery.data); }, [resellerPercentQuery.data]);
+  async function saveResellerPercent() {
+    const percent = Number(resellerPercent);
+    if (!Number.isFinite(percent) || percent < 1 || percent > 50) { toast.error("Reseller discount must be between 1% and 50%"); return; }
+    setSavingResellerPercent(true);
+    try {
+      const { error: settingError } = await supabase.from("site_settings").upsert({ key: "reseller_discount_percent", value: String(percent) }, { onConflict: "key" });
+      if (settingError) throw settingError;
+      const { error: profileError } = await supabase.from("profiles").update({ reseller_discount_percent: percent }).eq("is_reseller", true);
+      if (profileError) throw profileError;
+      await queryClient.invalidateQueries();
+      toast.success(`Reseller discount updated to ${percent}% for current and future resellers`);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not update reseller discount"); }
+    finally { setSavingResellerPercent(false); }
   }
   const logoQuery = useQuery({
     queryKey: ["site-logo-setting"],
