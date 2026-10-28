@@ -376,7 +376,7 @@ function ProfileMenu({ name, email, isReseller, isAdmin, isOwner }: { name: stri
           </DropdownMenuItem>
         ))}
         <DropdownMenuItem asChild>
-          <a href="https://github.com/Ayan73828/panelbazarbd-8a2680dc/releases/download/apk-latest/app-debug.apk">
+          <a href="https://github.com/Ayan73828/panelbazarbd-8a2680dc/releases/download/apk-latest/Panel-Bazar-BD.apk">
             <Download className="mr-2 h-4 w-4" /> Download APK
           </a>
         </DropdownMenuItem>
