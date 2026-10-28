@@ -27,7 +27,7 @@ import android.content.Context;
 import android.graphics.Typeface;
 
 public class MainActivity extends Activity {
-    private static final String HOME = "https://panelbazarbd-8a2680dc.onrender.com";
+    private static final String HOME = "https://panelbazarbd.shop";
     private WebView webView;
     private ProgressBar progress;
     private LinearLayout errorPanel;
