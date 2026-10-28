@@ -37,14 +37,17 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Build signed release APK
         working-directory: android-app
-        run: gradle assembleDebug
+        run: gradle assembleRelease
+
+      - name: Prepare branded APK filename
+        run: cp android-app/app/build/outputs/apk/release/app-release.apk Panel-Bazar-BD.apk
 
       - name: Package APK into ZIP
         run: |
           mkdir -p release-package
-          cp android-app/app/build/outputs/apk/debug/app-debug.apk release-package/Panel-Bazar-BD.apk
+          cp Panel-Bazar-BD.apk release-package/Panel-Bazar-BD.apk
           printf '%s\n' 'Panel Bazar BD Android app. Install Panel-Bazar-BD.apk on your Android device.' > release-package/README.txt
           cd release-package
           zip -9 ../Panel-Bazar-BD-APK.zip Panel-Bazar-BD.apk README.txt
@@ -64,11 +67,11 @@ jobs:
         with:
           tag_name: apk-latest
           name: Panel Bazar BD APK (Latest)
-          body: "Latest Android APK for Panel Bazar BD. This is a debug-signed build for direct testing."
+          body: "Latest Android APK for Panel Bazar BD. This is the branded Panel-Bazar-BD.apk release build."
           prerelease: true
           make_latest: false
           files: |
-            android-app/app/build/outputs/apk/debug/app-debug.apk
+            Panel-Bazar-BD.apk
             Panel-Bazar-BD-APK.zip
           overwrite_files: true
         env:
