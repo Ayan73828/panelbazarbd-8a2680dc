@@ -257,9 +257,11 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const unit = campaignPercent ? Math.round(rawUnit * (100 - campaignPercent)) / 100 : rawUnit;
   const maxQty = Math.max(1, Math.min(20, hasPk ? (sel?.provider_auto_api ? 20 : (sel?.available ?? 1)) : product.stock));
   const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10))) : 0;
-  const discountEligible = discountPercent > 0 && !sel?.provider_auto_api;
-  const effectiveUnit = discountEligible ? Math.round(unit * (100 - discountPercent)) / 100 : unit;
-  const originalTotal = unit * qty;
+  // Reseller pricing applies to every package, including supplier API packages.
+  const discountEligible = discountPercent > 0;
+  const resellerUnit = discountEligible ? Math.round(rawUnit * (100 - discountPercent)) / 100 : rawUnit;
+  const effectiveUnit = campaignPercent ? Math.round(resellerUnit * (100 - campaignPercent)) / 100 : resellerUnit;
+  const originalTotal = rawUnit * qty;
   const baseTotal = effectiveUnit * qty;
   const couponDiscount = couponApplied ? Number(couponApplied.discount) : 0;
   const total = Math.max(0, baseTotal - couponDiscount);
@@ -443,10 +445,9 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                     <select className="h-11 w-full rounded-lg border border-input bg-background px-3" value={pkgId} onChange={(e) => { setPkgId(e.target.value); setQty(1); setCouponApplied(null); }}>
                       <option value="">Select an option</option>
                       {packages.map((pk) => {
-                        const campaignPrice = campaignPercent ? Math.round(pk.price * (100 - campaignPercent)) / 100 : pk.price;
-                        const resellerPrice = profile?.is_reseller && !pk.provider_auto_api
-                          ? Math.round(campaignPrice * (100 - Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10)))) / 100)
-                          : campaignPrice;
+                        const resellerPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10))) : 0;
+                        const resellerBasePrice = resellerPercent > 0 ? Math.round(pk.price * (100 - resellerPercent)) / 100 : pk.price;
+                        const resellerPrice = campaignPercent ? Math.round(resellerBasePrice * (100 - campaignPercent)) / 100 : resellerBasePrice;
                         return (
                           <option key={pk.id} value={pk.id} disabled={pk.price <= 0}>
                             {pk.duration || pk.name} — {resellerPrice < pk.price ? `${money(pk.price, cur)} → ${money(resellerPrice, cur)}` : money(pk.price, cur)}
