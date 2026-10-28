@@ -44,6 +44,13 @@ jobs:
       - name: Prepare branded APK filename
         run: cp android-app/app/build/outputs/apk/release/app-release.apk Panel-Bazar-BD.apk
 
+      - name: Verify APK signature and package metadata
+        run: |
+          APK_PATH=Panel-Bazar-BD.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK_PATH"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK_PATH" | head -n 5
+          test "$(stat -c%s "$APK_PATH")" -gt 10000
+
       - name: Package APK into ZIP
         run: |
           mkdir -p release-package
