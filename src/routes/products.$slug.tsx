@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { queryOptions, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, ExternalLink, ImageIcon, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +34,9 @@ const productQuery = (slug: string) =>
   });
 
 export const Route = createFileRoute("/products/$slug")({
+  validateSearch: (search: Record<string, unknown>): { buy?: string } => ({
+    buy: search.buy === "1" ? "1" : undefined,
+  }),
   loader: async ({ context, params }) => {
     const p = await context.queryClient.ensureQueryData(productQuery(params.slug));
     if (!p) throw notFound();
@@ -89,6 +92,7 @@ export const Route = createFileRoute("/products/$slug")({
 
 function ProductDetail() {
   const { slug } = Route.useParams();
+  const { buy } = Route.useSearch();
   const { data: p } = useSuspenseQuery(productQuery(slug));
   const { settings } = useSettings();
   const { profile } = useAuth();
@@ -97,6 +101,14 @@ function ProductDetail() {
   const images = p ? [p.image_url, ...(p.images ?? [])].filter((x): x is string => !!x) : [];
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (buy === "1") {
+      setOpen(true);
+      void navigate({ to: "/products/$slug", params: { slug }, search: {}, replace: true });
+    }
+  }, [buy, navigate, slug]);
 
   // Load purchase options independently from stock calculation so a slow stock RPC
   // never hides the Duration/Validity selector in the Buy Now dialog.
@@ -267,6 +279,8 @@ function ProductDetail() {
         product={{ id: p.id, name: p.name, slug: p.slug, unit: effectivePrice(p), stock: p.stock }}
         packages={packages}
         packagesLoading={pkgs.isLoading}
+        packagesError={!!pkgs.error}
+        onRetryPackages={() => void pkgs.refetch()}
       />
     </SiteLayout>
   );
@@ -274,7 +288,7 @@ function ProductDetail() {
 
 type Pkg = { id: string; name: string; duration: string; price: number; pro_reseller_price?: number | null; available: number; provider_auto_api?: boolean; provider_product_id?: string | null; provider_duration?: string | null };
 
-function BuyDialog({ open, onOpenChange, product, packages, packagesLoading }: { open: boolean; onOpenChange: (v: boolean) => void; product: { id: string; name: string; unit: number; slug: string; stock: number }; packages: Pkg[]; packagesLoading: boolean }) {
+function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, packagesError, onRetryPackages }: { open: boolean; onOpenChange: (v: boolean) => void; product: { id: string; name: string; unit: number; slug: string; stock: number }; packages: Pkg[]; packagesLoading: boolean; packagesError: boolean; onRetryPackages: () => void }) {
   const { user, profile, refresh } = useAuth();
   const { settings } = useSettings();
   const cur = settings.currency_symbol;
@@ -471,13 +485,20 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading }: {
             <p className="text-muted-foreground">কিনতে আগে লগইন করুন।</p>
             <Button asChild className="w-full"><Link to="/auth" search={{ mode: "login" }}>Login</Link></Button>
           </div>
-        ) : packagesLoading ? (
-          <div className="space-y-3 py-6 text-center text-sm text-muted-foreground">
-            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-r-transparent" />
-            <p>Loading Duration / Validity options…</p>
-          </div>
         ) : (
           <div className="space-y-4 text-sm">
+            {packagesLoading && packages.length === 0 && (
+              <div className="flex items-center gap-2 rounded-lg bg-surface-2 p-3 text-xs text-muted-foreground">
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+                Loading available durations…
+              </div>
+            )}
+            {packagesError && packages.length === 0 && (
+              <div className="space-y-2 rounded-lg bg-destructive/10 p-3 text-xs text-destructive">
+                <p>Duration list could not be loaded. Please try again.</p>
+                <Button type="button" size="sm" variant="secondary" onClick={onRetryPackages}>Retry</Button>
+              </div>
+            )}
             <div className="flex gap-2">
               {steps.map((s, i) => (
                 <div key={s} className={`flex-1 rounded-full py-1 text-center text-xs font-semibold ${step >= i + 1 ? "bg-primary text-primary-foreground" : "bg-surface-2 text-muted-foreground"}`}>{i + 1}. {s}</div>
@@ -486,21 +507,32 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading }: {
             {step === 1 && (
               <div className="space-y-4">
                 {hasPk && (
-                  <label className="block space-y-1.5">
+                  <div className="space-y-2">
                     <span className="font-medium">Choose Validity / Duration</span>
-                    <select className="h-11 w-full rounded-lg border border-input bg-background px-3" value={pkgId} onChange={(e) => { setPkgId(e.target.value); setQty(1); setCouponApplied(null); }}>
-                      <option value="">Select an option</option>
-                      {packages.map((pk) => {
-                        const selectedBase = profile?.is_pro_reseller ? (pk.pro_reseller_price ?? 0) : profile?.is_reseller ? Math.round(pk.price * (100 - discountPercent)) / 100 : pk.price;
-                        const selectedPrice = campaignPercent ? Math.round(selectedBase * (100 - campaignPercent)) / 100 : selectedBase;
-                        return (
-                          <option key={pk.id} value={pk.id} disabled={selectedBase <= 0}>
-                            {pk.duration || pk.name} — {selectedBase > 0 ? money(selectedPrice, cur) : "Pro price not set"}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </label>
+                    {packages.length > 0 ? (
+                      <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                        {packages.map((pk) => {
+                          const selectedBase = profile?.is_pro_reseller ? (pk.pro_reseller_price ?? 0) : profile?.is_reseller ? Math.round(pk.price * (100 - discountPercent)) / 100 : pk.price;
+                          const selectedPrice = campaignPercent ? Math.round(selectedBase * (100 - campaignPercent)) / 100 : selectedBase;
+                          const selected = pkgId === pk.id;
+                          return (
+                            <button
+                              key={pk.id}
+                              type="button"
+                              disabled={selectedBase <= 0}
+                              onClick={() => { setPkgId(pk.id); setQty(1); setCouponApplied(null); setError(""); }}
+                              className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors ${selected ? "border-primary bg-primary/10" : "border-border bg-background"} disabled:cursor-not-allowed disabled:opacity-50`}
+                            >
+                              <span className="font-medium">{pk.duration || pk.name}</span>
+                              <span className="shrink-0 font-bold text-primary">{selectedBase > 0 ? money(selectedPrice, cur) : "Price unavailable"}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : !packagesLoading && !packagesError ? (
+                      <p className="rounded-lg bg-surface-2 p-3 text-xs text-muted-foreground">No active duration options are available for this product.</p>
+                    ) : null}
+                  </div>
                 )}
                 <div className="space-y-1.5">
                   <span className="font-medium">Quantity</span>
@@ -558,7 +590,7 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading }: {
               </Button>
             )}
             {step < 3 ? (
-              <Button disabled={(hasPk && !sel) || unit <= 0} onClick={() => setStep(step + 1)}>Next</Button>
+              <Button disabled={packagesLoading || (hasPk && !sel) || (!hasPk && packagesError) || unit <= 0} onClick={() => setStep(step + 1)}>Next</Button>
             ) : (
               <Button onClick={buy} disabled={busy}>{busy ? "Processing…" : insufficient ? "Add money" : `Pay Now ${money(total, cur)}`}</Button>
             )}
