@@ -91,22 +91,33 @@ function ProductDetail() {
   const { slug } = Route.useParams();
   const { data: p } = useSuspenseQuery(productQuery(slug));
   const { settings } = useSettings();
+  const { profile } = useAuth();
   const cur = settings.currency_symbol;
   const images = p ? [p.image_url, ...(p.images ?? [])].filter((x): x is string => !!x) : [];
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
 
   const pkgs = useQuery({
-    queryKey: ["packages", p?.id],
+    queryKey: ["packages", p?.id, !!profile?.is_pro_reseller],
     enabled: !!p?.id,
     queryFn: async () => {
-      const [{ data, error }, { data: stock }] = await Promise.all([
-        supabase.from("product_packages").select("id,name,duration,price,pro_reseller_price,sort_order,provider_auto_api,provider_product_id,provider_duration").eq("product_id", p!.id).eq("is_active", true).order("sort_order"),
+      const [{ data, error }, { data: stock }, proPriceResult] = await Promise.all([
+        supabase.from("product_packages").select("id,name,duration,price,sort_order,provider_auto_api,provider_product_id,provider_duration").eq("product_id", p!.id).eq("is_active", true).order("sort_order"),
         supabase.rpc("package_stock", { p_product_id: p!.id }),
+        profile?.is_pro_reseller
+          ? (supabase as any).rpc("get_pro_reseller_package_prices", { p_product_id: p!.id })
+          : Promise.resolve({ data: [] }),
       ]);
       if (error) throw error;
+      if (proPriceResult.error) throw proPriceResult.error;
       const st = new Map((stock ?? []).map((r: { package_id: string; available: number }) => [r.package_id, Number(r.available)]));
-      return (data ?? []).map((x) => ({ ...x, price: Number(x.price), available: x.provider_auto_api ? 1 : (st.get(x.id) ?? 0) }));
+      const proPrices = new Map((proPriceResult.data ?? []).map((r: { package_id: string; pro_reseller_price: number }) => [r.package_id, Number(r.pro_reseller_price)]));
+      return (data ?? []).map((x) => ({
+        ...x,
+        price: Number(x.price),
+        pro_reseller_price: proPrices.get(x.id) ?? null,
+        available: x.provider_auto_api ? 1 : (st.get(x.id) ?? 0),
+      }));
     },
   });
 
@@ -133,6 +144,10 @@ function ProductDetail() {
   const cat = p.categories as { name: string; slug: string } | null;
   const packages = pkgs.data ?? [];
   const hasPackages = packages.length > 0;
+  const lowestVisiblePackagePrice = packages.reduce((lowest, item) => {
+    const price = profile?.is_pro_reseller ? Number(item.pro_reseller_price ?? 0) : Number(item.price);
+    return price > 0 ? Math.min(lowest, price) : lowest;
+  }, Infinity);
 
   return (
     <SiteLayout>
@@ -172,10 +187,10 @@ function ProductDetail() {
               <div className="space-y-3">
                 <div className="flex items-end gap-2">
                   <span className="text-sm text-muted-foreground">From</span>
-                  <span className="font-display text-3xl font-bold text-primary">{money(discounted(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price))), cur)}</span>
+                  <span className="font-display text-3xl font-bold text-primary">{money(discounted(Number.isFinite(lowestVisiblePackagePrice) ? lowestVisiblePackagePrice : 0), cur)}</span>
                 </div>
                 <p className="text-sm text-muted-foreground">{packages.length} purchase option{packages.length === 1 ? "" : "s"} available</p>{campaignActive && <Badge variant="destructive">{campaignPercent}% OFF</Badge>}
-                <Button size="lg" className="h-12 w-full rounded-full" disabled={!packages.some((x) => x.price > 0)} onClick={() => setOpen(true)}>
+                <Button size="lg" className="h-12 w-full rounded-full" disabled={!packages.some((x) => (profile?.is_pro_reseller ? Number(x.pro_reseller_price ?? 0) : Number(x.price)) > 0)} onClick={() => setOpen(true)}>
                   <ShoppingCart className="mr-2 h-4 w-4" /> Buy Now
                 </Button>
               </div>
