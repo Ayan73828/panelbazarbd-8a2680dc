@@ -18,6 +18,8 @@ export type Profile = {
   pro_reseller_cycle_deadline?: string | null;
   pro_reseller_verified?: boolean;
   pro_reseller_verified_at?: string | null;
+  pro_reseller_package_purchased?: boolean;
+  pro_reseller_package_purchased_at?: string | null;
   reseller_discount_percent: number;
   created_at: string;
 };
