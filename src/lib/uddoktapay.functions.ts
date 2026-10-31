@@ -20,9 +20,11 @@ export const uddoktapayCreateCharge = createServerFn({ method: "POST" })
 
     const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("name, email, username")
+      .select("name, email, username, is_pro_reseller")
       .eq("id", context.userId)
       .single();
+
+    if (profile?.is_pro_reseller && data.amount < 500) throw new Error("Pro Reseller-এর জন্য একবারে কমপক্ষে ৳৫০০ Deposit করতে হবে");
 
     // Create our own record first; its id travels in metadata so the
     // redirect/webhook invoice id can be matched back to it.
