@@ -219,6 +219,9 @@ export function SiteLayout({ children }: { children: ReactNode }) {
             <Link to="/products" className="block text-muted-foreground hover:text-foreground">
               Products
             </Link>
+            <Link to="/reseller" className="block text-muted-foreground hover:text-foreground">
+              Reseller Program
+            </Link>
             <Link
               to="/products"
               search={{ category: undefined, q: undefined, sort: undefined }}
@@ -346,6 +349,7 @@ function ProfileMenu({ name, email, isReseller, isAdmin, isOwner }: { name: stri
     { to: "/dashboard/purchases", label: "Purchased", icon: ShoppingBag },
     { to: "/dashboard/wallet", label: "Wallet", icon: Wallet },
     { to: "/dashboard/reseller", label: isReseller ? "Reseller Dashboard" : "Upgrade to Reseller Dashboard", icon: Store },
+    { to: "/reseller", label: "Public Reseller Benefits", icon: Sparkles },
     { to: "/dashboard/profile", label: "Profile", icon: User },
     { to: "/dashboard/password", label: "Password", icon: KeyRound },
     { to: "/dashboard/support", label: "Support", icon: LifeBuoy },
