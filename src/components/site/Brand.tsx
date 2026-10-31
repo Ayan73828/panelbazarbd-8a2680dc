@@ -10,7 +10,9 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       <img
         src={officialLogoUrl}
         alt={settings.site_name || "PANEL BAZAR BD"}
-        className={compact ? "h-9 w-auto max-w-32 rounded-lg object-contain" : "h-9 w-auto max-w-40 rounded-lg object-contain"}
+        className={compact
+          ? "h-10 w-auto max-w-36 rounded-lg object-contain sm:h-11 sm:max-w-40"
+          : "h-11 w-auto max-w-40 rounded-lg object-contain sm:h-12 sm:max-w-44"}
         loading="eager"
         onError={(event) => { event.currentTarget.style.display = "none"; }}
       />
