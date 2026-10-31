@@ -512,6 +512,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_reseller?: boolean
+          is_pro_reseller?: boolean
           reseller_discount_percent?: number
           name?: string
           phone?: string | null
