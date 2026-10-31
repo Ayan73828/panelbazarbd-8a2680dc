@@ -185,7 +185,6 @@ function ResellerDashboard() {
                   <button type="button" onClick={() => setCouponOpen(v => !v)} className="text-xs font-medium text-primary underline underline-offset-2">
                     {couponOpen ? "Hide discount coupon" : "I have a discount coupon"}
                   </button>
-                  {!couponOpen && <button type="button" className="text-xs text-muted-foreground underline" onClick={() => { setCouponOpen(false); setCouponCode(""); setCouponApplied(null); }}>I don't have</button>}
                 </div>
                 {couponOpen && <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
@@ -193,7 +192,6 @@ function ResellerDashboard() {
                     <Button type="button" size="sm" variant="ghost" className="h-9 px-2" onClick={() => void pasteCoupon()}>Paste</Button>
                     <Button type="button" size="sm" variant="secondary" className="h-9 px-3" disabled={couponBusy || !couponCode.trim()} onClick={() => void applyCoupon()}>{couponBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}</Button>
                   </div>
-                  <button type="button" className="text-xs text-muted-foreground underline" onClick={() => { setCouponOpen(false); setCouponCode(""); setCouponApplied(null); }}>I don't have</button>
                 </div>}
               </>}
               {couponApplied && <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Payable after coupon</span><span className="font-bold text-primary">{money(Number(couponApplied.total), currency)}</span></div>}
