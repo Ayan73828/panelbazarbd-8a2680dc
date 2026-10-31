@@ -175,13 +175,14 @@ function ProductDetail() {
   const cat = p.categories as { name: string; slug: string } | null;
   const hasPackages = packages.length > 0;
   const resellerPercent = Math.min(50, Math.max(0, Number(profile?.reseller_discount_percent ?? (settings as any).reseller_discount_percent ?? 7)));
-  // Only show pricing tiers the signed-in account has activated.
-  const allowedPriceViews = profile?.is_pro_reseller
-    ? ([["pro", "Pro Reseller"]] as const)
-    : profile?.is_reseller
-      ? ([["normal", "Normal"], ["reseller", "Normal Reseller"]] as const)
-      : ([["normal", "Normal"]] as const);
-  const activePriceView = allowedPriceViews.some(([key]) => key === priceView) ? priceView : allowedPriceViews[0][0];
+  // Compare Reseller Benefits is a public comparison: always show all three tiers.
+  // Purchase eligibility and actual checkout pricing are enforced separately.
+  const allowedPriceViews = [
+    ["normal", "Normal"],
+    ["reseller", "Normal Reseller"],
+    ["pro", "Pro Reseller"],
+  ] as const;
+  const activePriceView = priceView;
   const displayPrice = (pkg: Pkg) => activePriceView === "pro"
     ? (pkg.pro_reseller_price && pkg.pro_reseller_price > 0 ? pkg.pro_reseller_price : null)
     : activePriceView === "reseller"
