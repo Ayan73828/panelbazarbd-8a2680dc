@@ -903,7 +903,7 @@ async function handleCallback(cq: any) {
   }
   if (kind === "fundshort" && id) {
     const amount = Number(id);
-    if (!(amount >= 1 && amount <= 100000)) return screen(chatId, cq.message?.message_id, "সঠিক amount নির্বাচন করুন।");
+    if (!(amount >= 50 && amount <= 100000)) return screen(chatId, cq.message?.message_id, "সঠিক amount নির্বাচন করুন।");
     return screen(chatId, cq.message?.message_id, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
       inline_keyboard: [[{ text: "🇧🇩 Bangladeshi payment (bKash/Nagad)", callback_data: `fundpay:uddokta:${amount}` }], [{ text: "⬅️ Back to amounts", callback_data: "menu:fund" }]],
     });
@@ -917,8 +917,8 @@ async function handleCallback(cq: any) {
     const amount = Number(rawAmount);
     const method = "Bangladeshi payment (bKash/Nagad)";
     if (methodId !== "uddokta") return screen(chatId, cq.message?.message_id, "সঠিক payment method নির্বাচন করুন।");
-    if (!(amount >= 1 && amount <= 100000)) return screen(chatId, cq.message?.message_id, "সঠিক amount নির্বাচন করুন।");
-    if (user.is_pro_reseller && amount < 500) return screen(chatId, cq.message?.message_id, "Pro Reseller-এর জন্য একবারে কমপক্ষে ৳৫০০ Deposit করতে হবে।", { inline_keyboard: [[{ text: "⬅️ Back to amounts", callback_data: "menu:fund" }]] });
+    if (!(amount >= 50 && amount <= 100000)) return screen(chatId, cq.message?.message_id, "সঠিক amount নির্বাচন করুন।");
+    
     return startTelegramPayment(chatId, user, amount, method, cq.message?.message_id);
   }
     if (kind === "p" && id) {
