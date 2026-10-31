@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { BadgeCheck, Check, KeyRound, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { SiteLayout, PageHeader } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/reseller")({
   head: () => ({
@@ -19,6 +20,8 @@ export const Route = createFileRoute("/reseller")({
 });
 
 function PublicResellerPage() {
+  const { user, loading: authLoading } = useAuth();
+
   return (
     <SiteLayout>
       <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 sm:py-9">
@@ -27,10 +30,18 @@ function PublicResellerPage() {
           <div className="flex items-center gap-2 text-sm font-semibold text-primary"><Sparkles className="h-4 w-4" /> PANEL BAZAR BD RESELLER PROGRAM</div>
           <h1 className="mt-3 max-w-2xl text-2xl font-black tracking-tight sm:text-4xl">আরও ভালো দামে পণ্য কিনুন, Reseller সুবিধা ব্যবহার করুন</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Normal এবং Pro Reseller membership-এর সুবিধা, package price, panel price comparison এবং activation process সবার জন্য উন্মুক্ত। কেনা বা membership চালু করতে account-এ Login করতে হবে।</p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Button asChild><Link to="/auth" search={{ mode: "register" }}>Create Account</Link></Button>
-            <Button asChild variant="outline"><Link to="/auth" search={{ mode: "login" }}>Login</Link></Button>
-          </div>
+          {!authLoading && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {user ? (
+                <Button asChild><Link to="/dashboard/reseller">Go to Reseller Dashboard</Link></Button>
+              ) : (
+                <>
+                  <Button asChild><Link to="/auth" search={{ mode: "register" }}>Create Account</Link></Button>
+                  <Button asChild variant="outline"><Link to="/auth" search={{ mode: "login" }}>Login</Link></Button>
+                </>
+              )}
+            </div>
+          )}
         </section>
         <div className="grid gap-4 md:grid-cols-2">
           <section className="panel space-y-4 p-5">
@@ -58,7 +69,10 @@ function PublicResellerPage() {
           <h2 className="text-lg font-bold">একসঙ্গে Normal + Pro</h2>
           <p className="text-3xl font-black">৳৫০০</p>
           <p className="text-sm text-muted-foreground">যাদের Normal Reseller Dashboard নেই, তারা Bundle নিয়ে Normal Dashboard ও Pro package একসঙ্গে নিতে পারবেন। Normal access সঙ্গে সঙ্গে active হবে; Pro access চালু করতে package purchase-এর পর প্রয়োজনীয় নতুন qualifying Deposit মোট ৳৫০০ পূরণ করে Verify করতে হবে।</p>
-          <Button asChild><Link to="/auth" search={{ mode: "register" }}>Register to Activate</Link></Button>
+          {!authLoading && (user
+            ? <Button asChild><Link to="/dashboard/reseller">Go to Reseller Dashboard</Link></Button>
+            : <Button asChild><Link to="/auth" search={{ mode: "register" }}>Register to Activate</Link></Button>
+          )}
         </section>
         <section className="panel space-y-3 p-5">
           <h2 className="text-lg font-bold">Product, Price List ও Panel Access Information</h2>
