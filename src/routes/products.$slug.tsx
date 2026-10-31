@@ -120,8 +120,6 @@ function ProductDetail() {
   const { settings } = useSettings();
   const { profile } = useAuth();
   const cur = settings.currency_symbol;
-  const [priceView, setPriceView] = useState<"normal" | "reseller" | "pro" | null>(null);
-  const [priceListOpen, setPriceListOpen] = useState(false);
   const images = p ? [p.image_url, ...(p.images ?? [])].filter((x): x is string => !!x) : [];
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
@@ -175,19 +173,6 @@ function ProductDetail() {
   const cat = p.categories as { name: string; slug: string } | null;
   const hasPackages = packages.length > 0;
   const resellerPercent = Math.min(50, Math.max(0, Number(profile?.reseller_discount_percent ?? (settings as any).reseller_discount_percent ?? 7)));
-  // Compare Reseller Benefits is a public comparison: always show all three tiers.
-  // Purchase eligibility and actual checkout pricing are enforced separately.
-  const allowedPriceViews = [
-    ["normal", "Normal"],
-    ["reseller", "Normal Reseller"],
-    ["pro", "Pro Reseller"],
-  ] as const;
-  const activePriceView = priceView;
-  const displayPrice = (pkg: Pkg) => activePriceView === "pro"
-    ? (pkg.pro_reseller_price && pkg.pro_reseller_price > 0 ? pkg.pro_reseller_price : null)
-    : activePriceView === "reseller"
-      ? Math.round(pkg.price * (100 - resellerPercent)) / 100
-      : pkg.price;
 
   return (
     <SiteLayout>
@@ -230,34 +215,6 @@ function ProductDetail() {
                     <span className="text-sm text-muted-foreground">From</span>
                     <span className="font-display text-3xl font-bold text-primary">{money(discounted(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price))), cur)}</span>
                   </div>
-                  <button type="button" aria-expanded={priceListOpen} onClick={() => setPriceListOpen((value) => !value)} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-rose-500 shadow-sm transition-colors hover:border-rose-500/60 hover:bg-rose-500/15 sm:px-3 sm:text-xs">
-                    <span>Compare Reseller Benefits</span><span className="text-[11px]">{priceListOpen ? "−" : "+"}</span>
-                  </button>
-                </div>
-                <div className="space-y-2 rounded-xl border border-border p-3">
-                  {priceListOpen && (
-                    <>
-                      <div className="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1">
-                        {allowedPriceViews.map(([key, label]) => (
-                          <button
-                            key={key}
-                            type="button"
-                            aria-pressed={priceView === key}
-                            onClick={() => setPriceView(key)}
-                            className={`rounded-md px-1 py-2 text-[10px] font-semibold leading-tight sm:px-2 sm:text-[11px] ${priceView === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
-                          >{label}</button>
-                        ))}
-                      </div>
-                      {priceView && (
-                        <div className="space-y-1.5">
-                          {packages.map((pkg) => {
-                            const shown = displayPrice(pkg);
-                            return <div key={pkg.id} className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate text-muted-foreground">{pkg.duration || pkg.name}</span><span className="shrink-0 font-semibold">{shown === null ? <span className="text-xs text-muted-foreground">Not set</span> : money(discounted(shown), cur)}</span></div>;
-                          })}
-                        </div>
-                      )}
-                    </>
-                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">{packages.length} purchase option{packages.length === 1 ? "" : "s"} available</p>{campaignActive && <Badge variant="destructive">{campaignPercent}% OFF</Badge>}
                 <Button size="lg" className="h-12 w-full rounded-full" onClick={() => { setOpen(true); }} >
@@ -327,10 +284,18 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
   const { settings } = useSettings();
   const cur = settings.currency_symbol;
   const publicResellerPercent = Math.min(50, Math.max(0, Number((settings as any).reseller_discount_percent ?? 7)));
+  const allowedPriceViews = [["normal", "Normal"], ["reseller", "Normal Reseller"], ["pro", "Pro Reseller"]] as const;
+  const comparePrice = (pkg: Pkg) => priceView === "pro"
+    ? (pkg.pro_reseller_price && pkg.pro_reseller_price > 0 ? pkg.pro_reseller_price : null)
+    : priceView === "reseller"
+      ? Math.round(pkg.price * (100 - publicResellerPercent)) / 100
+      : pkg.price;
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [pkgId, setPkgId] = useState("");
+  const [priceView, setPriceView] = useState<"normal" | "reseller" | "pro" | null>(null);
+  const [priceListOpen, setPriceListOpen] = useState(false);
   const [qty, setQty] = useState(1);
   useEffect(() => {
     if (!user) return;
@@ -619,6 +584,21 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
                     ) : null}
                   </div>
                 )}
+                {hasPk && <div className="space-y-2 rounded-xl border border-border p-3">
+                  <button type="button" aria-expanded={priceListOpen} onClick={() => setPriceListOpen(v => !v)} className="flex w-full items-center justify-between gap-2 text-sm font-semibold text-primary">
+                    <span>Compare Reseller Benefits</span><span>{priceListOpen ? "−" : "+"}</span>
+                  </button>
+                  {priceListOpen && <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1">
+                      {allowedPriceViews.map(([key, label]) => <button key={key} type="button" aria-pressed={priceView === key} onClick={() => setPriceView(key)} className={`rounded-md px-1 py-2 text-[10px] font-semibold leading-tight sm:px-2 sm:text-[11px] ${priceView === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>{label}</button>)}
+                    </div>
+                    {priceView && <div className="space-y-1.5">{packages.map(pkg => {
+                      const shown = comparePrice(pkg);
+                      const finalPrice = shown === null ? null : campaignPercent ? Math.round(shown * (100 - campaignPercent)) / 100 : shown;
+                      return <div key={pkg.id} className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate text-muted-foreground">{pkg.duration || pkg.name}</span><span className="shrink-0 font-semibold">{finalPrice === null ? <span className="text-xs text-muted-foreground">Not set</span> : money(finalPrice, cur)}</span></div>;
+                    })}</div>}
+                  </div>}
+                </div>}
                 <div className="space-y-1.5">
                   <span className="font-medium">Quantity</span>
                   <div className="flex items-center gap-3">
