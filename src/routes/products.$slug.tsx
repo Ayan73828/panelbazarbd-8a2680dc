@@ -214,7 +214,7 @@ function ProductDetail() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">{packages.length} purchase option{packages.length === 1 ? "" : "s"} available</p>{campaignActive && <Badge variant="destructive">{campaignPercent}% OFF</Badge>}
-                <Button size="lg" className="h-12 w-full rounded-full" disabled={pkgs.isLoading || !packages.some((x) => x.price > 0)} onClick={() => { setOpen(true); }} >
+                <Button size="lg" className="h-12 w-full rounded-full" onClick={() => { setOpen(true); }} >
                   <ShoppingCart className="mr-2 h-4 w-4" /> {pkgs.isLoading ? "Loading options…" : "Buy Now"}
                 </Button>
               </div>
@@ -224,7 +224,7 @@ function ProductDetail() {
                   <span className="text-3xl font-bold text-primary">{money(discounted(effectivePrice(p)), cur)}</span>
                   {hasDiscount && <span className="text-muted-foreground line-through">{money(effectivePrice(p), cur)}</span>}{campaignActive && <Badge variant="destructive">{campaignPercent}% OFF</Badge>}
                 </div>
-                <Button size="lg" className="h-12 w-full rounded-full" disabled={pkgs.isLoading} onClick={() => setOpen(true)}>
+                <Button size="lg" className="h-12 w-full rounded-full" onClick={() => setOpen(true)}>
                   <ShoppingCart className="mr-2 h-4 w-4" /> Buy Now
                 </Button>
               </>
@@ -266,6 +266,7 @@ function ProductDetail() {
         onOpenChange={setOpen}
         product={{ id: p.id, name: p.name, slug: p.slug, unit: effectivePrice(p), stock: p.stock }}
         packages={packages}
+        packagesLoading={pkgs.isLoading}
       />
     </SiteLayout>
   );
@@ -273,7 +274,7 @@ function ProductDetail() {
 
 type Pkg = { id: string; name: string; duration: string; price: number; pro_reseller_price?: number | null; available: number; provider_auto_api?: boolean; provider_product_id?: string | null; provider_duration?: string | null };
 
-function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; onOpenChange: (v: boolean) => void; product: { id: string; name: string; unit: number; slug: string; stock: number }; packages: Pkg[] }) {
+function BuyDialog({ open, onOpenChange, product, packages, packagesLoading }: { open: boolean; onOpenChange: (v: boolean) => void; product: { id: string; name: string; unit: number; slug: string; stock: number }; packages: Pkg[]; packagesLoading: boolean }) {
   const { user, profile, refresh } = useAuth();
   const { settings } = useSettings();
   const cur = settings.currency_symbol;
@@ -469,6 +470,11 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
           <div className="space-y-4 text-sm">
             <p className="text-muted-foreground">কিনতে আগে লগইন করুন।</p>
             <Button asChild className="w-full"><Link to="/auth" search={{ mode: "login" }}>Login</Link></Button>
+          </div>
+        ) : packagesLoading ? (
+          <div className="space-y-3 py-6 text-center text-sm text-muted-foreground">
+            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-r-transparent" />
+            <p>Loading Duration / Validity options…</p>
           </div>
         ) : (
           <div className="space-y-4 text-sm">
