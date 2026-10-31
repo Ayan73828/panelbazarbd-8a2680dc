@@ -175,9 +175,16 @@ function ProductDetail() {
   const cat = p.categories as { name: string; slug: string } | null;
   const hasPackages = packages.length > 0;
   const resellerPercent = Math.min(50, Math.max(0, Number(profile?.reseller_discount_percent ?? (settings as any).reseller_discount_percent ?? 7)));
-  const displayPrice = (pkg: Pkg) => priceView === "pro"
+  // Only show pricing tiers the signed-in account has activated.
+  const allowedPriceViews = profile?.is_pro_reseller
+    ? ([["pro", "Pro Reseller"]] as const)
+    : profile?.is_reseller
+      ? ([["normal", "Normal"], ["reseller", "Normal Reseller"]] as const)
+      : ([["normal", "Normal"]] as const);
+  const activePriceView = allowedPriceViews.some(([key]) => key === priceView) ? priceView : allowedPriceViews[0][0];
+  const displayPrice = (pkg: Pkg) => activePriceView === "pro"
     ? (pkg.pro_reseller_price && pkg.pro_reseller_price > 0 ? pkg.pro_reseller_price : null)
-    : priceView === "reseller"
+    : activePriceView === "reseller"
       ? Math.round(pkg.price * (100 - resellerPercent)) / 100
       : pkg.price;
 
@@ -223,21 +230,17 @@ function ProductDetail() {
                 </div>
                 <div className="space-y-2 rounded-xl border border-border p-3">
                   <p className="text-xs font-semibold text-muted-foreground">Compare reseller benefits</p>
-                  <div className="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1">
-                    {([
-                      ["normal", "Normal"],
-                      ["reseller", "Normal Reseller"],
-                      ["pro", "Pro Reseller"],
-                    ] as const).map(([key, label]) => (
+                  <div className={`grid gap-1 rounded-lg bg-surface-2 p-1 ${allowedPriceViews.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                    {allowedPriceViews.map(([key, label]) => (
                       <button
                         key={key}
                         type="button"
-                        aria-expanded={priceListOpen && priceView === key}
+                        aria-expanded={priceListOpen && activePriceView === key}
                         onClick={() => {
-                          if (priceView === key && priceListOpen) setPriceListOpen(false);
+                          if (activePriceView === key && priceListOpen) setPriceListOpen(false);
                           else { setPriceView(key); setPriceListOpen(true); }
                         }}
-                        className={`rounded-md px-1 py-2 text-[11px] font-semibold ${priceView === key && priceListOpen ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+                        className={`rounded-md px-2 py-2 text-[11px] font-semibold ${activePriceView === key && priceListOpen ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
                       >{label}</button>
                     ))}
                   </div>
@@ -336,7 +339,9 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
   const rawUnit = hasPk ? (profile?.is_pro_reseller ? (sel?.pro_reseller_price ?? 0) : (sel?.price ?? 0)) : product.unit;
   const unit = campaignPercent ? Math.round(rawUnit * (100 - campaignPercent)) / 100 : rawUnit;
   const maxQty = Math.max(1, Math.min(20, hasPk ? (sel?.provider_auto_api ? 20 : (sel?.available ?? 1)) : product.stock));
-  const discountPercent = profile?.is_reseller && !profile?.is_pro_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
+  const discountPercent = profile?.is_reseller && !profile?.is_pro_reseller
+    ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? (settings as any).reseller_discount_percent ?? 7)))
+    : 0;
   // Reseller pricing applies to every package, including supplier API packages.
   const discountEligible = discountPercent > 0;
   const resellerUnit = discountEligible ? Math.round(rawUnit * (100 - discountPercent)) / 100 : rawUnit;
