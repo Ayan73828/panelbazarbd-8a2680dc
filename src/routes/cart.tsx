@@ -21,6 +21,7 @@ function CartPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [discountEligiblePackages, setDiscountEligiblePackages] = useState<Set<string>>(new Set());
+  const [packagePrices, setPackagePrices] = useState<Map<string, { price: number; proPrice: number | null }>>(new Map());
   const { settings } = useSettings();
   const { user, profile, refresh } = useAuth();
   const navigate = useNavigate();
@@ -31,25 +32,30 @@ function CartPage() {
     window.addEventListener("storage", refreshCart);
     return () => { window.removeEventListener("cart-updated", refreshCart); window.removeEventListener("storage", refreshCart); };
   }, []);
-  const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
+  const discountPercent = profile?.is_reseller && !profile?.is_pro_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
   useEffect(() => {
     const ids = [...new Set(items.map((item) => item.packageId).filter((id): id is string => !!id))];
     if (!ids.length) { setDiscountEligiblePackages(new Set()); return; }
     let cancelled = false;
     void supabase.from("product_packages")
-      .select("id,provider_auto_api,provider_product_id,provider_duration")
+      .select("id,price,pro_reseller_price,provider_auto_api,provider_product_id,provider_duration")
       .in("id", ids)
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error || !data) { setDiscountEligiblePackages(new Set()); return; }
+        if (error || !data) { setDiscountEligiblePackages(new Set()); setPackagePrices(new Map()); return; }
         setDiscountEligiblePackages(new Set(data
           .filter((pkg) => !pkg.provider_auto_api)
           .map((pkg) => pkg.id)));
+        setPackagePrices(new Map(data.map((pkg) => [pkg.id, { price: Number(pkg.price), proPrice: pkg.pro_reseller_price == null ? null : Number(pkg.pro_reseller_price) }])));
       });
     return () => { cancelled = true; };
   }, [items]);
   const isDiscounted = (item: CartItem) => discountPercent > 0 && (!item.packageId || discountEligiblePackages.has(item.packageId));
-  const priceFor = (item: CartItem) => isDiscounted(item) ? Math.round(item.price * (100 - discountPercent)) / 100 : item.price;
+  const priceFor = (item: CartItem) => {
+    const packagePrice = item.packageId ? packagePrices.get(item.packageId) : undefined;
+    const base = profile?.is_pro_reseller && packagePrice?.proPrice != null ? packagePrice.proPrice : item.packageId && packagePrice ? packagePrice.price : item.price;
+    return isDiscounted(item) ? Math.round(base * (100 - discountPercent)) / 100 : base;
+  };
   const total = useMemo(() => items.reduce((sum, item) => sum + priceFor(item) * item.quantity, 0), [items, discountPercent, discountEligiblePackages]);
   const balance = Number(profile?.balance ?? 0);
   const insufficient = balance < total;
@@ -110,7 +116,7 @@ function CartPage() {
         <div className="space-y-3">{items.map((item) => <article key={item.id} className="panel flex gap-3 p-3">
           {item.image_url ? <img src={item.image_url} alt="" className="h-16 w-16 rounded-lg object-cover" /> : <div className="h-16 w-16 rounded-lg bg-surface-2" />}
           <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{item.name}</p>{item.variantName && <p className="text-xs text-muted-foreground">{item.variantName}{item.duration ? " · " + item.duration : ""}</p>}<p className="mt-1 text-sm font-bold text-primary">{money(priceFor(item), settings.currency_symbol)} × {item.quantity}</p>
-            {isDiscounted(item) && <p className="text-xs text-muted-foreground"><span className="line-through">{money(item.price, settings.currency_symbol)}</span> · Reseller {discountPercent}% discount</p>}
+            {(isDiscounted(item) || (profile?.is_pro_reseller && item.packageId && packagePrices.get(item.packageId)?.proPrice != null)) && <p className="text-xs text-muted-foreground">{profile?.is_pro_reseller ? "Pro Reseller price" : <><span className="line-through">{money(packagePrices.get(item.packageId!)?.price ?? item.price, settings.currency_symbol)}</span> · Reseller {discountPercent}% discount</>}</p>}
             <div className="mt-2 flex items-center gap-2"><Button size="icon" variant="secondary" className="h-8 w-8" onClick={() => updateQty(item.id, item.quantity - 1)}><Minus className="h-3 w-3" /></Button><span className="w-5 text-center">{item.quantity}</span><Button size="icon" variant="secondary" className="h-8 w-8" disabled={item.quantity >= item.stock} onClick={() => updateQty(item.id, item.quantity + 1)}><Plus className="h-3 w-3" /></Button></div>
           </div>
           <Button variant="ghost" size="icon" aria-label="Remove item" onClick={() => { removeCartItem(item.id); setItems(readCart()); }}><Trash2 className="h-4 w-4" /></Button>
