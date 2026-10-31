@@ -183,6 +183,10 @@ export const adminSendSupportEmail = createServerFn({ method: "POST" })
     to: z.string().trim().email().max(254),
     subject: z.string().trim().min(2).max(200),
     message: z.string().trim().min(2).max(10000),
+    attachments: z.array(z.object({
+      filename: z.string().trim().min(1).max(255),
+      content: z.string().min(1).max(14_000_000).regex(/^[A-Za-z0-9+/]+={0,2}$/),
+    })).max(5).optional().default([]),
   }).parse(d))
   .handler(async ({ data, context }) => {
     if (String(context.claims?.email ?? "").toLowerCase() !== "ishak777998@gmail.com") {
@@ -206,6 +210,7 @@ export const adminSendSupportEmail = createServerFn({ method: "POST" })
         subject: data.subject.trim(),
         text: data.message.trim(),
         html,
+        attachments: data.attachments.map((file) => ({ filename: file.filename, content: file.content })),
       }),
     });
     const result = await response.json().catch(() => ({})) as { id?: string; message?: string; name?: string };
