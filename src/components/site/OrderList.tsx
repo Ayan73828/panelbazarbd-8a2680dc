@@ -12,7 +12,6 @@ type Order = {
   total: number;
   status: string;
   created_at: string;
-  note: string | null;
   delivered_key?: string | null;
   products: { slug: string; image_url: string | null; purchase_url: string | null; setup_tutorial_url?: string | null } | null;
 };
@@ -46,7 +45,6 @@ export function OrderList({
             <p className="text-xs text-muted-foreground">
               {o.quantity} × {money(o.unit_price, currency)} · {formatDate(o.created_at)}
             </p>
-            {o.note && <p className="mt-1 text-xs text-muted-foreground">Note: {o.note}</p>}
           </div>
           <div className="flex flex-col items-end gap-1">
             <span className="text-sm font-bold">{money(o.total, currency)}</span>
