@@ -120,7 +120,7 @@ function ProductDetail() {
   const { settings } = useSettings();
   const { profile } = useAuth();
   const cur = settings.currency_symbol;
-  const [priceView, setPriceView] = useState<"normal" | "reseller" | "pro">("normal");
+  const [priceView, setPriceView] = useState<"normal" | "reseller" | "pro" | null>(null);
   const [priceListOpen, setPriceListOpen] = useState(false);
   const images = p ? [p.image_url, ...(p.images ?? [])].filter((x): x is string => !!x) : [];
   const [active, setActive] = useState(0);
@@ -198,7 +198,7 @@ function ProductDetail() {
         </nav>
         <div className="grid items-start gap-5 sm:gap-7 lg:grid-cols-2 lg:gap-10">
           <div>
-            <div className="panel group relative aspect-[4/3] overflow-hidden border-white/[0.08] bg-surface-2 shadow-glow">
+            <div className="panel group relative mx-auto aspect-[5/3] w-full max-w-[440px] overflow-hidden border-white/[0.08] bg-surface-2 shadow-glow">
               {images[active] ? (
                 <img src={images[active]} alt={p.name} fetchPriority="high" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
               ) : (
@@ -230,28 +230,31 @@ function ProductDetail() {
                   <span className="font-display text-3xl font-bold text-primary">{money(discounted(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price))), cur)}</span>
                 </div>
                 <div className="space-y-2 rounded-xl border border-border p-3">
-                  <p className="text-xs font-semibold text-muted-foreground">Compare reseller benefits</p>
-                  <div className={`grid gap-1 rounded-lg bg-surface-2 p-1 ${allowedPriceViews.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-                    {allowedPriceViews.map(([key, label]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        aria-expanded={priceListOpen && activePriceView === key}
-                        onClick={() => {
-                          if (activePriceView === key && priceListOpen) setPriceListOpen(false);
-                          else { setPriceView(key); setPriceListOpen(true); }
-                        }}
-                        className={`rounded-md px-2 py-2 text-[11px] font-semibold ${activePriceView === key && priceListOpen ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
-                      >{label}</button>
-                    ))}
-                  </div>
+                  <button type="button" aria-expanded={priceListOpen} onClick={() => setPriceListOpen((value) => !value)} className="flex w-full items-center justify-between gap-2 text-left text-xs font-semibold text-muted-foreground">
+                    <span>Compare Reseller Benefits</span><span className="text-primary">{priceListOpen ? "−" : "+"}</span>
+                  </button>
                   {priceListOpen && (
-                    <div className="space-y-1.5">
-                      {packages.map((pkg) => {
-                        const shown = displayPrice(pkg);
-                        return <div key={pkg.id} className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate text-muted-foreground">{pkg.duration || pkg.name}</span><span className="shrink-0 font-semibold">{shown === null ? <span className="text-xs text-muted-foreground">Not set</span> : money(discounted(shown), cur)}</span></div>;
-                      })}
-                    </div>
+                    <>
+                      <div className="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1">
+                        {allowedPriceViews.map(([key, label]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            aria-pressed={priceView === key}
+                            onClick={() => setPriceView(key)}
+                            className={`rounded-md px-1 py-2 text-[10px] font-semibold leading-tight sm:px-2 sm:text-[11px] ${priceView === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+                          >{label}</button>
+                        ))}
+                      </div>
+                      {priceView && (
+                        <div className="space-y-1.5">
+                          {packages.map((pkg) => {
+                            const shown = displayPrice(pkg);
+                            return <div key={pkg.id} className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate text-muted-foreground">{pkg.duration || pkg.name}</span><span className="shrink-0 font-semibold">{shown === null ? <span className="text-xs text-muted-foreground">Not set</span> : money(discounted(shown), cur)}</span></div>;
+                          })}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">{packages.length} purchase option{packages.length === 1 ? "" : "s"} available</p>{campaignActive && <Badge variant="destructive">{campaignPercent}% OFF</Badge>}
