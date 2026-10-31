@@ -99,6 +99,7 @@ function ResellerDashboard() {
 
   async function activate(kind: PackageKind) {
     if (busy || !selected || selected !== kind) return;
+    if (kind === "pro" && !normalActive) { toast.error("Pro Dashboard চালু করতে আগে Normal Reseller Dashboard Active থাকতে হবে। দুটো একসঙ্গে নিতে Bundle নির্বাচন করুন।"); return; }
     if (kind === "normal" && normalActive) return;
     if (kind === "pro" && proActive) return;
     if (kind === "bundle" && normalActive && proActive) return;
@@ -176,8 +177,9 @@ function ResellerDashboard() {
             {choices.map((choice) => {
               const active = choice.id === "normal" ? normalActive
                 : choice.id === "pro" ? proActive : normalActive && proActive;
-              return <button key={choice.id} type="button" onClick={() => choose(choice.id)}
-                className={`w-full rounded-xl border p-3 text-left transition-colors ${selected === choice.id ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border hover:border-primary/50"}`}>
+              const locked = choice.id === "pro" && !normalActive && !proPurchased;
+              return <button key={choice.id} type="button" disabled={locked} onClick={() => choose(choice.id)}
+                className={`w-full rounded-xl border p-3 text-left transition-colors ${locked ? "cursor-not-allowed opacity-50" : ""} ${selected === choice.id ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border hover:border-primary/50"}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">{choice.title}</span>
                   {active && <span className="flex items-center gap-1 text-xs text-success"><BadgeCheck className="h-4 w-4" /> Active</span>}
@@ -185,6 +187,7 @@ function ResellerDashboard() {
                   {selected === choice.id && !active && <span className="text-xs font-semibold text-primary">Selected</span>}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{choice.description}</p>
+                {locked && <p className="mt-2 text-xs font-medium text-amber-600">আগে Normal Reseller Dashboard চালু করুন অথবা Normal + Pro Bundle নিন।</p>}
               </button>;
             })}
           </div>
@@ -195,7 +198,8 @@ function ResellerDashboard() {
               {((selected === "normal" && normalActive) || (selected === "pro" && proActive) || (selected === "bundle" && normalActive && proActive))
                 && <span className="text-xs text-success">Already Active</span>}
             </div>
-            {selected === "bundle" && !normalActive && !proActive && <p className="text-xs font-medium text-emerald-600">একসাথে Normal + Pro নিলে ৳৫০ ছাড় — আলাদা দাম ৳৫৫০, Bundle ৳৫০০।</p>}
+            {selected === "bundle" && !normalActive && !proActive && <p className="text-xs font-medium text-emerald-600">একসাথে Normal + Pro নিলে ৳৫০ ছাড় — আলাদা দাম ৳৫৫০, Bundle ৳৫০০। Normal সঙ্গে সঙ্গে Active হবে; Pro চালু হবে ৳৫০০ activation eligibility ও Verify সম্পন্ন হলে।</p>}
+            {selected === "pro" && !normalActive && <p className="text-xs font-medium text-destructive">Pro Dashboard কিনতে হলে আগে Normal Reseller Dashboard Active থাকতে হবে। Bundle নির্বাচন করে একসঙ্গে নিতে পারবেন।</p>}
             <div className="flex items-center justify-between border-t border-border pt-3">
               <span className="text-sm text-muted-foreground">Package price</span>
               <span className="text-xl font-bold text-primary">{money(selectedPrice, currency)}</span>
@@ -234,7 +238,7 @@ function ResellerDashboard() {
       </div>
       <div className="panel space-y-3 p-4">
         <h3 className="font-bold">Pro Reseller Benefits</h3>
-        <ul className="list-disc space-y-2 pl-5 text-sm"><li>প্রতি মাসের ১ তারিখে যেকোনো ধরনের Panel ৭ দিনের জন্য সম্পূর্ণ ফ্রিতে পাবেন (বালা মোড ও Troll মোড ছাড়া)।</li><li>Reseller Dashboard Key Reset সুবিধা — আপনি যেকোনো সময় নিজের Dashboard Key Reset করতে পারবেন।</li><li>Pro Reseller-এর বিশেষ Discount সুবিধা।</li><li>আপনার অ্যাকাউন্টে Pro Reseller Verified Badge দেখাবে।</li></ul>
+        <ul className="list-disc space-y-2 pl-5 text-sm"><li>প্রতি মাসের ১ তারিখে যেকোনো ধরনের Panel ৭ দিনের জন্য সম্পূর্ণ ফ্রিতে পাবেন (বালা মোড ও Troll মোড ছাড়া)।</li><li>Panel-এর Device / Key Reset সুবিধা — আপনি যেকোনো সময় নিজের Panel-এর Device বা Key Reset করতে পারবেন।</li><li>Pro Reseller-এর বিশেষ Discount সুবিধা।</li><li>আপনার অ্যাকাউন্টে Pro Reseller Verified Badge দেখাবে।</li></ul>
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm"><p className="font-bold text-destructive">গুরুত্বপূর্ণ নিয়ম</p><ul className="mt-2 list-disc space-y-1 pl-5 text-destructive"><li>Pro Dashboard প্যাকেজ মূল্য ৳২৫০; প্যাকেজ কিনলেই Pro Access চালু হবে না।</li><li>Activation ও প্রতি ১৫ দিনের নতুন Cycle-এর জন্য নতুন করে মোট ৳৫০০ Deposit করে Verify করতে হবে। আগের Cycle-এর Deposit গণনা হবে না।</li><li>প্রতিটি Deposit-এর সর্বনিম্ন পরিমাণ ৳৫০। একাধিক Deposit যোগ হয়ে ৳৫০০ পূর্ণ হতে পারবে।</li><li>Verify করার সময় কোনো টাকা Wallet থেকে কাটা হবে না।</li><li>১৫ দিনের মধ্যে নতুন ৳৫০০ Deposit করে Verify না করলে Pro Access বন্ধ হয়ে Normal Reseller Dashboard-এ Downgrade হবে। পরে নতুন ৳৫০০ Deposit করে আবার Pro চালু করতে পারবেন।</li></ul></div>
       </div>
       <div className="text-xs text-muted-foreground">Balance কম হলে <Link className="font-semibold text-primary underline" to="/dashboard/wallet">Wallet-এ টাকা যোগ করুন</Link>।</div>
