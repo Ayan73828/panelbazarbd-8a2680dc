@@ -326,6 +326,7 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
   const { user, profile, refresh } = useAuth();
   const { settings } = useSettings();
   const cur = settings.currency_symbol;
+  const publicResellerPercent = Math.min(50, Math.max(0, Number((settings as any).reseller_discount_percent ?? 7)));
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -530,7 +531,8 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
               <p className="font-semibold">আপনার Price List</p>
               <div className="flex justify-between gap-3"><span className="text-muted-foreground">Product</span><strong className="text-right">{product.name}</strong></div>
               {sel && <div className="flex justify-between gap-3"><span className="text-muted-foreground">Validity</span><strong>{sel.duration || sel.name}</strong></div>}
-              <div className="flex justify-between"><span className="text-muted-foreground">Unit price</span><strong>{money(unit, cur)}</strong></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Normal price</span><strong>{money(unit, cur)}</strong></div>
+              {sel && <><div className="flex justify-between"><span className="text-muted-foreground">Normal Reseller price</span><strong>{money(Math.round(sel.price * (100 - publicResellerPercent)) / 100, cur)}</strong></div><div className="flex justify-between"><span className="text-muted-foreground">Pro Reseller price</span><strong>{Number(sel.pro_reseller_price ?? 0) > 0 ? money(Number(sel.pro_reseller_price), cur) : "Not set"}</strong></div></>}
               <div className="flex justify-between"><span className="text-muted-foreground">Quantity</span><strong>{qty}</strong></div>
               <div className="flex justify-between border-t border-border pt-3 text-base"><span className="font-bold">Total</span><strong className="text-primary">{money(unit * qty, cur)}</strong></div>
             </div>}
