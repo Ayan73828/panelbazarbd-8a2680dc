@@ -230,7 +230,7 @@ function ProductDetail() {
                   <span className="font-display text-3xl font-bold text-primary">{money(discounted(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price))), cur)}</span>
                 </div>
                 <div className="space-y-2 rounded-xl border border-border p-3">
-                  <button type="button" aria-expanded={priceListOpen} onClick={() => setPriceListOpen((value) => !value)} className="flex w-full items-center justify-between gap-2 text-left text-xs font-semibold text-muted-foreground">
+                  <button type="button" aria-expanded={priceListOpen} onClick={() => setPriceListOpen((value) => !value)} className="flex w-full items-center justify-between gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2.5 text-left text-xs font-bold text-rose-500 shadow-sm transition-colors hover:bg-rose-500/15 hover:border-rose-500/60">
                     <span>Compare Reseller Benefits</span><span className="text-primary">{priceListOpen ? "−" : "+"}</span>
                   </button>
                   {priceListOpen && (
