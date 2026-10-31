@@ -55,20 +55,21 @@ function PublicResellerPage() {
           </section>
           <section className="panel space-y-4 p-5">
             <div className="flex items-center gap-2"><BadgeCheck className="h-5 w-5 text-primary" /><h2 className="text-lg font-bold">Pro Reseller Dashboard</h2></div>
-            <p className="text-3xl font-black">৳২৫০ <span className="text-sm font-medium text-muted-foreground">package fee</span></p>
+            <p className="text-3xl font-black">৳৫০০ / ৳২৫০ <span className="text-sm font-medium text-muted-foreground">Normal না থাকলে ৳৫০০, থাকলে ৳২৫০</span></p>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-primary" /> Pro pricing and verified badge after activation</li>
               <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-primary" /> প্রতি মাসের ১ তারিখে ৭ দিনের free Panel access (বালা মোড ও Troll মোড ছাড়া)</li>
               <li className="flex gap-2"><KeyRound className="h-4 w-4 shrink-0 text-primary" /> Panel-এর Device অথবা Key Reset সুবিধা</li>
-              <li className="flex gap-2"><ShieldCheck className="h-4 w-4 shrink-0 text-primary" /> Pro activation ও প্রতি ১৫ দিনের cycle-এর জন্য নতুন ৳৫০০ qualifying deposit এবং Verify</li>
+              <li className="flex gap-2"><ShieldCheck className="h-4 w-4 shrink-0 text-primary" /> Normal Reseller আগে থাকলে Pro Upgrade ৳২৫০; না থাকলে ৳৫০০ দিয়ে Normal + Pro দুটোই পাবেন</li>
+              <li className="flex gap-2"><ShieldCheck className="h-4 w-4 shrink-0 text-primary" /> Pro activation ও প্রতি ১৫ দিনের cycle-এর জন্য Wallet-এ নতুন ৳৫০০ যোগ করে Verify</li>
             </ul>
             <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">Pro membership চালু করতে আগে Normal Reseller Dashboard active থাকতে হবে। আগে Normal কিনুন, অথবা নিচের Bundle দিয়ে দুটো একসঙ্গে নিন।</p>
           </section>
         </div>
         <section className="panel space-y-3 p-5">
-          <h2 className="text-lg font-bold">একসঙ্গে Normal + Pro</h2>
-          <p className="text-3xl font-black">৳৫০০</p>
-          <p className="text-sm text-muted-foreground">যাদের Normal Reseller Dashboard নেই, তারা Bundle নিয়ে Normal Dashboard ও Pro package একসঙ্গে নিতে পারবেন। Normal access সঙ্গে সঙ্গে active হবে; Pro access চালু করতে package purchase-এর পর প্রয়োজনীয় নতুন qualifying Deposit মোট ৳৫০০ পূরণ করে Verify করতে হবে।</p>
+          <h2 className="text-lg font-bold">Pro Reseller Upgrade-এর মূল্য</h2>
+          
+          <p className="text-sm text-muted-foreground">আপনার Normal Reseller Dashboard আগে থেকেই Active থাকলে Pro Upgrade করতে ৳২৫০ লাগবে। Normal Reseller না থাকলে ৳৫০০ দিয়ে Pro package নিলে Normal ও Pro—দুটো Dashboard-ই পাবেন। Normal আগে ৳৩০০ দিয়ে কিনে পরে Pro নিতে চাইলে Pro Upgrade-এর মূল্য হবে ৳২৫০।</p>
           {!authLoading && (user
             ? <Button asChild><Link to="/dashboard/reseller">Go to Reseller Dashboard</Link></Button>
             : <Button asChild><Link to="/auth" search={{ mode: "register" }}>Register to Activate</Link></Button>
@@ -82,10 +83,10 @@ function PublicResellerPage() {
         <section className="rounded-2xl border border-border p-5">
           <h2 className="font-bold">Pro Activation-এর নিয়ম</h2>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-            <li>Pro package fee ৳২৫০ আলাদা; activation-এর ৳৫০০ আলাদা।</li>
-            <li>প্রথম activation-এর জন্য নতুন qualifying Deposit মোট ৳৫০০ পূরণ করতে হবে। Verify করলে Wallet থেকে কোনো টাকা কাটা হবে না।</li>
-            <li>প্রতি ১৫ দিনের পরবর্তী cycle-এ নতুন করে ৳৫০০ deposit করতে হবে; আগের cycle-এর deposit গণনা হবে না।</li>
-            <li>একাধিক deposit যোগ হয়ে ৳৫০০ হতে পারে; প্রতিটি deposit-এর minimum ৳৫০।</li>
+            <li>Normal Reseller Dashboard-এর মূল্য ৳৩০০। Normal আগে Active থাকলে Pro Upgrade ৳২৫০; Normal না থাকলে ৳৫০০ দিয়ে Normal + Pro দুটোই পাওয়া যাবে।</li>
+            <li>Pro activation-এর জন্য package purchase-এর পর Wallet-এ নতুন করে মোট ৳৫০০ যোগ করতে হবে। Deposit, Redeem Code, Referral বা অন্য কোনো বৈধ Wallet Credit গণনা হবে। Verify করলে Wallet থেকে কোনো টাকা কাটা হবে না।</li>
+            <li>প্রতি ১৫ দিনের পরবর্তী cycle-এ নতুন করে Wallet-এ ৳৫০০ যোগ করতে হবে; আগের cycle-এর credit গণনা হবে না।</li>
+            <li>একাধিকবার Wallet-এ টাকা যোগ হয়ে ৳৫০০ পূর্ণ হতে পারে। প্রতিটি Deposit কমপক্ষে ৳৫০ হতে হবে।</li>
             <li>১৫ দিনের মধ্যে নতুন deposit পূরণ করে Verify না করলে Pro access বন্ধ হয়ে Normal Reseller Dashboard-এ downgrade হবে। পরে নতুন deposit করে আবার Pro চালু করা যাবে।</li>
           </ul>
         </section>
