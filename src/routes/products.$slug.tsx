@@ -225,14 +225,16 @@ function ProductDetail() {
             {p.short_description && <p className="text-muted-foreground">{p.short_description}</p>}
             {hasPackages ? (
               <div className="space-y-3">
-                <div className="flex items-end gap-2">
-                  <span className="text-sm text-muted-foreground">From</span>
-                  <span className="font-display text-3xl font-bold text-primary">{money(discounted(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price))), cur)}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-end gap-2">
+                    <span className="text-sm text-muted-foreground">From</span>
+                    <span className="font-display text-3xl font-bold text-primary">{money(discounted(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price))), cur)}</span>
+                  </div>
+                  <button type="button" aria-expanded={priceListOpen} onClick={() => setPriceListOpen((value) => !value)} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-500/10 px-2.5 py-1.5 text-[10px] font-semibold text-rose-500 shadow-sm transition-colors hover:border-rose-500/60 hover:bg-rose-500/15 sm:px-3 sm:text-xs">
+                    <span>Compare Reseller Benefits</span><span className="text-[11px]">{priceListOpen ? "−" : "+"}</span>
+                  </button>
                 </div>
                 <div className="space-y-2 rounded-xl border border-border p-3">
-                  <button type="button" aria-expanded={priceListOpen} onClick={() => setPriceListOpen((value) => !value)} className="flex w-full items-center justify-between gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2.5 text-left text-xs font-bold text-rose-500 shadow-sm transition-colors hover:bg-rose-500/15 hover:border-rose-500/60">
-                    <span>Compare Reseller Benefits</span><span className="text-primary">{priceListOpen ? "−" : "+"}</span>
-                  </button>
                   {priceListOpen && (
                     <>
                       <div className="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1">
