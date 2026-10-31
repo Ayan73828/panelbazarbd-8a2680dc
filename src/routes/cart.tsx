@@ -20,8 +20,8 @@ function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [discountEligiblePackages, setDiscountEligiblePackages] = useState<Set<string>>(new Set());
   const [packagePrices, setPackagePrices] = useState<Map<string, { price: number; proPrice: number | null }>>(new Map());
+  const [packagePricesLoaded, setPackagePricesLoaded] = useState(false);
   const { settings } = useSettings();
   const { user, profile, refresh } = useAuth();
   const navigate = useNavigate();
@@ -32,34 +32,34 @@ function CartPage() {
     window.addEventListener("storage", refreshCart);
     return () => { window.removeEventListener("cart-updated", refreshCart); window.removeEventListener("storage", refreshCart); };
   }, []);
-  const discountPercent = profile?.is_reseller && !profile?.is_pro_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
+  const discountPercent = profile?.is_reseller && !profile?.is_pro_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10))) : 0;
   useEffect(() => {
     const ids = [...new Set(items.map((item) => item.packageId).filter((id): id is string => !!id))];
-    if (!ids.length) { setDiscountEligiblePackages(new Set()); return; }
+    if (!ids.length) { setPackagePrices(new Map()); setPackagePricesLoaded(true); return; }
+    setPackagePricesLoaded(false);
     let cancelled = false;
     void supabase.from("product_packages")
       .select("id,price,pro_reseller_price,provider_auto_api,provider_product_id,provider_duration")
       .in("id", ids)
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error || !data) { setDiscountEligiblePackages(new Set()); setPackagePrices(new Map()); return; }
-        setDiscountEligiblePackages(new Set(data
-          .filter((pkg) => !pkg.provider_auto_api)
-          .map((pkg) => pkg.id)));
+        if (error || !data) { setPackagePrices(new Map()); setPackagePricesLoaded(true); return; }
         setPackagePrices(new Map(data.map((pkg) => [pkg.id, { price: Number(pkg.price), proPrice: pkg.pro_reseller_price == null ? null : Number(pkg.pro_reseller_price) }])));
+        setPackagePricesLoaded(true);
       });
     return () => { cancelled = true; };
   }, [items]);
-  const isDiscounted = (item: CartItem) => discountPercent > 0 && (!item.packageId || discountEligiblePackages.has(item.packageId));
+  const isDiscounted = (_item: CartItem) => discountPercent > 0;
   const priceFor = (item: CartItem) => {
     const packagePrice = item.packageId ? packagePrices.get(item.packageId) : undefined;
     const base = profile?.is_pro_reseller && packagePrice?.proPrice != null ? packagePrice.proPrice : item.packageId && packagePrice ? packagePrice.price : item.price;
     return isDiscounted(item) ? Math.round(base * (100 - discountPercent)) / 100 : base;
   };
-  const total = useMemo(() => items.reduce((sum, item) => sum + priceFor(item) * item.quantity, 0), [items, discountPercent, discountEligiblePackages]);
+  const total = useMemo(() => items.reduce((sum, item) => sum + priceFor(item) * item.quantity, 0), [items, discountPercent, packagePrices, profile?.is_pro_reseller]);
   const balance = Number(profile?.balance ?? 0);
   const insufficient = balance < total;
-  const proPriceMissing = !!profile?.is_pro_reseller && items.some((item) => !!item.packageId && packagePrices.has(item.packageId) && packagePrices.get(item.packageId)?.proPrice == null);
+  const proPriceMissing = !!profile?.is_pro_reseller && items.some((item) => !!item.packageId && packagePricesLoaded && (!packagePrices.has(item.packageId) || packagePrices.get(item.packageId)?.proPrice == null));
+  const packagePriceLoading = items.some((item) => !!item.packageId) && !packagePricesLoaded;
   function updateQty(id: string, quantity: number) {
     const next = readCart().map((item) => item.id === id ? { ...item, quantity: Math.max(1, Math.min(item.stock, quantity)) } : item);
     saveCart(next); setItems(next);
@@ -67,6 +67,7 @@ function CartPage() {
   async function checkout() {
     if (!user) { toast.error("Checkout করতে লগইন করুন"); navigate({ to: "/auth", search: { mode: "login" } }); return; }
     if (!items.length || busy) return;
+    if (packagePriceLoading) { toast.error("দাম যাচাই হচ্ছে, একটু অপেক্ষা করুন।"); return; }
     if (proPriceMissing) { toast.error("এই cart-এর কিছু package-এর Pro Reseller price সেট করা নেই। Admin-এর সঙ্গে যোগাযোগ করুন।"); return; }
     if (insufficient) { toast.error("ব্যালেন্স কম। আগে Add Balance করুন।"); navigate({ to: "/dashboard/wallet", search: { amount: Math.ceil(total - balance), auto: true } }); return; }
     setBusy(true); setErr("");
@@ -125,7 +126,7 @@ function CartPage() {
         </article>)}</div>
         <aside className="panel h-fit space-y-3 p-4"><h2 className="font-semibold">Order summary</h2><div className="flex justify-between text-sm"><span className="text-muted-foreground">Items</span><span>{items.reduce((n, item) => n + item.quantity, 0)}</span></div>{discountPercent > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Reseller discount</span><span className="text-primary">{discountPercent}% on eligible items</span></div>}<div className="flex justify-between text-sm"><span className="text-muted-foreground">Wallet balance</span><span>{money(balance, settings.currency_symbol)}</span></div><div className="flex justify-between border-t pt-3 font-bold"><span>Total</span><span className="text-primary">{money(total, settings.currency_symbol)}</span></div>
           {insufficient && <p className="rounded-lg bg-primary/10 p-3 text-xs text-primary">ব্যালেন্স কম। Checkout চাপলে ঘাটতি Add Balance করতে পারবেন।</p>}{err && <p className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{err}</p>}
-          <Button className="w-full rounded-full" disabled={busy || proPriceMissing} onClick={checkout}>{busy ? "Processing…" : insufficient ? "Add Balance & Checkout" : "Checkout · " + money(total, settings.currency_symbol)}</Button><p className="text-xs text-muted-foreground">Reseller discount প্রযোজ্য eligible পণ্যের মোট মূল্য দেখানো হচ্ছে; auto-provider checkout-এ discount প্রযোজ্য নয়।</p>
+          <Button className="w-full rounded-full" disabled={busy || packagePriceLoading || proPriceMissing} onClick={checkout}>{busy ? "Processing…" : insufficient ? "Add Balance & Checkout" : "Checkout · " + money(total, settings.currency_symbol)}</Button><p className="text-xs text-muted-foreground">Reseller discount সহ মোট মূল্য দেখানো হচ্ছে।</p>
         </aside>
       </div>}
   </div></SiteLayout>;
