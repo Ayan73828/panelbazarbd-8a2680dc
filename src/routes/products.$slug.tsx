@@ -101,7 +101,7 @@ function ProductDetail() {
     enabled: !!p?.id,
     queryFn: async () => {
       const [{ data, error }, { data: stock }] = await Promise.all([
-        supabase.from("product_packages").select("id,name,duration,price,sort_order,provider_auto_api,provider_product_id,provider_duration").eq("product_id", p!.id).eq("is_active", true).order("sort_order"),
+        supabase.from("product_packages").select("id,name,duration,price,pro_reseller_price,sort_order,provider_auto_api,provider_product_id,provider_duration").eq("product_id", p!.id).eq("is_active", true).order("sort_order"),
         supabase.rpc("package_stock", { p_product_id: p!.id }),
       ]);
       if (error) throw error;
@@ -232,7 +232,7 @@ function ProductDetail() {
   );
 }
 
-type Pkg = { id: string; name: string; duration: string; price: number; available: number; provider_auto_api?: boolean; provider_product_id?: string | null; provider_duration?: string | null };
+type Pkg = { id: string; name: string; duration: string; price: number; pro_reseller_price: number | null; available: number; provider_auto_api?: boolean; provider_product_id?: string | null; provider_duration?: string | null };
 
 function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; onOpenChange: (v: boolean) => void; product: { id: string; name: string; unit: number; slug: string; stock: number }; packages: Pkg[] }) {
   const { user, profile, refresh } = useAuth();
@@ -253,11 +253,11 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const sel = packages.find((x) => x.id === pkgId) ?? null;
   const campaignActive = settings.global_discount_enabled === "true" && Number(settings.global_discount_percent) > 0 && Number(settings.global_discount_percent) <= 90 && !!settings.global_discount_until && new Date(settings.global_discount_until).getTime() > Date.now();
   const campaignPercent = campaignActive ? Number(settings.global_discount_percent) : 0;
-  const rawUnit = hasPk ? (sel?.price ?? 0) : product.unit;
+  const rawUnit = hasPk ? (profile?.is_pro_reseller ? Number(sel?.pro_reseller_price ?? 0) : (sel?.price ?? 0)) : product.unit;
   const unit = campaignPercent ? Math.round(rawUnit * (100 - campaignPercent)) / 100 : rawUnit;
   const maxQty = Math.max(1, Math.min(20, hasPk ? (sel?.provider_auto_api ? 20 : (sel?.available ?? 1)) : product.stock));
-  const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10))) : 0;
-  // Reseller pricing applies to every package, including supplier API packages.
+  const discountPercent = profile?.is_reseller && !profile?.is_pro_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
+  // Pro members use their fixed Pro price; standard reseller discounts remain separate.
   const discountEligible = discountPercent > 0;
   const resellerUnit = discountEligible ? Math.round(rawUnit * (100 - discountPercent)) / 100 : rawUnit;
   const effectiveUnit = campaignPercent ? Math.round(resellerUnit * (100 - campaignPercent)) / 100 : resellerUnit;
@@ -407,7 +407,9 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
       return;
     }
     if (failure) {
-      setError(failure.includes("INSUFFICIENT_BALANCE")
+      setError(failure.includes("PRO_PRICE_UNAVAILABLE")
+        ? "এই প্যাকেজের Pro Reseller মূল্য এখনো সেট করা হয়নি। অন্য প্যাকেজ নির্বাচন করুন।"
+        : failure.includes("INSUFFICIENT_BALANCE")
         ? `ব্যালেন্স কম — ${done}টি অর্ডার সম্পন্ন হয়েছে। Wallet-এ ব্যালেন্স যোগ করুন।`
         : `অর্ডার সম্পন্ন হয়নি। ${done > 0 ? `${done}টি অর্ডার সম্পন্ন হয়েছে। ` : ""}${failure} My Orders দেখে নিন; একই অর্ডার আবার দেওয়ার আগে স্ট্যাটাস যাচাই করুন।`);
       return;
@@ -445,12 +447,13 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                     <select className="h-11 w-full rounded-lg border border-input bg-background px-3" value={pkgId} onChange={(e) => { setPkgId(e.target.value); setQty(1); setCouponApplied(null); }}>
                       <option value="">Select an option</option>
                       {packages.map((pk) => {
-                        const resellerPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10))) : 0;
-                        const resellerBasePrice = resellerPercent > 0 ? Math.round(pk.price * (100 - resellerPercent)) / 100 : pk.price;
+                        const packageBasePrice = profile?.is_pro_reseller ? Number(pk.pro_reseller_price ?? 0) : Number(pk.price);
+                        const resellerPercent = profile?.is_reseller && !profile?.is_pro_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
+                        const resellerBasePrice = resellerPercent > 0 ? Math.round(packageBasePrice * (100 - resellerPercent)) / 100 : packageBasePrice;
                         const resellerPrice = campaignPercent ? Math.round(resellerBasePrice * (100 - campaignPercent)) / 100 : resellerBasePrice;
                         return (
-                          <option key={pk.id} value={pk.id} disabled={pk.price <= 0}>
-                            {pk.duration || pk.name} — {resellerPrice < pk.price ? `${money(pk.price, cur)} → ${money(resellerPrice, cur)}` : money(pk.price, cur)}
+                          <option key={pk.id} value={pk.id} disabled={packageBasePrice <= 0}>
+                            {pk.duration || pk.name} — {resellerPrice < packageBasePrice ? `${money(packageBasePrice, cur)} → ${money(resellerPrice, cur)}` : money(packageBasePrice, cur)}
                           </option>
                         );
                       })}
