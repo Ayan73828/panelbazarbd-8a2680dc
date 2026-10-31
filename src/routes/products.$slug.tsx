@@ -61,8 +61,8 @@ export const Route = createFileRoute("/products/$slug")({
   loader: async ({ context, params }) => {
     const p = await context.queryClient.ensureQueryData(productQuery(params.slug));
     if (!p) throw notFound();
-    // Preload admin-configured duration/price options before the Buy Now dialog can open.
-    await context.queryClient.ensureQueryData(packagesQuery(p.id));
+    // Best-effort preload only: a package-query issue must never break the product page.
+    await context.queryClient.ensureQueryData(packagesQuery(p.id)).catch(() => undefined);
     return { name: p.name, desc: p.short_description ?? "", image: p.image_url, price: effectivePrice(p) };
   },
   head: ({ loaderData, params }) => {
