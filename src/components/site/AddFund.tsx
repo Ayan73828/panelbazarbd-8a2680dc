@@ -10,7 +10,7 @@ const PRESETS = [50, 100, 500, 1000];
 
 export function AddFund({ initialAmount, autoStart, indianPaymentLink }: { initialAmount?: number | undefined; autoStart?: boolean | undefined; indianPaymentLink?: string | undefined } = {}) {
   const { profile, profileLoading } = useAuth();
-  const minDeposit = profile?.is_pro_reseller ? 500 : NORMAL_MIN;
+  const minDeposit = NORMAL_MIN;
   const fromProduct = !!initialAmount;
   const requiredAmount = initialAmount ? Math.max(minDeposit, Math.ceil(initialAmount)) : undefined;
   const [amount, setAmount] = useState(requiredAmount ? String(requiredAmount) : "");
@@ -41,7 +41,7 @@ export function AddFund({ initialAmount, autoStart, indianPaymentLink }: { initi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart, initialAmount, minDeposit, profileLoading]);
 
-  const presets = profile?.is_pro_reseller ? [500, 1000, 2000, 5000] : PRESETS;
+  const presets = PRESETS;
 
   return (
     <div className="panel w-full min-w-0 space-y-3 overflow-hidden p-4">
@@ -58,7 +58,7 @@ export function AddFund({ initialAmount, autoStart, indianPaymentLink }: { initi
       )}
       {indianPaymentLink ? <Button asChild variant="outline" className="h-11 w-full rounded-full"><a href={indianPaymentLink} target="_blank" rel="noreferrer">Indian Payment / UPI</a></Button> : null}
       <Input className="h-11" type="number" min={minDeposit} inputMode="numeric" placeholder={`অন্য পরিমাণ (সর্বনিম্ন ৳${minDeposit})`} value={amount} onChange={(e) => setAmount(e.target.value)} />
-      <p className="text-xs font-medium text-muted-foreground">{profile?.is_pro_reseller ? "Pro Reseller-এর জন্য একবারে সর্বনিম্ন ৳৫০০ Deposit করতে হবে।" : "সর্বনিম্ন ডিপোজিট ৳৫০।"}</p>
+      <p className="text-xs font-medium text-muted-foreground">"সবার জন্য সর্বনিম্ন ডিপোজিট ৳৫০।"</p>
       <Button className="h-11 w-full" disabled={busy} onClick={() => pay(Number(amount))}>{busy ? "Starting…" : "Pay now"}</Button>
     </div>
   );
