@@ -518,8 +518,31 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
         <DialogHeader><DialogTitle className="truncate">{product.name}</DialogTitle></DialogHeader>
         {!user ? (
           <div className="space-y-4 text-sm">
-            <p className="text-muted-foreground">কিনতে আগে লগইন করুন।</p>
-            <Button asChild className="w-full"><Link to="/auth" search={{ mode: "login" }}>Login</Link></Button>
+            <div className="flex gap-2">
+              {["Validity", "Price", "Create Account"].map((label, i) => <div key={label} className={`flex-1 rounded-full py-1 text-center text-[10px] font-semibold ${step >= i + 1 ? "bg-primary text-primary-foreground" : "bg-surface-2 text-muted-foreground"}`}>{i + 1}. {label}</div>)}
+            </div>
+            {step === 1 && <div className="space-y-3">
+              {hasPk && <div className="space-y-2"><span className="font-medium">Choose Validity / Duration</span><select className="h-11 w-full rounded-lg border border-input bg-background px-3" value={pkgId} onChange={(e) => setPkgId(e.target.value)}><option value="">Select an option</option>{packages.map((pk) => <option key={pk.id} value={pk.id} disabled={pk.price <= 0}>{pk.duration || pk.name} — {pk.price > 0 ? money(pk.price, cur) : "Price unavailable"}</option>)}</select></div>}
+              {!hasPk && <div className="flex justify-between rounded-lg bg-surface-2 p-3"><span>Product price</span><strong>{money(unit, cur)}</strong></div>}
+              <div className="flex items-center justify-between"><span className="font-medium">Quantity</span><div className="flex items-center gap-3"><Button type="button" size="icon" variant="secondary" onClick={() => setQty((q) => Math.max(1, q - 1))}>−</Button><strong>{qty}</strong><Button type="button" size="icon" variant="secondary" onClick={() => setQty((q) => Math.min(maxQty, q + 1))}>+</Button></div></div>
+            </div>}
+            {step === 2 && <div className="space-y-3 rounded-lg bg-surface-2 p-4">
+              <p className="font-semibold">আপনার Price List</p>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground">Product</span><strong className="text-right">{product.name}</strong></div>
+              {sel && <div className="flex justify-between gap-3"><span className="text-muted-foreground">Validity</span><strong>{sel.duration || sel.name}</strong></div>}
+              <div className="flex justify-between"><span className="text-muted-foreground">Unit price</span><strong>{money(unit, cur)}</strong></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Quantity</span><strong>{qty}</strong></div>
+              <div className="flex justify-between border-t border-border pt-3 text-base"><span className="font-bold">Total</span><strong className="text-primary">{money(unit * qty, cur)}</strong></div>
+            </div>}
+            {step === 3 && <div className="space-y-3 text-center">
+              <p className="font-semibold">Price list দেখা সম্পন্ন। Order করতে account খুলুন অথবা Login করুন।</p>
+              <Button asChild className="w-full"><Link to="/auth" search={{ mode: "register" }}>Create Account & Continue</Link></Button>
+              <Button asChild variant="outline" className="w-full"><Link to="/auth" search={{ mode: "login" }}>Already have an account? Login</Link></Button>
+            </div>}
+            <div className="flex justify-end gap-2">
+              {step > 1 && <Button type="button" variant="secondary" onClick={() => setStep((v) => v - 1)}>Back</Button>}
+              {step < 3 && <Button type="button" onClick={() => setStep((v) => v + 1)} disabled={packagesLoading || (hasPk && !sel) || (!hasPk && unit <= 0)}>Next</Button>}
+            </div>
           </div>
         ) : (
           <div className="space-y-4 text-sm">
