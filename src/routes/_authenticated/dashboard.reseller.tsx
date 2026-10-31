@@ -25,9 +25,10 @@ function ResellerDashboard() {
   const [couponApplied, setCouponApplied] = useState<any>(null);
   const [couponOpen, setCouponOpen] = useState(false);
   const [couponBusy, setCouponBusy] = useState(false);
-  const [showPackages, setShowPackages] = useState(false);\n  const [clock, setClock] = useState(Date.now());\n  useEffect(() => { const id = window.setInterval(() => setClock(Date.now()), 30_000); return () => window.clearInterval(id); }, []);\n  useEffect(() => { if (!proActive) return; const id = window.setInterval(() => refresh(), 30_000); return () => window.clearInterval(id); }, [proActive, refresh]);\n  const deadline = profile?.pro_reseller_cycle_deadline ? new Date(profile.pro_reseller_cycle_deadline).getTime() : 0;\n  const remainingMs = Math.max(0, deadline - clock);\n  const remainingDays = Math.floor(remainingMs / 86_400_000);\n  const remainingHours = Math.floor((remainingMs % 86_400_000) / 3_600_000);\n  const remainingMinutes = Math.floor((remainingMs % 3_600_000) / 60_000);
+  const [showPackages, setShowPackages] = useState(false);
   const normalActive = !!profile?.is_reseller;
   const proActive = !!profile?.is_pro_reseller;
+\n  const [clock, setClock] = useState(Date.now());\n  useEffect(() => { const id = window.setInterval(() => setClock(Date.now()), 30_000); return () => window.clearInterval(id); }, []);\n  useEffect(() => { if (!proActive) return; const id = window.setInterval(() => refresh(), 30_000); return () => window.clearInterval(id); }, [proActive, refresh]);\n  const deadline = profile?.pro_reseller_cycle_deadline ? new Date(profile.pro_reseller_cycle_deadline).getTime() : 0;\n  const remainingMs = Math.max(0, deadline - clock);\n  const remainingDays = Math.floor(remainingMs / 86_400_000);\n  const remainingHours = Math.floor((remainingMs % 86_400_000) / 3_600_000);\n  const remainingMinutes = Math.floor((remainingMs % 3_600_000) / 60_000);
   const balance = Number(profile?.balance ?? 0);
   const currency = settings.currency_symbol || "৳";
   const prices: Record<PackageKind, number> = {
