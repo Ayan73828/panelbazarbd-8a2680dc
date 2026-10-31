@@ -17,7 +17,8 @@ export function AddFund({ initialAmount, autoStart, indianPaymentLink }: { initi
   const started = useRef(false);
   const [busy, setBusy] = useState(false);
 
-  const pay = async (value: number) => {\n    if (profileLoading) { toast.error("অ্যাকাউন্ট তথ্য লোড হচ্ছে, একটু অপেক্ষা করুন"); return; }
+  const pay = async (value: number) => {
+    if (profileLoading) { toast.error("অ্যাকাউন্ট তথ্য লোড হচ্ছে, একটু অপেক্ষা করুন"); return; }
     if (!(Number.isFinite(value) && value >= minDeposit)) {
       toast.error(`কমপক্ষে ৳${minDeposit} ডিপোজিট করতে হবে`);
       return;
@@ -47,7 +48,7 @@ export function AddFund({ initialAmount, autoStart, indianPaymentLink }: { initi
       <h2 className="font-semibold">Add fund</h2>
       <p className="text-sm text-muted-foreground">bKash / Nagad / Binance Pay দিয়ে পেমেন্ট করুন — ব্যালেন্স অটো যোগ হবে।</p>
       {fromProduct ? (
-        <p className="rounded-lg bg-primary/10 p-3 text-sm text-primary">প্রোডাক্ট কিনতে ব্যালেন্স কম। ${`প্রোডাক্টের মূল্য বা সর্বনিম্ন ৳${minDeposit} — যেটি বেশি, সেই পরিমাণ যোগ করতে হবে; ৳${requiredAmount} টাকার পেমেন্ট পেজ খুলছে…`}</p>
+        <p className="rounded-lg bg-primary/10 p-3 text-sm text-primary">{`প্রোডাক্ট কিনতে ব্যালেন্স কম। সর্বনিম্ন ৳${minDeposit} বা প্রোডাক্টের মূল্য — যেটি বেশি, সেই পরিমাণ যোগ করতে হবে; ৳${requiredAmount} টাকার পেমেন্ট পেজ খুলছে…`}</p>
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {presets.map((v) => (
@@ -57,7 +58,7 @@ export function AddFund({ initialAmount, autoStart, indianPaymentLink }: { initi
       )}
       {indianPaymentLink ? <Button asChild variant="outline" className="h-11 w-full rounded-full"><a href={indianPaymentLink} target="_blank" rel="noreferrer">Indian Payment / UPI</a></Button> : null}
       <Input className="h-11" type="number" min={minDeposit} inputMode="numeric" placeholder={`অন্য পরিমাণ (সর্বনিম্ন ৳${minDeposit})`} value={amount} onChange={(e) => setAmount(e.target.value)} />
-      <p className="text-xs font-medium text-muted-foreground"> {profile?.is_pro_reseller ? "Pro Reseller-এর জন্য একবারে সর্বনিম্ন ৳৫০০ Deposit করতে হবে।" : "সর্বনিম্ন ডিপোজিট ৳৫০।"}</p>
+      <p className="text-xs font-medium text-muted-foreground">{profile?.is_pro_reseller ? "Pro Reseller-এর জন্য একবারে সর্বনিম্ন ৳৫০০ Deposit করতে হবে।" : "সর্বনিম্ন ডিপোজিট ৳৫০।"}</p>
       <Button className="h-11 w-full" disabled={busy} onClick={() => pay(Number(amount))}>{busy ? "Starting…" : "Pay now"}</Button>
     </div>
   );
