@@ -346,9 +346,11 @@ export type Database = {
           id: string
           is_active: boolean
           is_reseller: boolean
+          is_pro_reseller: boolean
           reseller_discount_percent: number
           name: string
           price: number
+          pro_reseller_price: number | null
           product_id: string
           sort_order: number
           updated_at: string
@@ -360,6 +362,7 @@ export type Database = {
           is_active?: boolean
           name: string
           price?: number
+          pro_reseller_price?: number | null
           product_id: string
           sort_order?: number
           updated_at?: string
@@ -370,9 +373,12 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_reseller?: boolean
+          is_pro_reseller?: boolean
+          is_pro_reseller?: boolean
           reseller_discount_percent?: number
           name?: string
           price?: number
+          pro_reseller_price?: number | null
           product_id?: string
           sort_order?: number
           updated_at?: string
