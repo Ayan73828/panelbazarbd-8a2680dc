@@ -245,7 +245,7 @@ async function mainMenuForTelegramUser(tgUserId?: number) {
 async function welcome(chatId: number, user: any, messageId?: number, tgUserId?: number) {
   const mainMenu = await mainMenuForTelegramUser(tgUserId);
   if (user) {
-    const welcomeText = `🏪 ━━ <b>Panel Bazar BD</b> ━━ 🏪\n\n👋 Welcome back, <b>${esc(user.name || user.username || "Customer")}</b>\n\n⭐ ━ <b>REGULAR HIGHLIGHTS</b> ━ ⭐\n\n│ 🔑 Wholesale Game Keys &amp; VIP Stocks\n│ ⚡ Priority Auto-Delivery 24/7\n│ 🎁 Tiered Referral\n│ 📞 Dedicated VIP Partner Support\n\n━━━━━━━━━━━━━━━━━━━━━\n\n🚀 <b>Tap Shop Now to Start!</b>`;
+    const welcomeText = `🏪 ━━ <b>Panel Bazar BD</b> ━━ 🏪\n\n👋 Welcome back, <b>${esc(user.name || user.username || "Customer")}</b>\n\n🛍️ Shop Now চাপুন অথবা নিচের Menu থেকে প্রয়োজনীয় অপশন বেছে নিন।`;
     if (typeof messageId === "number") await screen(chatId, messageId, welcomeText, mainMenu);
     else await send(chatId, welcomeText, mainMenu);
   } else {
@@ -542,8 +542,7 @@ export async function handleUpdate(u: any) {
   }
 
   if (!user) {
-    const account = await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
-    return welcome(chatId, account, undefined, m.from.id);
+    return send(chatId, "প্রথমে /start চাপুন, তারপর Menu থেকে প্রয়োজনীয় অপশন বেছে নিন।");
   }
   if (text === "/logout") {
     const db = await admin();
@@ -572,7 +571,7 @@ export async function handleUpdate(u: any) {
       return send(chatId, `👤 <b>Profile</b>\nনাম: ${esc(user.name)}\nUsername: ${esc(user.username)}\nEmail: ${esc(user.email)}\nPhone: ${esc(user.phone)}\nব্যালেন্স: <b>${tk(user.balance)}</b>\n\nLogout: /logout`);
     case "📞 Support": return showSupport(chatId);
     case "🌐 Website": return send(chatId, "🌐 ওয়েবসাইট:", { inline_keyboard: [[{ text: "Open website", url: SITE_URL }]] });
-    default: return welcome(chatId, user, undefined, m.from.id);
+    default: return send(chatId, "আপনার মেসেজটি বুঝতে পারিনি। কোনো অপশন ব্যবহার করতে /start দিয়ে Menu খুলুন।");
   }
 }
 
