@@ -28,10 +28,13 @@ function ResellerDashboard() {
   const [showPackages, setShowPackages] = useState(false);
   const normalActive = !!profile?.is_reseller;
   const proActive = !!profile?.is_pro_reseller;
+  const proPurchased = !!profile?.pro_reseller_package_purchased;
+  const [proStatus, setProStatus] = useState<any>(null);
+  const [verifyBusy, setVerifyBusy] = useState(false);
 
   const [clock, setClock] = useState(Date.now());
   useEffect(() => { const id = window.setInterval(() => setClock(Date.now()), 30_000); return () => window.clearInterval(id); }, []);
-  useEffect(() => { if (!proActive) return; const id = window.setInterval(() => refresh(), 30_000); return () => window.clearInterval(id); }, [proActive, refresh]);
+  useEffect(() => { if (!proPurchased) { setProStatus(null); return; } let live = true; const load = async () => { const { data, error } = await (supabase as any).rpc("get_pro_reseller_activation_status"); if (!error && live) setProStatus(data); }; void load(); const id = window.setInterval(() => { void load(); void refresh(); }, 30_000); return () => { live = false; window.clearInterval(id); }; }, [proPurchased, refresh]);
   const deadline = profile?.pro_reseller_cycle_deadline ? new Date(profile.pro_reseller_cycle_deadline).getTime() : 0;
   const remainingMs = Math.max(0, deadline - clock);
   const remainingDays = Math.floor(remainingMs / 86_400_000);
@@ -41,8 +44,8 @@ function ResellerDashboard() {
   const currency = settings.currency_symbol || "৳";
   const prices: Record<PackageKind, number> = {
     normal: normalActive ? 0 : 300,
-    pro: proActive ? 0 : 250,
-    bundle: normalActive && proActive ? 0 : normalActive ? 250 : proActive ? 300 : 500,
+    pro: proActive || proPurchased ? 0 : 250,
+    bundle: normalActive && (proActive || proPurchased) ? 0 : normalActive ? (proPurchased ? 0 : 250) : (proActive || proPurchased) ? 300 : 500,
   };
   const selectedPrice = selected ? prices[selected] : 0;
 
@@ -110,8 +113,12 @@ function ResellerDashboard() {
         setCouponCode("");
         setCouponApplied(null);
         await refresh();
-        toast.success(kind === "normal" ? "Normal Reseller চালু হয়েছে!"
-          : kind === "pro" ? "Pro Reseller চালু হয়েছে!" : "Normal + Pro দুটিই চালু হয়েছে!");
+        if (kind === "pro") toast.success("Pro প্যাকেজ কেনা হয়েছে। Access চালু করতে নতুন ৳৫০০ Deposit করে Verify করুন।");
+        else if (kind === "bundle") toast.success("Normal Reseller চালু হয়েছে। Pro Access পেতে নতুন ৳৫০০ Deposit করে Verify করুন।");
+        else toast.success("Normal Reseller চালু হয়েছে!");
+      } else if (data === "PRO_PACKAGE_PENDING") {
+        await refresh();
+        toast.info("Pro প্যাকেজ আগেই কেনা আছে। ৳৫০০ Deposit করে Verify করুন।");
       } else if (["ALREADY_RESELLER", "ALREADY_PRO_RESELLER", "ALREADY_BOTH"].includes(data)) {
         await refresh();
         toast.info("এই membership আগেই চালু আছে।");
@@ -149,6 +156,16 @@ function ResellerDashboard() {
           </div>
         </div>
 
+        {proPurchased && <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+          <div className="flex items-center justify-between gap-2"><h3 className="font-bold">Pro Reseller Activation</h3><span className={`rounded-full px-2 py-1 text-xs font-semibold ${proActive ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}>{proActive ? "Active" : "Activation Pending"}</span></div>
+          <p className="text-sm text-muted-foreground">{proActive ? "পরবর্তী ১৫ দিনের Cycle চালু রাখতে নতুন করে ৳৫০০ Deposit করে Verify করুন।" : "আপনার Pro প্যাকেজ কেনা সম্পন্ন। Pro Access চালু করতে নতুন করে মোট ৳৫০০ Deposit প্রয়োজন।"}</p>
+          <div className="grid grid-cols-3 gap-2 text-center text-xs"><div className="rounded-lg bg-background p-2"><p className="text-muted-foreground">Required</p><p className="mt-1 font-bold">৳৫০০</p></div><div className="rounded-lg bg-background p-2"><p className="text-muted-foreground">New deposits</p><p className="mt-1 font-bold">{money(Number(proStatus?.deposited ?? 0), currency)}</p></div><div className="rounded-lg bg-background p-2"><p className="text-muted-foreground">Still short</p><p className="mt-1 font-bold text-destructive">{money(Number(proStatus?.short ?? 500), currency)}</p></div></div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.max(0, Number(proStatus?.deposited ?? 0) / 5))}%` }} /></div>
+          {Number(proStatus?.short ?? 500) > 0 && <p className="text-sm font-medium text-destructive">আপনার আরও {money(Number(proStatus?.short ?? 500), currency)} Deposit করা বাকি। সর্বনিম্ন ৳৫০ করে Deposit করতে পারবেন।</p>}
+          <div className="flex flex-col gap-2 sm:flex-row"><Button asChild variant="outline" className="flex-1"><Link to="/dashboard/wallet">Add Balance</Link></Button><Button className="flex-1" disabled={verifyBusy || Number(proStatus?.short ?? 500) > 0} onClick={async () => { setVerifyBusy(true); try { const { data, error } = await (supabase as any).rpc("verify_pro_reseller_deposit"); if (error) throw error; if (data?.status === "ACTIVATED") { await refresh(); const { data: status } = await (supabase as any).rpc("get_pro_reseller_activation_status"); setProStatus(status); toast.success("Pro Reseller Access চালু হয়েছে! নতুন ১৫ দিনের Cycle শুরু হয়েছে।"); } else if (data?.status === "SHORT") { setProStatus(data); toast.error(`আরও ৳${Number(data.short).toFixed(2)} Deposit প্রয়োজন।`); } else toast.error("Verification সম্পন্ন হয়নি। আবার চেষ্টা করুন।"); } catch (e: any) { toast.error(e?.message || "Verification failed"); } finally { setVerifyBusy(false); } }}>{verifyBusy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Verifying…</> : proActive ? "Verify & Renew 15-Day Cycle" : "Verify Account & Activate Pro"}</Button></div>
+          {proActive && deadline > 0 && <p className="text-xs text-muted-foreground">বর্তমান Cycle শেষ হবে: {new Date(deadline).toLocaleString()}</p>}
+        </div>}
+
         <Button className="w-full justify-between" variant="outline" onClick={() => setShowPackages(v => !v)}>
           <span>Upgrade to Reseller Dashboard</span>
           <ChevronDown className={showPackages ? "h-4 w-4 rotate-180 transition-transform" : "h-4 w-4 transition-transform"} />
@@ -164,6 +181,7 @@ function ResellerDashboard() {
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">{choice.title}</span>
                   {active && <span className="flex items-center gap-1 text-xs text-success"><BadgeCheck className="h-4 w-4" /> Active</span>}
+                  {choice.id === "pro" && proPurchased && !proActive && <span className="text-xs font-semibold text-amber-600">Activation Pending</span>}
                   {selected === choice.id && !active && <span className="text-xs font-semibold text-primary">Selected</span>}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{choice.description}</p>
@@ -208,11 +226,16 @@ function ResellerDashboard() {
                 {busy === selected ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing…</> : "Activate " + (selected === "normal" ? "Normal" : selected === "pro" ? "Pro" : "Both") + " — " + money(Number(couponApplied?.total ?? selectedPrice), currency)}
               </Button>
             </div>}
-            {selectedPrice === 0 && <p className="text-sm text-muted-foreground">এই membership ইতিমধ্যে চালু আছে।</p>}
+            {selectedPrice === 0 && <p className="text-sm text-muted-foreground">{selected === "pro" && proPurchased && !proActive ? "Pro প্যাকেজ কেনা আছে। উপরের Activation Task সম্পন্ন করুন।" : "এই membership ইতিমধ্যে চালু আছে।"}</p>}
           </div>}
         </div>}
 
         {normalActive && proActive && <div className="rounded-lg bg-primary/10 p-3 text-sm text-primary">আপনার সব membership চালু আছে।</div>}
+      </div>
+      <div className="panel space-y-3 p-4">
+        <h3 className="font-bold">Pro Reseller Benefits</h3>
+        <ul className="list-disc space-y-2 pl-5 text-sm"><li>প্রতি মাসের ১ তারিখে যেকোনো ধরনের Panel ৭ দিনের জন্য সম্পূর্ণ ফ্রিতে পাবেন (বালা মোড ও Troll মোড ছাড়া)।</li><li>Reseller Dashboard-এর Reset সুবিধা — আপনি যেকোনো সময় Dashboard Reset করতে পারবেন।</li><li>Pro Reseller-এর বিশেষ Discount ও Badge সুবিধা।</li></ul>
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm"><p className="font-bold text-destructive">গুরুত্বপূর্ণ নিয়ম</p><ul className="mt-2 list-disc space-y-1 pl-5 text-destructive"><li>Pro Dashboard প্যাকেজ মূল্য ৳২৫০; প্যাকেজ কিনলেই Pro Access চালু হবে না।</li><li>Activation ও প্রতি ১৫ দিনের নতুন Cycle-এর জন্য নতুন করে মোট ৳৫০০ Deposit করে Verify করতে হবে। আগের Cycle-এর Deposit গণনা হবে না।</li><li>প্রতিটি Deposit-এর সর্বনিম্ন পরিমাণ ৳৫০। একাধিক Deposit যোগ হয়ে ৳৫০০ পূর্ণ হতে পারবে।</li><li>Verify করার সময় কোনো টাকা Wallet থেকে কাটা হবে না।</li><li>১৫ দিনের মধ্যে নতুন ৳৫০০ Deposit করে Verify না করলে Pro Access বন্ধ হয়ে Normal Reseller Dashboard-এ Downgrade হবে। পরে নতুন ৳৫০০ Deposit করে আবার Pro চালু করতে পারবেন।</li></ul></div>
       </div>
       <div className="text-xs text-muted-foreground">Balance কম হলে <Link className="font-semibold text-primary underline" to="/dashboard/wallet">Wallet-এ টাকা যোগ করুন</Link>।</div>
     </div>
