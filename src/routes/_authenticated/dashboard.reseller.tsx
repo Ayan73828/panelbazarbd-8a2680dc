@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { BadgeCheck, Crown, Store, Wallet, Loader2, ChevronDown } from "lucide-react";
+import { BadgeCheck, Wallet, Loader2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/site/SiteLayout";
 import { Button } from "@/components/ui/button";
