@@ -51,6 +51,11 @@ const bottomNav = [
 export function SiteLayout({ children }: { children: ReactNode }) {
   const { settings } = useSettings();
   const { user, profile, isAdmin, isOwner, loading: authLoading } = useAuth();
+  const visibleBottomNav = user ? bottomNav : [
+    { to: "/", label: "Home", icon: Home },
+    { to: "/products", label: "Products", icon: Package },
+    { to: "/reseller", label: "Reseller", icon: Store },
+  ] as const;
   const orders = useMyOrders();
   const transactions = useMyTransactions();
   const announcements = useActiveAnnouncements();
@@ -294,7 +299,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
 
       <nav aria-label="Main navigation" className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 pointer-events-none">
         <ul className="mx-auto flex max-w-lg items-stretch justify-between gap-1 rounded-[1.6rem] border border-white/50 bg-background/70 px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.65)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/55 pointer-events-auto dark:border-white/15 dark:shadow-[0_8px_32px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.12)]">
-          {bottomNav.map(({ to, label, icon: Icon }) => (
+          {visibleBottomNav.map(({ to, label, icon: Icon }) => (
             <li key={to} className="min-w-0 flex-1">
               <Link
                 to={to}
