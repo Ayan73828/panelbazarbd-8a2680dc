@@ -91,7 +91,9 @@ function ProductDetail() {
   const { slug } = Route.useParams();
   const { data: p } = useSuspenseQuery(productQuery(slug));
   const { settings } = useSettings();
+  const { profile } = useAuth();
   const cur = settings.currency_symbol;
+  const [priceView, setPriceView] = useState<"normal" | "reseller" | "pro">("normal");
   const images = p ? [p.image_url, ...(p.images ?? [])].filter((x): x is string => !!x) : [];
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
@@ -101,7 +103,7 @@ function ProductDetail() {
     enabled: !!p?.id,
     queryFn: async () => {
       const [{ data, error }, { data: stock }] = await Promise.all([
-        supabase.from("product_packages").select("id,name,duration,price,sort_order,provider_auto_api,provider_product_id,provider_duration").eq("product_id", p!.id).eq("is_active", true).order("sort_order"),
+        supabase.from("product_packages").select("id,name,duration,price,pro_reseller_price,sort_order,provider_auto_api,provider_product_id,provider_duration").eq("product_id", p!.id).eq("is_active", true).order("sort_order"),
         supabase.rpc("package_stock", { p_product_id: p!.id }),
       ]);
       if (error) throw error;
@@ -133,6 +135,12 @@ function ProductDetail() {
   const cat = p.categories as { name: string; slug: string } | null;
   const packages = pkgs.data ?? [];
   const hasPackages = packages.length > 0;
+  const resellerPercent = Math.min(50, Math.max(0, Number(profile?.reseller_discount_percent ?? (settings as any).reseller_discount_percent ?? 7)));
+  const displayPrice = (pkg: Pkg) => priceView === "pro"
+    ? (pkg.pro_reseller_price && pkg.pro_reseller_price > 0 ? pkg.pro_reseller_price : null)
+    : priceView === "reseller"
+      ? Math.round(pkg.price * (100 - resellerPercent)) / 100
+      : pkg.price;
 
   return (
     <SiteLayout>
@@ -173,6 +181,20 @@ function ProductDetail() {
                 <div className="flex items-end gap-2">
                   <span className="text-sm text-muted-foreground">From</span>
                   <span className="font-display text-3xl font-bold text-primary">{money(discounted(Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price), Infinity) === Infinity ? 0 : Math.min(...packages.filter((x) => x.price > 0).map((x) => x.price))), cur)}</span>
+                </div>
+                <div className="space-y-2 rounded-xl border border-border p-3">
+                  <p className="text-xs font-semibold text-muted-foreground">Compare reseller benefits</p>
+                  <div className="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1">
+                    <button type="button" onClick={() => setPriceView("normal")} className={`rounded-md px-1 py-2 text-[11px] font-semibold ${priceView === "normal" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Normal</button>
+                    <button type="button" onClick={() => setPriceView("reseller")} className={`rounded-md px-1 py-2 text-[11px] font-semibold ${priceView === "reseller" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Normal Reseller</button>
+                    <button type="button" onClick={() => setPriceView("pro")} className={`rounded-md px-1 py-2 text-[11px] font-semibold ${priceView === "pro" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Pro Reseller</button>
+                  </div>
+                  <div className="space-y-1.5">
+                    {packages.map((pkg) => {
+                      const shown = displayPrice(pkg);
+                      return <div key={pkg.id} className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate text-muted-foreground">{pkg.duration || pkg.name}</span><span className="shrink-0 font-semibold">{shown === null ? <span className="text-xs text-muted-foreground">Not set</span> : money(discounted(shown), cur)}</span></div>;
+                    })}
+                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground">{packages.length} purchase option{packages.length === 1 ? "" : "s"} available</p>{campaignActive && <Badge variant="destructive">{campaignPercent}% OFF</Badge>}
                 <Button size="lg" className="h-12 w-full rounded-full" disabled={!packages.some((x) => x.price > 0)} onClick={() => setOpen(true)}>
@@ -232,7 +254,7 @@ function ProductDetail() {
   );
 }
 
-type Pkg = { id: string; name: string; duration: string; price: number; available: number; provider_auto_api?: boolean; provider_product_id?: string | null; provider_duration?: string | null };
+type Pkg = { id: string; name: string; duration: string; price: number; pro_reseller_price?: number | null; available: number; provider_auto_api?: boolean; provider_product_id?: string | null; provider_duration?: string | null };
 
 function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; onOpenChange: (v: boolean) => void; product: { id: string; name: string; unit: number; slug: string; stock: number }; packages: Pkg[] }) {
   const { user, profile, refresh } = useAuth();
@@ -248,15 +270,16 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
   const [couponCode, setCouponCode] = useState("");
   const [couponApplied, setCouponApplied] = useState<any>(null);
   const [couponBusy, setCouponBusy] = useState(false);
+  const [couponOpen, setCouponOpen] = useState(false);
   const [minDepositOpen, setMinDepositOpen] = useState(false);
   const hasPk = packages.length > 0;
   const sel = packages.find((x) => x.id === pkgId) ?? null;
   const campaignActive = settings.global_discount_enabled === "true" && Number(settings.global_discount_percent) > 0 && Number(settings.global_discount_percent) <= 90 && !!settings.global_discount_until && new Date(settings.global_discount_until).getTime() > Date.now();
   const campaignPercent = campaignActive ? Number(settings.global_discount_percent) : 0;
-  const rawUnit = hasPk ? (sel?.price ?? 0) : product.unit;
+  const rawUnit = hasPk ? (profile?.is_pro_reseller ? (sel?.pro_reseller_price ?? 0) : (sel?.price ?? 0)) : product.unit;
   const unit = campaignPercent ? Math.round(rawUnit * (100 - campaignPercent)) / 100 : rawUnit;
   const maxQty = Math.max(1, Math.min(20, hasPk ? (sel?.provider_auto_api ? 20 : (sel?.available ?? 1)) : product.stock));
-  const discountPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10))) : 0;
+  const discountPercent = profile?.is_reseller && !profile?.is_pro_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 7))) : 0;
   // Reseller pricing applies to every package, including supplier API packages.
   const discountEligible = discountPercent > 0;
   const resellerUnit = discountEligible ? Math.round(rawUnit * (100 - discountPercent)) / 100 : rawUnit;
@@ -445,12 +468,11 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                     <select className="h-11 w-full rounded-lg border border-input bg-background px-3" value={pkgId} onChange={(e) => { setPkgId(e.target.value); setQty(1); setCouponApplied(null); }}>
                       <option value="">Select an option</option>
                       {packages.map((pk) => {
-                        const resellerPercent = profile?.is_reseller ? Math.min(50, Math.max(0, Number(profile.reseller_discount_percent ?? 10))) : 0;
-                        const resellerBasePrice = resellerPercent > 0 ? Math.round(pk.price * (100 - resellerPercent)) / 100 : pk.price;
-                        const resellerPrice = campaignPercent ? Math.round(resellerBasePrice * (100 - campaignPercent)) / 100 : resellerBasePrice;
+                        const selectedBase = profile?.is_pro_reseller ? (pk.pro_reseller_price ?? 0) : profile?.is_reseller ? Math.round(pk.price * (100 - discountPercent)) / 100 : pk.price;
+                        const selectedPrice = campaignPercent ? Math.round(selectedBase * (100 - campaignPercent)) / 100 : selectedBase;
                         return (
-                          <option key={pk.id} value={pk.id} disabled={pk.price <= 0}>
-                            {pk.duration || pk.name} — {resellerPrice < pk.price ? `${money(pk.price, cur)} → ${money(resellerPrice, cur)}` : money(pk.price, cur)}
+                          <option key={pk.id} value={pk.id} disabled={selectedBase <= 0}>
+                            {pk.duration || pk.name} — {selectedBase > 0 ? money(selectedPrice, cur) : "Pro price not set"}
                           </option>
                         );
                       })}
@@ -465,18 +487,22 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
                     <Button type="button" size="icon" variant="secondary" onClick={() => { setQty((q) => Math.min(maxQty, q + 1)); setCouponApplied(null); }}>+</Button>
                   </div>
                 </div>
-                <div className="space-y-2 rounded-lg border border-border p-3">
-                  <label className="block space-y-1.5">
-                    <span className="font-medium">Discount Coupon</span>
-                    <span className="text-xs text-muted-foreground">কুপন থাকলে কোড দিন, না থাকলে ফাঁকা রাখুন।</span>
-                    <div className="flex flex-wrap gap-2">
-                      <input type="text" inputMode="text" autoComplete="off" autoCorrect="off" spellCheck={false} style={{ fontSize: "16px" }} className="h-10 min-w-0 flex-1 basis-36 rounded-md border border-input bg-background px-3 uppercase" value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponApplied(null); }} placeholder="ENTER COUPON CODE" maxLength={40} />
-                      <Button type="button" variant="outline" onClick={() => void pasteCoupon()}>Paste</Button>
-                      <Button type="button" variant="secondary" disabled={couponBusy || !couponCode.trim()} onClick={() => void applyCoupon()}>{couponBusy ? "Checking…" : couponApplied ? "Applied ✓" : "Apply"}</Button>
+                <div className="space-y-2">
+                  {couponApplied ? (
+                    <div className="flex items-center justify-between gap-2 text-xs text-emerald-600">
+                      <span>Coupon {couponApplied.code} applied · −{money(couponDiscount, cur)}</span>
+                      <button type="button" className="text-muted-foreground underline" onClick={() => { setCouponApplied(null); setCouponCode(""); }}>Remove</button>
                     </div>
-                  </label>
-                  {couponApplied && <div className="flex items-center justify-between text-sm text-emerald-600"><span>Coupon {couponApplied.code} applied</span><span>−{money(couponDiscount, cur)}</span></div>}
-                  
+                  ) : (
+                    <button type="button" onClick={() => setCouponOpen((value) => !value)} className="text-xs font-medium text-primary underline underline-offset-2">
+                      {couponOpen ? "Hide discount coupon" : "Have a discount coupon?"}
+                    </button>
+                  )}
+                  {couponOpen && !couponApplied && <div className="flex items-center gap-1.5">
+                    <input type="text" inputMode="text" autoComplete="off" autoCorrect="off" spellCheck={false} style={{ fontSize: "14px" }} className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-xs uppercase" value={couponCode} onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponApplied(null); }} placeholder="Coupon code" maxLength={40} />
+                    <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => void pasteCoupon()}>Paste</Button>
+                    <Button type="button" size="sm" variant="secondary" className="h-8 px-2 text-xs" disabled={couponBusy || !couponCode.trim()} onClick={() => void applyCoupon()}>{couponBusy ? "…" : "Apply"}</Button>
+                  </div>}
                 </div>
                 <div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Total</span><span className="text-primary">{money(total, cur)}</span></div>
                 {discountEligible && <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Price</span><span className="text-right"><span className="mr-2 text-muted-foreground line-through">{money(originalTotal, cur)}</span><span className="font-semibold text-primary">{money(baseTotal, cur)}</span></span></div>}
