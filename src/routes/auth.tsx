@@ -29,9 +29,10 @@ function getWebsiteDeviceId() {
 }
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (s: Record<string, unknown>): { mode?: Mode | undefined; ref?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { mode?: Mode | undefined; ref?: string; product?: string } => ({
     mode: s["mode"] === "register" || s["mode"] === "login" ? s["mode"] : undefined,
     ref: typeof s["ref"] === "string" ? s["ref"].slice(0, 80) : undefined,
+    product: typeof s["product"] === "string" && /^[a-z0-9-]{1,120}$/i.test(s["product"]) ? s["product"] : undefined,
   }),
   head: () => ({
     meta: [
@@ -46,7 +47,7 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  const { mode: routeMode = "login", ref: referralCode } = Route.useSearch();
+  const { mode: routeMode = "login", ref: referralCode, product: returnProduct } = Route.useSearch();
 
   useEffect(() => {
     if (referralCode) {
@@ -60,8 +61,11 @@ function AuthPage() {
   useEffect(() => setMode(routeMode), [routeMode]);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/dashboard", replace: true });
-  }, [user, loading, navigate]);
+    if (!loading && user) {
+      if (returnProduct) window.location.assign(`/products/${encodeURIComponent(returnProduct)}?buy=1`);
+      else navigate({ to: "/dashboard", replace: true });
+    }
+  }, [user, loading, navigate, returnProduct]);
 
   return (
     <SiteLayout>
@@ -77,7 +81,7 @@ function AuthPage() {
             <button type="button" onClick={() => setMode("login")} className={`rounded-full py-2 text-center font-medium ${mode === "login" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Login</button>
             <button type="button" onClick={() => setMode("register")} className={`rounded-full py-2 text-center font-medium ${mode === "register" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Register</button>
           </div>
-          <OtpAuthForm mode={mode} referralCode={referralCode} />
+          <OtpAuthForm mode={mode} referralCode={referralCode} returnProduct={returnProduct} />
           <p className="mt-5 text-center text-xs text-muted-foreground">Never share your email verification code with anyone.</p>
         </div>
       </div>
@@ -85,7 +89,7 @@ function AuthPage() {
   );
 }
 
-function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string }) {
+function OtpAuthForm({ mode, referralCode, returnProduct }: { mode: Mode; referralCode?: string; returnProduct?: string }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -185,7 +189,8 @@ function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string
         }
         toast.success("Logged in successfully!");
       }
-      navigate({ to: "/dashboard", replace: true });
+      if (returnProduct) window.location.assign(`/products/${encodeURIComponent(returnProduct)}?buy=1`);
+      else navigate({ to: "/dashboard", replace: true });
     } catch (err) {
       toast.error(errMsg(err));
     } finally {
@@ -206,7 +211,7 @@ function OtpAuthForm({ mode, referralCode }: { mode: Mode; referralCode?: string
           <div className="space-y-1.5"><Label htmlFor="auth-email">Email</Label><Input id="auth-email" type="email" required maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></div>
           <Button type="submit" className="w-full rounded-full bg-cyan-200 font-bold text-slate-950 hover:bg-cyan-100" disabled={busy}>{busy ? "Please wait…" : mode === "login" ? "Sign In with Email" : "Continue"}</Button>
 <div className="flex items-center gap-3 py-1 text-[10px] font-semibold tracking-[0.2em] text-slate-500"><span className="h-px flex-1 bg-white/10" /> OR CONTINUE WITH <span className="h-px flex-1 bg-white/10" /></div>
-          <Button type="button" variant="outline" className="w-full rounded-full border-white/15 bg-white/[0.04] text-foreground hover:bg-white/[0.08]" disabled={busy} onClick={async () => { setBusy(true); try { const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: "https://panelbazarbd.shop/dashboard" } }); if (error) throw error; } catch (err) { toast.error(errMsg(err)); setBusy(false); } }}><span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold text-[#4285F4]">G</span>Continue with Google</Button>
+          <Button type="button" variant="outline" className="w-full rounded-full border-white/15 bg-white/[0.04] text-foreground hover:bg-white/[0.08]" disabled={busy} onClick={async () => { setBusy(true); try { const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: returnProduct ? `https://panelbazarbd.shop/products/${encodeURIComponent(returnProduct)}?buy=1` : "https://panelbazarbd.shop/dashboard" } }); if (error) throw error; } catch (err) { toast.error(errMsg(err)); setBusy(false); } }}><span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-bold text-[#4285F4]">G</span>Continue with Google</Button>
         </form>
       ) : (
         <form onSubmit={verifyCode} className="space-y-4">
