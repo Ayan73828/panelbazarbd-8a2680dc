@@ -114,7 +114,7 @@ function ResellerDashboard() {
         setCouponApplied(null);
         await refresh();
         if (kind === "pro") toast.success("Pro প্যাকেজ কেনা হয়েছে। Access চালু করতে নতুন ৳৫০০ Deposit করে Verify করুন।");
-        else if (kind === "bundle") toast.success("Normal Reseller চালু হয়েছে। Pro Access পেতে নতুন ৳৫০০ Deposit করে Verify করুন।");
+        else if (kind === "bundle") toast.success(proActive ? "Normal Reseller চালু হয়েছে! আপনার Pro Access আগেই Active আছে।" : "Normal Reseller চালু হয়েছে। Pro Access পেতে ৳৫০০ Deposit করে Verify করুন।");
         else toast.success("Normal Reseller চালু হয়েছে!");
       } else if (data === "PRO_PACKAGE_PENDING") {
         await refresh();
