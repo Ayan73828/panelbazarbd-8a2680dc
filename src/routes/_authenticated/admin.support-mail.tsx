@@ -20,6 +20,7 @@ function AdminSupportMail() {
   const [sendToAll, setSendToAll] = useState(false);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -39,17 +40,23 @@ function AdminSupportMail() {
       return;
     }
     if (sendToAll && !window.confirm("Send this email to every website user with a registered email? This may take time and cannot be undone.")) return;
+    if (sendToAll && attachments.length) { toast.error("ফাইল সংযুক্ত করতে একজন recipient নির্বাচন করুন; broadcast-এ attachment পাঠানো বন্ধ রাখা হয়েছে।"); return; }
+    if (attachments.length > 5 || attachments.some((file) => file.size > 10 * 1024 * 1024) || attachments.reduce((n, file) => n + file.size, 0) > 20 * 1024 * 1024) { toast.error("সর্বোচ্চ ৫টি ফাইল, প্রতি ফাইল ১০ MB এবং মোট ২০ MB।"); return; }
+    const encodedAttachments = await Promise.all(attachments.map(async (file) => { const bytes = new Uint8Array(await file.arrayBuffer()); let binary = ""; for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return { filename: file.name, content: btoa(binary) }; }));
     setBusy(true);
     try {
       if (sendToAll) {
         const result = await sendAllEmail({ data: { subject, message } });
         toast.success(`Broadcast finished: ${result.sent} sent, ${result.failed} failed, ${result.skipped} skipped (total ${result.total})`);
       } else {
-        const result = await sendEmail({ data: { to, subject, message } });
+        const result = await sendEmail({ data: { to, subject, message, attachments: encodedAttachments } });
         toast.success(`Email sent to ${result.to}`);
       }
       setSubject("");
       setMessage("");
+      setAttachments([]);
+      const input = document.getElementById("support-mail-attachments") as HTMLInputElement | null;
+      if (input) input.value = "";
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not send email");
     } finally {
@@ -89,6 +96,12 @@ function AdminSupportMail() {
         <div className="space-y-1.5">
           <label htmlFor="support-mail-message" className="text-sm font-medium">Message</label>
           <Textarea id="support-mail-message" required minLength={2} maxLength={10000} rows={8} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Write your message here…" />
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="support-mail-attachments" className="text-sm font-medium">Attach files</label>
+          <input id="support-mail-attachments" type="file" multiple onChange={(event) => setAttachments(Array.from(event.target.files ?? []))} className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+          <p className="text-xs text-muted-foreground">একটি recipient-কে পাঠানোর সময় সর্বোচ্চ ৫টি ফাইল; প্রতি ফাইল ১০ MB, মোট ২০ MB। Broadcast email-এ attachment বন্ধ রাখা হয়েছে।</p>
+          {attachments.map((file, index) => <div key={file.name + index} className="flex justify-between gap-2 text-xs"><span className="truncate">📎 {file.name} ({(file.size / 1048576).toFixed(2)} MB)</span><button type="button" onClick={() => setAttachments((items) => items.filter((_, i) => i !== index))}>Remove</button></div>)}
         </div>
         <p className="text-xs text-muted-foreground">The email is sent through the site's Resend setup. Never ask customers to share passwords or verification codes.</p>
         <Button type="submit" disabled={busy || String(user?.email ?? "").toLowerCase() !== "ishak777998@gmail.com" || (!sendToAll && !to.trim())} className="w-full">{busy ? (sendToAll ? "Sending to website users…" : "Sending email…") : sendToAll ? "Send to All Website Users" : "Send Support Mail"}</Button>
