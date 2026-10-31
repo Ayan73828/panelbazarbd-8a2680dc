@@ -59,6 +59,7 @@ function CartPage() {
   const total = useMemo(() => items.reduce((sum, item) => sum + priceFor(item) * item.quantity, 0), [items, discountPercent, discountEligiblePackages]);
   const balance = Number(profile?.balance ?? 0);
   const insufficient = balance < total;
+  const proPriceMissing = !!profile?.is_pro_reseller && items.some((item) => !!item.packageId && packagePrices.has(item.packageId) && packagePrices.get(item.packageId)?.proPrice == null);
   function updateQty(id: string, quantity: number) {
     const next = readCart().map((item) => item.id === id ? { ...item, quantity: Math.max(1, Math.min(item.stock, quantity)) } : item);
     saveCart(next); setItems(next);
@@ -66,6 +67,7 @@ function CartPage() {
   async function checkout() {
     if (!user) { toast.error("Checkout করতে লগইন করুন"); navigate({ to: "/auth", search: { mode: "login" } }); return; }
     if (!items.length || busy) return;
+    if (proPriceMissing) { toast.error("এই cart-এর কিছু package-এর Pro Reseller price সেট করা নেই। Admin-এর সঙ্গে যোগাযোগ করুন।"); return; }
     if (insufficient) { toast.error("ব্যালেন্স কম। আগে Add Balance করুন।"); navigate({ to: "/dashboard/wallet", search: { amount: Math.ceil(total - balance), auto: true } }); return; }
     setBusy(true); setErr("");
     const completed = new Set<string>();
@@ -115,7 +117,7 @@ function CartPage() {
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <div className="space-y-3">{items.map((item) => <article key={item.id} className="panel flex gap-3 p-3">
           {item.image_url ? <img src={item.image_url} alt="" className="h-16 w-16 rounded-lg object-cover" /> : <div className="h-16 w-16 rounded-lg bg-surface-2" />}
-          <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{item.name}</p>{item.variantName && <p className="text-xs text-muted-foreground">{item.variantName}{item.duration ? " · " + item.duration : ""}</p>}<p className="mt-1 text-sm font-bold text-primary">{money(priceFor(item), settings.currency_symbol)} × {item.quantity}</p>
+          <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{item.name}</p>{item.variantName && <p className="text-xs text-muted-foreground">{item.variantName}{item.duration ? " · " + item.duration : ""}</p>}<p className="mt-1 text-sm font-bold text-primary">{profile?.is_pro_reseller && item.packageId && packagePrices.has(item.packageId) && packagePrices.get(item.packageId)?.proPrice == null ? "Pro price unavailable" : money(priceFor(item), settings.currency_symbol) + " × " + item.quantity}</p>
             {(isDiscounted(item) || (profile?.is_pro_reseller && item.packageId && packagePrices.get(item.packageId)?.proPrice != null)) && <p className="text-xs text-muted-foreground">{profile?.is_pro_reseller ? "Pro Reseller price" : <><span className="line-through">{money(packagePrices.get(item.packageId!)?.price ?? item.price, settings.currency_symbol)}</span> · Reseller {discountPercent}% discount</>}</p>}
             <div className="mt-2 flex items-center gap-2"><Button size="icon" variant="secondary" className="h-8 w-8" onClick={() => updateQty(item.id, item.quantity - 1)}><Minus className="h-3 w-3" /></Button><span className="w-5 text-center">{item.quantity}</span><Button size="icon" variant="secondary" className="h-8 w-8" disabled={item.quantity >= item.stock} onClick={() => updateQty(item.id, item.quantity + 1)}><Plus className="h-3 w-3" /></Button></div>
           </div>
@@ -123,7 +125,7 @@ function CartPage() {
         </article>)}</div>
         <aside className="panel h-fit space-y-3 p-4"><h2 className="font-semibold">Order summary</h2><div className="flex justify-between text-sm"><span className="text-muted-foreground">Items</span><span>{items.reduce((n, item) => n + item.quantity, 0)}</span></div>{discountPercent > 0 && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Reseller discount</span><span className="text-primary">{discountPercent}% on eligible items</span></div>}<div className="flex justify-between text-sm"><span className="text-muted-foreground">Wallet balance</span><span>{money(balance, settings.currency_symbol)}</span></div><div className="flex justify-between border-t pt-3 font-bold"><span>Total</span><span className="text-primary">{money(total, settings.currency_symbol)}</span></div>
           {insufficient && <p className="rounded-lg bg-primary/10 p-3 text-xs text-primary">ব্যালেন্স কম। Checkout চাপলে ঘাটতি Add Balance করতে পারবেন।</p>}{err && <p className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{err}</p>}
-          <Button className="w-full rounded-full" disabled={busy} onClick={checkout}>{busy ? "Processing…" : insufficient ? "Add Balance & Checkout" : "Checkout · " + money(total, settings.currency_symbol)}</Button><p className="text-xs text-muted-foreground">Reseller discount প্রযোজ্য eligible পণ্যের মোট মূল্য দেখানো হচ্ছে; auto-provider checkout-এ discount প্রযোজ্য নয়।</p>
+          <Button className="w-full rounded-full" disabled={busy || proPriceMissing} onClick={checkout}>{busy ? "Processing…" : insufficient ? "Add Balance & Checkout" : "Checkout · " + money(total, settings.currency_symbol)}</Button><p className="text-xs text-muted-foreground">Reseller discount প্রযোজ্য eligible পণ্যের মোট মূল্য দেখানো হচ্ছে; auto-provider checkout-এ discount প্রযোজ্য নয়।</p>
         </aside>
       </div>}
   </div></SiteLayout>;
