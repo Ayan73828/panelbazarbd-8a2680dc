@@ -13,6 +13,7 @@ export type Profile = {
   balance: number;
   is_active: boolean;
   is_reseller: boolean;
+  is_pro_reseller: boolean;
   reseller_discount_percent: number;
   created_at: string;
 };
