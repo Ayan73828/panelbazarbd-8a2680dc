@@ -33,7 +33,7 @@ function AdminKeys() {
     queryKey: ["admin", "packages", pid],
     enabled: !!pid,
     queryFn: async () => {
-      const { data, error } = await db.from("product_packages").select("*").eq("product_id", pid).order("sort_order", { ascending: true });
+      const { data, error } = await db.from("product_packages").select("id,name,duration,price,is_active,sort_order").eq("product_id", pid).order("sort_order", { ascending: true });
       if (error) throw error;
       return (data ?? []) as Pkg[];
     },
