@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BadgeCheck, Wallet, Loader2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/site/SiteLayout";
@@ -25,7 +25,7 @@ function ResellerDashboard() {
   const [couponApplied, setCouponApplied] = useState<any>(null);
   const [couponOpen, setCouponOpen] = useState(false);
   const [couponBusy, setCouponBusy] = useState(false);
-  const [showPackages, setShowPackages] = useState(false);
+  const [showPackages, setShowPackages] = useState(false);\n  const [clock, setClock] = useState(Date.now());\n  useEffect(() => { const id = window.setInterval(() => setClock(Date.now()), 30_000); return () => window.clearInterval(id); }, []);\n  useEffect(() => { if (!proActive) return; const id = window.setInterval(() => refresh(), 30_000); return () => window.clearInterval(id); }, [proActive, refresh]);\n  const deadline = profile?.pro_reseller_cycle_deadline ? new Date(profile.pro_reseller_cycle_deadline).getTime() : 0;\n  const remainingMs = Math.max(0, deadline - clock);\n  const remainingDays = Math.floor(remainingMs / 86_400_000);\n  const remainingHours = Math.floor((remainingMs % 86_400_000) / 3_600_000);\n  const remainingMinutes = Math.floor((remainingMs % 3_600_000) / 60_000);
   const normalActive = !!profile?.is_reseller;
   const proActive = !!profile?.is_pro_reseller;
   const balance = Number(profile?.balance ?? 0);
@@ -130,7 +130,7 @@ function ResellerDashboard() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Reseller Dashboard" description="আপনার পছন্দের membership নির্বাচন করুন।" />
+      <div className="flex items-start justify-between gap-3"><div className="min-w-0 flex-1"><PageHeader title="Reseller Dashboard" description="আপনার পছন্দের membership নির্বাচন করুন।" /></div>{proActive && <div className="shrink-0 rounded-xl border border-border bg-surface-2 px-3 py-2 text-right text-xs">{profile?.pro_reseller_verified ? <span className="inline-flex items-center gap-1 font-semibold text-emerald-600"><BadgeCheck className="h-4 w-4" /> Pro Reseller Verified</span> : <><p className="font-semibold text-foreground">৳৫০০ Deposit বাকি</p><p className="mt-1 text-muted-foreground">{deadline && remainingMs > 0 ? `${remainingDays} দিন ${remainingHours} ঘণ্টা ${remainingMinutes} মিনিট বাকি` : "সময় শেষ — status update হচ্ছে"}</p></>}</div>}</div>
       <div className="panel space-y-4 p-5">
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-primary/10 p-3 text-primary"><Wallet className="h-6 w-6" /></div>
