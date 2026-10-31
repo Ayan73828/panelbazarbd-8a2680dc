@@ -48,7 +48,7 @@ function PublicResellerPage() {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-primary" /> Pro pricing and verified badge after activation</li>
               <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-primary" /> প্রতি মাসের ১ তারিখে ৭ দিনের free Panel access (বালা মোড ও Troll মোড ছাড়া)</li>
-              <li className="flex gap-2"><KeyRound className="h-4 w-4 shrink-0 text-primary" /> Panel-এর Device / Key Reset সুবিধা</li>
+              <li className="flex gap-2"><KeyRound className="h-4 w-4 shrink-0 text-primary" /> Panel-এর Device অথবা Key Reset সুবিধা</li>
               <li className="flex gap-2"><ShieldCheck className="h-4 w-4 shrink-0 text-primary" /> Pro activation ও প্রতি ১৫ দিনের cycle-এর জন্য নতুন ৳৫০০ qualifying deposit এবং Verify</li>
             </ul>
             <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">Pro membership চালু করতে আগে Normal Reseller Dashboard active থাকতে হবে। আগে Normal কিনুন, অথবা নিচের Bundle দিয়ে দুটো একসঙ্গে নিন।</p>
@@ -57,14 +57,14 @@ function PublicResellerPage() {
         <section className="panel space-y-3 p-5">
           <h2 className="text-lg font-bold">একসঙ্গে Normal + Pro</h2>
           <p className="text-3xl font-black">৳৫০০</p>
-          <p className="text-sm text-muted-foreground">যাদের Normal Reseller Dashboard নেই, তারা Bundle নিয়ে Normal Dashboard ও Pro package একসঙ্গে নিতে পারবেন। Normal access সঙ্গে সঙ্গে active হবে; Pro access চালু হবে প্রয়োজনীয় ৳৫০০ balance/deposit eligibility পূরণ করে Verify করার পর।</p>
+          <p className="text-sm text-muted-foreground">যাদের Normal Reseller Dashboard নেই, তারা Bundle নিয়ে Normal Dashboard ও Pro package একসঙ্গে নিতে পারবেন। Normal access সঙ্গে সঙ্গে active হবে; Pro access চালু করতে package purchase-এর পর প্রয়োজনীয় নতুন qualifying Deposit মোট ৳৫০০ পূরণ করে Verify করতে হবে।</p>
           <Button asChild><Link to="/auth" search={{ mode: "register" }}>Register to Activate</Link></Button>
         </section>
         <section className="rounded-2xl border border-border p-5">
           <h2 className="font-bold">Pro Activation-এর নিয়ম</h2>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
             <li>Pro package fee ৳২৫০ আলাদা; activation-এর ৳৫০০ আলাদা।</li>
-            <li>প্রথম activation-এর জন্য wallet balance কমপক্ষে ৳৫০০ থাকতে হবে। Verify করলে টাকা কাটা হবে না।</li>
+            <li>প্রথম activation-এর জন্য নতুন qualifying Deposit মোট ৳৫০০ পূরণ করতে হবে। Verify করলে Wallet থেকে কোনো টাকা কাটা হবে না।</li>
             <li>প্রতি ১৫ দিনের পরবর্তী cycle-এ নতুন করে ৳৫০০ deposit করতে হবে; আগের cycle-এর deposit গণনা হবে না।</li>
             <li>একাধিক deposit যোগ হয়ে ৳৫০০ হতে পারে; প্রতিটি deposit-এর minimum ৳৫০।</li>
             <li>১৫ দিনের মধ্যে নতুন deposit পূরণ করে Verify না করলে Pro access বন্ধ হয়ে Normal Reseller Dashboard-এ downgrade হবে। পরে নতুন deposit করে আবার Pro চালু করা যাবে।</li>
