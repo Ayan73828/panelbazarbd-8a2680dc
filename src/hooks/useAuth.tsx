@@ -14,6 +14,10 @@ export type Profile = {
   is_active: boolean;
   is_reseller: boolean;
   is_pro_reseller: boolean;
+  pro_reseller_cycle_started_at?: string | null;
+  pro_reseller_cycle_deadline?: string | null;
+  pro_reseller_verified?: boolean;
+  pro_reseller_verified_at?: string | null;
   reseller_discount_percent: number;
   created_at: string;
 };
