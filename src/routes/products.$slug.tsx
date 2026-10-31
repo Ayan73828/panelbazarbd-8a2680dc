@@ -339,7 +339,7 @@ function BuyDialog({ open, onOpenChange, product, packages }: { open: boolean; o
       productId: product.id,
       slug: product.slug,
       name: product.name,
-      price: unit,
+      price: rawUnit,
       image_url: null,
       packageId: sel?.id ?? null,
       variantName: sel?.name ?? null,
