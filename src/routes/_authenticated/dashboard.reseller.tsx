@@ -102,6 +102,7 @@ function ResellerDashboard() {
     if (kind === "pro" && !normalActive) { toast.error("Pro Dashboard চালু করতে আগে Normal Reseller Dashboard Active থাকতে হবে। দুটো একসঙ্গে নিতে Bundle নির্বাচন করুন।"); return; }
     if (kind === "normal" && normalActive) return;
     if (kind === "pro" && proActive) return;
+    if (kind === "pro" && !normalActive) { toast.error("আগে Normal Reseller Dashboard Active করুন অথবা Normal + Pro Bundle নিন।"); return; }
     if (kind === "bundle" && normalActive && proActive) return;
     setBusy(kind);
     try {
@@ -119,6 +120,8 @@ function ResellerDashboard() {
         else toast.success("Normal Reseller চালু হয়েছে!");
       } else if (data === "NORMAL_RESELLER_REQUIRED") {
         toast.error("Pro Dashboard চালু করতে আগে Normal Reseller Dashboard Active করুন, অথবা Normal + Pro Bundle নিন।");
+      } else if (data === "NORMAL_RESELLER_REQUIRED") {
+        toast.error("Pro Dashboard চালু করতে আগে Normal Reseller Dashboard Active থাকতে হবে। Normal + Pro Bundle নিতে পারেন।");
       } else if (data === "PRO_PACKAGE_PENDING") {
         await refresh();
         toast.info("Pro প্যাকেজ আগেই কেনা আছে। ৳৫০০ Deposit করে Verify করুন।");
@@ -189,6 +192,7 @@ function ResellerDashboard() {
                   {selected === choice.id && !active && <span className="text-xs font-semibold text-primary">Selected</span>}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{choice.description}</p>
+                {blocked && <p className="mt-1 text-xs font-medium text-destructive">আগে Normal Reseller Dashboard Active করুন অথবা Normal + Pro Bundle নির্বাচন করুন।</p>}
                 {locked && <p className="mt-2 text-xs font-medium text-amber-600">আগে Normal Reseller Dashboard চালু করুন অথবা Normal + Pro Bundle নিন।</p>}
               </button>;
             })}
@@ -228,7 +232,7 @@ function ResellerDashboard() {
                 </div>}
               </>}
               {couponApplied && <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Payable after coupon</span><span className="font-bold text-primary">{money(Number(couponApplied.total), currency)}</span></div>}
-              <Button className="w-full" onClick={() => void activate(selected)} disabled={!!busy || (selected === "normal" && normalActive) || (selected === "pro" && proActive) || (selected === "bundle" && normalActive && proActive)}>
+              <Button className="w-full" onClick={() => void activate(selected)} disabled={!!busy || (selected === "normal" && normalActive) || (selected === "pro" && (proActive || !normalActive)) || (selected === "bundle" && normalActive && proActive)}>
                 {busy === selected ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing…</> : "Activate " + (selected === "normal" ? "Normal" : selected === "pro" ? "Pro" : "Both") + " — " + money(Number(couponApplied?.total ?? selectedPrice), currency)}
               </Button>
             </div>}
