@@ -121,6 +121,7 @@ function ProductDetail() {
   const { profile } = useAuth();
   const cur = settings.currency_symbol;
   const [priceView, setPriceView] = useState<"normal" | "reseller" | "pro">("normal");
+  const [priceListOpen, setPriceListOpen] = useState(false);
   const images = p ? [p.image_url, ...(p.images ?? [])].filter((x): x is string => !!x) : [];
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
@@ -223,16 +224,31 @@ function ProductDetail() {
                 <div className="space-y-2 rounded-xl border border-border p-3">
                   <p className="text-xs font-semibold text-muted-foreground">Compare reseller benefits</p>
                   <div className="grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1">
-                    <button type="button" onClick={() => setPriceView("normal")} className={`rounded-md px-1 py-2 text-[11px] font-semibold ${priceView === "normal" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Normal</button>
-                    <button type="button" onClick={() => setPriceView("reseller")} className={`rounded-md px-1 py-2 text-[11px] font-semibold ${priceView === "reseller" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Normal Reseller</button>
-                    <button type="button" onClick={() => setPriceView("pro")} className={`rounded-md px-1 py-2 text-[11px] font-semibold ${priceView === "pro" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Pro Reseller</button>
+                    {([
+                      ["normal", "Normal"],
+                      ["reseller", "Normal Reseller"],
+                      ["pro", "Pro Reseller"],
+                    ] as const).map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        aria-expanded={priceListOpen && priceView === key}
+                        onClick={() => {
+                          if (priceView === key && priceListOpen) setPriceListOpen(false);
+                          else { setPriceView(key); setPriceListOpen(true); }
+                        }}
+                        className={`rounded-md px-1 py-2 text-[11px] font-semibold ${priceView === key && priceListOpen ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}
+                      >{label}</button>
+                    ))}
                   </div>
-                  <div className="space-y-1.5">
-                    {packages.map((pkg) => {
-                      const shown = displayPrice(pkg);
-                      return <div key={pkg.id} className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate text-muted-foreground">{pkg.duration || pkg.name}</span><span className="shrink-0 font-semibold">{shown === null ? <span className="text-xs text-muted-foreground">Not set</span> : money(discounted(shown), cur)}</span></div>;
-                    })}
-                  </div>
+                  {priceListOpen && (
+                    <div className="space-y-1.5">
+                      {packages.map((pkg) => {
+                        const shown = displayPrice(pkg);
+                        return <div key={pkg.id} className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate text-muted-foreground">{pkg.duration || pkg.name}</span><span className="shrink-0 font-semibold">{shown === null ? <span className="text-xs text-muted-foreground">Not set</span> : money(discounted(shown), cur)}</span></div>;
+                      })}
+                    </div>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">{packages.length} purchase option{packages.length === 1 ? "" : "s"} available</p>{campaignActive && <Badge variant="destructive">{campaignPercent}% OFF</Badge>}
                 <Button size="lg" className="h-12 w-full rounded-full" onClick={() => { setOpen(true); }} >
@@ -519,25 +535,22 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
                   <div className="space-y-2">
                     <span className="font-medium">Choose Validity / Duration</span>
                     {packages.length > 0 ? (
-                      <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                      <select
+                        className="h-11 w-full rounded-lg border border-input bg-background px-3"
+                        value={pkgId}
+                        onChange={(e) => { setPkgId(e.target.value); setQty(1); setCouponApplied(null); setError(""); }}
+                      >
+                        <option value="">Select an option</option>
                         {packages.map((pk) => {
                           const selectedBase = profile?.is_pro_reseller ? (pk.pro_reseller_price ?? 0) : profile?.is_reseller ? Math.round(pk.price * (100 - discountPercent)) / 100 : pk.price;
                           const selectedPrice = campaignPercent ? Math.round(selectedBase * (100 - campaignPercent)) / 100 : selectedBase;
-                          const selected = pkgId === pk.id;
                           return (
-                            <button
-                              key={pk.id}
-                              type="button"
-                              disabled={selectedBase <= 0}
-                              onClick={() => { setPkgId(pk.id); setQty(1); setCouponApplied(null); setError(""); }}
-                              className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors ${selected ? "border-primary bg-primary/10" : "border-border bg-background"} disabled:cursor-not-allowed disabled:opacity-50`}
-                            >
-                              <span className="font-medium">{pk.duration || pk.name}</span>
-                              <span className="shrink-0 font-bold text-primary">{selectedBase > 0 ? money(selectedPrice, cur) : "Price unavailable"}</span>
-                            </button>
+                            <option key={pk.id} value={pk.id} disabled={selectedBase <= 0}>
+                              {pk.duration || pk.name} — {selectedBase > 0 ? money(selectedPrice, cur) : "Pro price not set"}
+                            </option>
                           );
                         })}
-                      </div>
+                      </select>
                     ) : !packagesLoading && !packagesError ? (
                       <p className="rounded-lg bg-surface-2 p-3 text-xs text-muted-foreground">No active duration options are available for this product.</p>
                     ) : null}
