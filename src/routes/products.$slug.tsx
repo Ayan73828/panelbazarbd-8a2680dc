@@ -526,8 +526,10 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
               <p className="font-semibold">সব Reseller Tier-এর Public Price List</p>
               {hasPk ? <div className="max-h-64 space-y-2 overflow-y-auto">
                 {packages.map((pk) => {
-                  const resellerPrice = Math.round(pk.price * (100 - publicResellerPercent)) / 100;
-                  const proPrice = Number(pk.pro_reseller_price ?? 0);
+                  const resellerBase = Math.round(pk.price * (100 - publicResellerPercent)) / 100;
+                  const resellerPrice = campaignPercent ? Math.round(resellerBase * (100 - campaignPercent)) / 100 : resellerBase;
+                  const proBase = Number(pk.pro_reseller_price ?? 0);
+                  const proPrice = campaignPercent && proBase > 0 ? Math.round(proBase * (100 - campaignPercent)) / 100 : proBase;
                   return <button key={pk.id} type="button" onClick={() => setPkgId(pk.id)} className={`w-full rounded-xl border p-3 text-left ${pkgId === pk.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}>
                     <span className="font-semibold">{pk.duration || pk.name}</span>
                     <span className="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
@@ -546,7 +548,7 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
               <div className="flex justify-between gap-3"><span className="text-muted-foreground">Product</span><strong className="text-right">{product.name}</strong></div>
               {sel && <div className="flex justify-between gap-3"><span className="text-muted-foreground">Validity</span><strong>{sel.duration || sel.name}</strong></div>}
               <div className="flex justify-between"><span className="text-muted-foreground">Normal price</span><strong>{money(unit, cur)}</strong></div>
-              {sel && <><div className="flex justify-between"><span className="text-muted-foreground">Normal Reseller price</span><strong>{money(Math.round(sel.price * (100 - publicResellerPercent)) / 100, cur)}</strong></div><div className="flex justify-between"><span className="text-muted-foreground">Pro Reseller price</span><strong>{Number(sel.pro_reseller_price ?? 0) > 0 ? money(Number(sel.pro_reseller_price), cur) : "Not set"}</strong></div></>}
+              {sel && <><div className="flex justify-between"><span className="text-muted-foreground">Normal Reseller price</span><strong>{money(campaignPercent ? Math.round(Math.round(sel.price * (100 - publicResellerPercent)) / 100 * (100 - campaignPercent)) / 100 : Math.round(sel.price * (100 - publicResellerPercent)) / 100, cur)}</strong></div><div className="flex justify-between"><span className="text-muted-foreground">Pro Reseller price</span><strong>{Number(sel.pro_reseller_price ?? 0) > 0 ? money(campaignPercent ? Math.round(Number(sel.pro_reseller_price) * (100 - campaignPercent)) / 100 : Number(sel.pro_reseller_price), cur) : "Not set"}</strong></div></>}
               <div className="flex justify-between"><span className="text-muted-foreground">Quantity</span><strong>{qty}</strong></div>
               <div className="flex justify-between border-t border-border pt-3 text-base"><span className="font-bold">Total</span><strong className="text-primary">{money(unit * qty, cur)}</strong></div>
             </div>}
