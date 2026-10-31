@@ -44,7 +44,7 @@ function ResellerDashboard() {
   const currency = settings.currency_symbol || "৳";
   const prices: Record<PackageKind, number> = {
     normal: normalActive ? 0 : 300,
-    pro: proActive || proPurchased ? 0 : 250,
+    pro: proActive || proPurchased ? 0 : normalActive ? 250 : 500,
     bundle: normalActive && (proActive || proPurchased) ? 0 : normalActive ? (proPurchased ? 0 : 250) : (proActive || proPurchased) ? 300 : 500,
   };
   const selectedPrice = selected ? prices[selected] : 0;
@@ -99,15 +99,14 @@ function ResellerDashboard() {
 
   async function activate(kind: PackageKind) {
     if (busy || !selected || selected !== kind) return;
-    if (kind === "pro" && !normalActive) { toast.error("Pro Dashboard চালু করতে আগে Normal Reseller Dashboard Active থাকতে হবে। দুটো একসঙ্গে নিতে Bundle নির্বাচন করুন।"); return; }
     if (kind === "normal" && normalActive) return;
     if (kind === "pro" && proActive) return;
-    if (kind === "pro" && !normalActive) { toast.error("আগে Normal Reseller Dashboard Active করুন অথবা Normal + Pro Bundle নিন।"); return; }
     if (kind === "bundle" && normalActive && proActive) return;
     setBusy(kind);
     try {
       const rpc = kind === "normal" ? "activate_reseller_with_coupon"
-        : kind === "pro" ? "activate_pro_reseller" : "activate_reseller_bundle";
+        : kind === "pro" ? (normalActive ? "activate_pro_reseller" : "activate_reseller_bundle")
+        : "activate_reseller_bundle";
       const args = { p_coupon_code: couponApplied?.code ?? null };
       const { data, error } = await (supabase as any).rpc(rpc, args);
       if (error) throw error;
@@ -115,8 +114,9 @@ function ResellerDashboard() {
         setCouponCode("");
         setCouponApplied(null);
         await refresh();
-        if (kind === "pro") toast.success("Pro প্যাকেজ কেনা হয়েছে। Access চালু করতে নতুন ৳৫০০ Deposit করে Verify করুন।");
-        else if (kind === "bundle") toast.success(proActive ? "Normal Reseller চালু হয়েছে! আপনার Pro Access আগেই Active আছে।" : "Normal Reseller চালু হয়েছে। Pro Access পেতে ৳৫০০ Deposit করে Verify করুন।");
+        if (kind === "pro" && normalActive) toast.success("Pro প্যাকেজ কেনা হয়েছে। Access চালু করতে Wallet-এ নতুন ৳৫০০ যোগ করে Verify করুন।");
+        else if (kind === "pro") toast.success("Normal + Pro প্যাকেজ কেনা হয়েছে। Normal চালু হয়েছে; Pro Access পেতে Wallet-এ নতুন ৳৫০০ যোগ করে Verify করুন।");
+        else if (kind === "bundle") toast.success(proActive ? "Normal Reseller চালু হয়েছে! আপনার Pro Access আগেই Active আছে।" : "Normal Reseller চালু হয়েছে। Pro Access পেতে Wallet-এ নতুন ৳৫০০ যোগ করে Verify করুন।");
         else toast.success("Normal Reseller চালু হয়েছে!");
       } else if (data === "NORMAL_RESELLER_REQUIRED") {
         toast.error("Pro Dashboard চালু করতে আগে Normal Reseller Dashboard Active করুন, অথবা Normal + Pro Bundle নিন।");
@@ -146,8 +146,7 @@ function ResellerDashboard() {
 
   const choices: { id: PackageKind; title: string; description: string }[] = [
     { id: "normal", title: "Normal Reseller Dashboard", description: "Normal reseller সুবিধা" },
-    { id: "pro", title: "Pro Reseller Dashboard", description: "Pro reseller সুবিধা" },
-    { id: "bundle", title: "Normal + Pro Both", description: "দুইটি membership একসঙ্গে" },
+    { id: "pro", title: "Pro Reseller Dashboard", description: normalActive ? "Normal membership আছে — Pro-তে Upgrade করুন" : "Normal + Pro একসঙ্গে চালু হবে" },
   ];
 
   return (
@@ -182,17 +181,17 @@ function ResellerDashboard() {
             {choices.map((choice) => {
               const active = choice.id === "normal" ? normalActive
                 : choice.id === "pro" ? proActive : normalActive && proActive;
-              const locked = choice.id === "pro" && !normalActive && !proPurchased;
+              const locked = false;
               return <button key={choice.id} type="button" disabled={locked} onClick={() => choose(choice.id)}
                 className={`w-full rounded-xl border p-3 text-left transition-colors ${locked ? "cursor-not-allowed opacity-50" : ""} ${selected === choice.id ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border hover:border-primary/50"}`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">{choice.title}</span>
                   {active && <span className="flex items-center gap-1 text-xs text-success"><BadgeCheck className="h-4 w-4" /> Active</span>}
                   {choice.id === "pro" && proPurchased && !proActive && <span className="text-xs font-semibold text-amber-600">Activation Pending</span>}
+                  {!active && <span className="text-sm font-bold text-primary">{money(prices[choice.id], currency)}</span>}
                   {selected === choice.id && !active && <span className="text-xs font-semibold text-primary">Selected</span>}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{choice.description}</p>
-                {blocked && <p className="mt-1 text-xs font-medium text-destructive">আগে Normal Reseller Dashboard Active করুন অথবা Normal + Pro Bundle নির্বাচন করুন।</p>}
                 {locked && <p className="mt-2 text-xs font-medium text-amber-600">আগে Normal Reseller Dashboard চালু করুন অথবা Normal + Pro Bundle নিন।</p>}
               </button>;
             })}
@@ -204,8 +203,8 @@ function ResellerDashboard() {
               {((selected === "normal" && normalActive) || (selected === "pro" && proActive) || (selected === "bundle" && normalActive && proActive))
                 && <span className="text-xs text-success">Already Active</span>}
             </div>
-            {selected === "bundle" && !normalActive && !proActive && <p className="text-xs font-medium text-emerald-600">একসাথে Normal + Pro নিলে ৳৫০ ছাড় — আলাদা দাম ৳৫৫০, Bundle ৳৫০০। Normal সঙ্গে সঙ্গে Active হবে; Pro চালু হবে ৳৫০০ activation eligibility ও Verify সম্পন্ন হলে।</p>}
-            {selected === "pro" && !normalActive && <p className="text-xs font-medium text-destructive">Pro Dashboard কিনতে হলে আগে Normal Reseller Dashboard Active থাকতে হবে। Bundle নির্বাচন করে একসঙ্গে নিতে পারবেন।</p>}
+            {selected === "pro" && !normalActive && <p className="text-xs font-medium text-emerald-600">৳৫০০ দিয়ে Pro নিলে Normal ও Pro—দুটো Dashboard-ই পাওয়া যাবে। Normal সঙ্গে সঙ্গে Active হবে; Pro চালু করতে Wallet-এ নতুন ৳৫০০ যোগ করে Verify করতে হবে।</p>}
+            {selected === "pro" && normalActive && <p className="text-xs font-medium text-emerald-600">আপনার Normal Dashboard আগে থেকেই Active আছে, তাই Pro Upgrade-এর মূল্য ৳২৫০। Pro চালু করতে Wallet-এ নতুন ৳৫০০ যোগ করে Verify করতে হবে।</p>}
             <div className="flex items-center justify-between border-t border-border pt-3">
               <span className="text-sm text-muted-foreground">Package price</span>
               <span className="text-xl font-bold text-primary">{money(selectedPrice, currency)}</span>
@@ -232,7 +231,7 @@ function ResellerDashboard() {
                 </div>}
               </>}
               {couponApplied && <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Payable after coupon</span><span className="font-bold text-primary">{money(Number(couponApplied.total), currency)}</span></div>}
-              <Button className="w-full" onClick={() => void activate(selected)} disabled={!!busy || (selected === "normal" && normalActive) || (selected === "pro" && (proActive || !normalActive)) || (selected === "bundle" && normalActive && proActive)}>
+              <Button className="w-full" onClick={() => void activate(selected)} disabled={!!busy || (selected === "normal" && normalActive) || (selected === "pro" && (proActive || proPurchased)) || (selected === "bundle" && normalActive && proActive)}>
                 {busy === selected ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing…</> : "Activate " + (selected === "normal" ? "Normal" : selected === "pro" ? "Pro" : "Both") + " — " + money(Number(couponApplied?.total ?? selectedPrice), currency)}
               </Button>
             </div>}
