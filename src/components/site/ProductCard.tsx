@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, ImageIcon, Star } from "lucide-react";
+import { ExternalLink, ImageIcon, Star, ShoppingCart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { money } from "@/lib/site";
@@ -99,8 +99,8 @@ export function ProductCard({
 
         <div className="mt-2 flex gap-2 border-t border-border/60 pt-3 [&_button]:min-h-10">
           <Button asChild size="sm" className="flex-1 rounded-full">
-            <Link to="/products/$slug" params={{ slug: product.slug }}>
-              View product
+            <Link to="/products/$slug" params={{ slug: product.slug }} search={{ buy: "1" }}>
+              <ShoppingCart className="mr-1 h-3.5 w-3.5" /> Buy Now
             </Link>
           </Button>
           {product.demo_url && (
