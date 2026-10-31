@@ -9,7 +9,7 @@ const NORMAL_MIN = 50;
 const PRESETS = [50, 100, 500, 1000];
 
 export function AddFund({ initialAmount, autoStart, indianPaymentLink }: { initialAmount?: number | undefined; autoStart?: boolean | undefined; indianPaymentLink?: string | undefined } = {}) {
-  const { profile, profileLoading } = useAuth();
+  const { profileLoading } = useAuth();
   const minDeposit = NORMAL_MIN;
   const fromProduct = !!initialAmount;
   const requiredAmount = initialAmount ? Math.max(minDeposit, Math.ceil(initialAmount)) : undefined;
@@ -58,7 +58,7 @@ export function AddFund({ initialAmount, autoStart, indianPaymentLink }: { initi
       )}
       {indianPaymentLink ? <Button asChild variant="outline" className="h-11 w-full rounded-full"><a href={indianPaymentLink} target="_blank" rel="noreferrer">Indian Payment / UPI</a></Button> : null}
       <Input className="h-11" type="number" min={minDeposit} inputMode="numeric" placeholder={`অন্য পরিমাণ (সর্বনিম্ন ৳${minDeposit})`} value={amount} onChange={(e) => setAmount(e.target.value)} />
-      <p className="text-xs font-medium text-muted-foreground">"সবার জন্য সর্বনিম্ন ডিপোজিট ৳৫০।"</p>
+      <p className="text-xs font-medium text-muted-foreground">সবার জন্য সর্বনিম্ন ডিপোজিট ৳৫০।</p>
       <Button className="h-11 w-full" disabled={busy} onClick={() => pay(Number(amount))}>{busy ? "Starting…" : "Pay now"}</Button>
     </div>
   );
