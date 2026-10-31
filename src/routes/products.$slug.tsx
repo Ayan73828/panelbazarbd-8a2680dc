@@ -33,6 +33,27 @@ const productQuery = (slug: string) =>
     },
   });
 
+const packagesQuery = (productId: string) =>
+  queryOptions({
+    queryKey: ["packages", productId],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_packages")
+        .select("id,name,duration,price,pro_reseller_price,sort_order,provider_auto_api,provider_product_id,provider_duration")
+        .eq("product_id", productId)
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []).map((x) => ({
+        ...x,
+        price: Number(x.price),
+        pro_reseller_price: x.pro_reseller_price == null ? null : Number(x.pro_reseller_price),
+        available: x.provider_auto_api ? 20 : 1,
+      }));
+    },
+  });
+
 export const Route = createFileRoute("/products/$slug")({
   validateSearch: (search: Record<string, unknown>): { buy?: string } => ({
     buy: search.buy === "1" ? "1" : undefined,
@@ -40,6 +61,8 @@ export const Route = createFileRoute("/products/$slug")({
   loader: async ({ context, params }) => {
     const p = await context.queryClient.ensureQueryData(productQuery(params.slug));
     if (!p) throw notFound();
+    // Preload admin-configured duration/price options before the Buy Now dialog can open.
+    await context.queryClient.ensureQueryData(packagesQuery(p.id));
     return { name: p.name, desc: p.short_description ?? "", image: p.image_url, price: effectivePrice(p) };
   },
   head: ({ loaderData, params }) => {
@@ -112,21 +135,7 @@ function ProductDetail() {
 
   // Load purchase options independently from stock calculation so a slow stock RPC
   // never hides the Duration/Validity selector in the Buy Now dialog.
-  const pkgs = useQuery({
-    queryKey: ["packages", p?.id],
-    enabled: !!p?.id,
-    staleTime: 30_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("product_packages")
-        .select("id,name,duration,price,pro_reseller_price,sort_order,provider_auto_api,provider_product_id,provider_duration")
-        .eq("product_id", p!.id)
-        .eq("is_active", true)
-        .order("sort_order");
-      if (error) throw error;
-      return (data ?? []).map((x) => ({ ...x, price: Number(x.price), pro_reseller_price: x.pro_reseller_price == null ? null : Number(x.pro_reseller_price), available: x.provider_auto_api ? 20 : 1 }));
-    },
-  });
+  const pkgs = useQuery(packagesQuery(p.id));
   const packageStock = useQuery({
     queryKey: ["package-stock", p?.id],
     enabled: !!p?.id,
