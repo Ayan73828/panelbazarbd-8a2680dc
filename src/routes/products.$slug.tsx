@@ -520,12 +520,26 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
         {!user ? (
           <div className="space-y-4 text-sm">
             <div className="flex gap-2">
-              {["Validity", "Price", "Create Account"].map((label, i) => <div key={label} className={`flex-1 rounded-full py-1 text-center text-[10px] font-semibold ${step >= i + 1 ? "bg-primary text-primary-foreground" : "bg-surface-2 text-muted-foreground"}`}>{i + 1}. {label}</div>)}
+              {["Price List", "Review", "Create Account"].map((label, i) => <div key={label} className={`flex-1 rounded-full py-1 text-center text-[10px] font-semibold ${step >= i + 1 ? "bg-primary text-primary-foreground" : "bg-surface-2 text-muted-foreground"}`}>{i + 1}. {label}</div>)}
             </div>
             {step === 1 && <div className="space-y-3">
-              {hasPk && <div className="space-y-2"><span className="font-medium">Choose Validity / Duration</span><select className="h-11 w-full rounded-lg border border-input bg-background px-3" value={pkgId} onChange={(e) => setPkgId(e.target.value)}><option value="">Select an option</option>{packages.map((pk) => <option key={pk.id} value={pk.id} disabled={pk.price <= 0}>{pk.duration || pk.name} — {pk.price > 0 ? money(pk.price, cur) : "Price unavailable"}</option>)}</select></div>}
-              {!hasPk && <div className="flex justify-between rounded-lg bg-surface-2 p-3"><span>Product price</span><strong>{money(unit, cur)}</strong></div>}
+              <p className="font-semibold">সব Reseller Tier-এর Public Price List</p>
+              {hasPk ? <div className="max-h-64 space-y-2 overflow-y-auto">
+                {packages.map((pk) => {
+                  const resellerPrice = Math.round(pk.price * (100 - publicResellerPercent)) / 100;
+                  const proPrice = Number(pk.pro_reseller_price ?? 0);
+                  return <button key={pk.id} type="button" onClick={() => setPkgId(pk.id)} className={`w-full rounded-xl border p-3 text-left ${pkgId === pk.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"}`}>
+                    <span className="font-semibold">{pk.duration || pk.name}</span>
+                    <span className="mt-2 grid grid-cols-3 gap-2 text-center text-[11px]">
+                      <span className="rounded-lg bg-surface-2 p-2"><span className="block text-muted-foreground">Normal</span><b className="mt-1 block">{money(pk.price, cur)}</b></span>
+                      <span className="rounded-lg bg-surface-2 p-2"><span className="block text-muted-foreground">Reseller</span><b className="mt-1 block">{money(resellerPrice, cur)}</b></span>
+                      <span className="rounded-lg bg-surface-2 p-2"><span className="block text-muted-foreground">Pro</span><b className="mt-1 block">{proPrice > 0 ? money(proPrice, cur) : "—"}</b></span>
+                    </span>
+                  </button>;
+                })}
+              </div> : <div className="flex justify-between rounded-lg bg-surface-2 p-3"><span>Product price</span><strong>{money(unit, cur)}</strong></div>}
               <div className="flex items-center justify-between"><span className="font-medium">Quantity</span><div className="flex items-center gap-3"><Button type="button" size="icon" variant="secondary" onClick={() => setQty((q) => Math.max(1, q - 1))}>−</Button><strong>{qty}</strong><Button type="button" size="icon" variant="secondary" onClick={() => setQty((q) => Math.min(maxQty, q + 1))}>+</Button></div></div>
+              <p className="text-xs text-muted-foreground">Reseller / Pro price প্রযোজ্য হবে সংশ্লিষ্ট membership Active থাকলে।</p>
             </div>}
             {step === 2 && <div className="space-y-3 rounded-lg bg-surface-2 p-4">
               <p className="font-semibold">আপনার Price List</p>
