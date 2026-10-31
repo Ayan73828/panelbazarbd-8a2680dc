@@ -60,6 +60,11 @@ function PublicResellerPage() {
           <p className="text-sm text-muted-foreground">যাদের Normal Reseller Dashboard নেই, তারা Bundle নিয়ে Normal Dashboard ও Pro package একসঙ্গে নিতে পারবেন। Normal access সঙ্গে সঙ্গে active হবে; Pro access চালু করতে package purchase-এর পর প্রয়োজনীয় নতুন qualifying Deposit মোট ৳৫০০ পূরণ করে Verify করতে হবে।</p>
           <Button asChild><Link to="/auth" search={{ mode: "register" }}>Register to Activate</Link></Button>
         </section>
+        <section className="panel space-y-3 p-5">
+          <h2 className="text-lg font-bold">Product, Price List ও Panel Access Information</h2>
+          <p className="text-sm text-muted-foreground">Login ছাড়াই সব Public Product, Duration / Validity, Normal / Reseller / Pro price list, product features এবং product description দেখা যাবে। Buy Now থেকে price list দেখে account তৈরি বা Login করে purchase continue করা যাবে।</p>
+          <p className="text-sm text-muted-foreground">Order সম্পন্ন হওয়ার পর ব্যক্তিগত Access Key / Code, purchased items, order history ও wallet তথ্য account-এর ভেতরে নিরাপদে থাকবে—এগুলো অন্য visitor দেখতে পারবে না।</p>
+        </section>
         <section className="rounded-2xl border border-border p-5">
           <h2 className="font-bold">Pro Activation-এর নিয়ম</h2>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
