@@ -98,19 +98,37 @@ function ProductDetail() {
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
 
+  // Load purchase options independently from stock calculation so a slow stock RPC
+  // never hides the Duration/Validity selector in the Buy Now dialog.
   const pkgs = useQuery({
     queryKey: ["packages", p?.id],
     enabled: !!p?.id,
+    staleTime: 30_000,
     queryFn: async () => {
-      const [{ data, error }, { data: stock }] = await Promise.all([
-        supabase.from("product_packages").select("id,name,duration,price,pro_reseller_price,sort_order,provider_auto_api,provider_product_id,provider_duration").eq("product_id", p!.id).eq("is_active", true).order("sort_order"),
-        supabase.rpc("package_stock", { p_product_id: p!.id }),
-      ]);
+      const { data, error } = await supabase
+        .from("product_packages")
+        .select("id,name,duration,price,pro_reseller_price,sort_order,provider_auto_api,provider_product_id,provider_duration")
+        .eq("product_id", p!.id)
+        .eq("is_active", true)
+        .order("sort_order");
       if (error) throw error;
-      const st = new Map((stock ?? []).map((r: { package_id: string; available: number }) => [r.package_id, Number(r.available)]));
-      return (data ?? []).map((x) => ({ ...x, price: Number(x.price), pro_reseller_price: x.pro_reseller_price == null ? null : Number(x.pro_reseller_price), available: x.provider_auto_api ? 1 : (st.get(x.id) ?? 0) }));
+      return (data ?? []).map((x) => ({ ...x, price: Number(x.price), pro_reseller_price: x.pro_reseller_price == null ? null : Number(x.pro_reseller_price), available: x.provider_auto_api ? 20 : 1 }));
     },
   });
+  const packageStock = useQuery({
+    queryKey: ["package-stock", p?.id],
+    enabled: !!p?.id,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("package_stock", { p_product_id: p!.id });
+      if (error) throw error;
+      return new Map((data ?? []).map((r: { package_id: string; available: number }) => [r.package_id, Number(r.available)]));
+    },
+  });
+  const packages = (pkgs.data ?? []).map((pkg) => ({
+    ...pkg,
+    available: pkg.provider_auto_api ? 20 : (packageStock.data?.get(pkg.id) ?? 1),
+  }));
 
   const related = useQuery({
     queryKey: ["related", p?.category_id, p?.id],
@@ -133,7 +151,6 @@ function ProductDetail() {
   const discounted = (price: number) => campaignPercent ? Math.round(price * (100 - campaignPercent)) / 100 : price;
   const hasDiscount = (!!p.discount_price && Number(p.discount_price) > 0) || campaignActive;
   const cat = p.categories as { name: string; slug: string } | null;
-  const packages = pkgs.data ?? [];
   const hasPackages = packages.length > 0;
   const resellerPercent = Math.min(50, Math.max(0, Number(profile?.reseller_discount_percent ?? (settings as any).reseller_discount_percent ?? 7)));
   const displayPrice = (pkg: Pkg) => priceView === "pro"
@@ -197,8 +214,8 @@ function ProductDetail() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">{packages.length} purchase option{packages.length === 1 ? "" : "s"} available</p>{campaignActive && <Badge variant="destructive">{campaignPercent}% OFF</Badge>}
-                <Button size="lg" className="h-12 w-full rounded-full" disabled={!packages.some((x) => x.price > 0)} onClick={() => setOpen(true)}>
-                  <ShoppingCart className="mr-2 h-4 w-4" /> Buy Now
+                <Button size="lg" className="h-12 w-full rounded-full" disabled={pkgs.isLoading || !packages.some((x) => x.price > 0)} onClick={() => { setOpen(true); }} >
+                  <ShoppingCart className="mr-2 h-4 w-4" /> {pkgs.isLoading ? "Loading options…" : "Buy Now"}
                 </Button>
               </div>
             ) : (
