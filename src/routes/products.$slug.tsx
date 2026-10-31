@@ -332,6 +332,17 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
   const [step, setStep] = useState(1);
   const [pkgId, setPkgId] = useState("");
   const [qty, setQty] = useState(1);
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("panelbazarbd_pending_checkout") || "null");
+      if (saved?.slug === product.slug) {
+        if (typeof saved.packageId === "string") setPkgId(saved.packageId);
+        if (Number.isFinite(Number(saved.qty))) setQty(Math.max(1, Math.min(20, Number(saved.qty))));
+        sessionStorage.removeItem("panelbazarbd_pending_checkout");
+      }
+    } catch {}
+  }, [user?.id, product.slug]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [couponCode, setCouponCode] = useState("");
@@ -554,8 +565,8 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
             </div>}
             {step === 3 && <div className="space-y-3 text-center">
               <p className="font-semibold">Price list দেখা সম্পন্ন। Order করতে account খুলুন অথবা Login করুন।</p>
-              <Button asChild className="w-full"><Link to="/auth" search={{ mode: "register", product: product.slug }}>Create Account & Continue</Link></Button>
-              <Button asChild variant="outline" className="w-full"><Link to="/auth" search={{ mode: "login", product: product.slug }}>Already have an account? Login</Link></Button>
+              <Button asChild className="w-full"><Link to="/auth" search={{ mode: "register", product: product.slug }} onClick={() => sessionStorage.setItem("panelbazarbd_pending_checkout", JSON.stringify({ slug: product.slug, packageId: pkgId, qty }))}>Create Account & Continue</Link></Button>
+              <Button asChild variant="outline" className="w-full"><Link to="/auth" search={{ mode: "login", product: product.slug }} onClick={() => sessionStorage.setItem("panelbazarbd_pending_checkout", JSON.stringify({ slug: product.slug, packageId: pkgId, qty }))}>Already have an account? Login</Link></Button>
             </div>}
             <div className="flex justify-end gap-2">
               {step > 1 && <Button type="button" variant="secondary" onClick={() => setStep((v) => v - 1)}>Back</Button>}
