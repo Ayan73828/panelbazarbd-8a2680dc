@@ -552,8 +552,8 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
             </div>}
             {step === 3 && <div className="space-y-3 text-center">
               <p className="font-semibold">Price list দেখা সম্পন্ন। Order করতে account খুলুন অথবা Login করুন।</p>
-              <Button asChild className="w-full"><Link to="/auth" search={{ mode: "register" }}>Create Account & Continue</Link></Button>
-              <Button asChild variant="outline" className="w-full"><Link to="/auth" search={{ mode: "login" }}>Already have an account? Login</Link></Button>
+              <Button asChild className="w-full"><Link to="/auth" search={{ mode: "register", product: product.slug }}>Create Account & Continue</Link></Button>
+              <Button asChild variant="outline" className="w-full"><Link to="/auth" search={{ mode: "login", product: product.slug }}>Already have an account? Login</Link></Button>
             </div>}
             <div className="flex justify-end gap-2">
               {step > 1 && <Button type="button" variant="secondary" onClick={() => setStep((v) => v - 1)}>Back</Button>}
