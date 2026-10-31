@@ -577,16 +577,18 @@ export async function handleUpdate(u: any) {
 }
 
 async function showFundAmounts(chatId: number, user: any, method = "", messageId?: number) {
-  const balanceLine = `💳 Current Balance: ${dualMoney(user.balance)}\n\n━━━━━━━━━━━━━━━━━━━━━━\n💳 Available Payment Methods:\n🇧🇩 Bangladeshi payment (bKash/Nagad)\n\n✅ Use balance for purchases!\n━━━━━━━━━━━━━━━━━━━━━━`;
-  if (!method) return screen(chatId, messageId, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\n\n${balanceLine}\n\nSelect amount to deposit.\nChoose your payment method next:`, {
-    inline_keyboard: [
-      [{ text: "৳100", callback_data: "fundshort:100" }, { text: "৳200", callback_data: "fundshort:200" }, { text: "৳500", callback_data: "fundshort:500" }],
-      [{ text: "৳1000", callback_data: "fundshort:1000" }, { text: "৳2000", callback_data: "fundshort:2000" }],
-      [{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }],
-    ],
-  });
-  const amount = Number((method.match(/\d+/) ?? ["100"])[0]);
-  return screen(chatId, messageId, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\n\n${balanceLine}\n\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
+  const balanceLine = `💳 Current Balance: ${dualMoney(user.balance)}\\n\\n━━━━━━━━━━━━━━━━━━━━━━\\n💳 Available Payment Methods:\\n🇧🇩 Bangladeshi payment (bKash/Nagad)\\n\\n✅ Use balance for purchases!\\n━━━━━━━━━━━━━━━━━━━━━━`;
+  if (!method) {
+    const amounts = user.is_pro_reseller ? [500, 1000, 2000, 5000] : [100, 200, 500, 1000, 2000];
+    const rows = [amounts.slice(0, 3), amounts.slice(3)].filter(row => row.length)
+      .map(row => row.map(amount => ({ text: `৳${amount}`, callback_data: `fundshort:${amount}` })));
+    rows.push([{ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }]);
+    return screen(chatId, messageId,
+      `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\\n\\n${balanceLine}\\n\\n${user.is_pro_reseller ? "Pro Reseller-এর জন্য একবারে কমপক্ষে ৳৫০০ Deposit করতে হবে।" : "Select amount to deposit."}\\nChoose your payment method next:`,
+      { inline_keyboard: rows });
+  }
+  const amount = Number((method.match(/\\d+/) ?? ["100"])[0]);
+  return screen(chatId, messageId, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\\n\\n${balanceLine}\\n\\nAmount: <b>${tk(amount)}</b>\\nPayment method বেছে নিন:`, {
     inline_keyboard: [
       [{ text: "🇧🇩 Bangladeshi payment (bKash/Nagad)", callback_data: `fundpay:uddokta:${amount}` }],
       [{ text: "⬅️ Back to amounts", callback_data: "menu:fund" }],
@@ -597,6 +599,8 @@ async function startTelegramPayment(chatId: number, user: any, amount: number, m
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { paymentBaseUrl } = await import("@/lib/uddoktapay.server");
   const apiKey = (await privateSetting("uddoktapay_api_key")) || process.env["UDDOKTAPAY_API_KEY"];
+  const { data: currentProfile } = await supabaseAdmin.from("profiles").select("is_pro_reseller").eq("id", user.id).maybeSingle();
+  if (currentProfile?.is_pro_reseller && amount < 500) return screen(chatId, messageId, "❌ Pro Reseller-এর জন্য একবারে কমপক্ষে ৳৫০০ Deposit করতে হবে।", { inline_keyboard: [[{ text: "⬅️ Back to amounts", callback_data: "menu:fund" }]] });
   if (!apiKey) return screen(chatId, messageId, "⚠️ Payment gateway এখন কনফিগার করা নেই। Admin-এর সাথে যোগাযোগ করুন।", { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:fund" }]] });
   const ref = crypto.randomUUID();
   const { error: insErr } = await supabaseAdmin.from("uddoktapay_payments").insert({
@@ -902,6 +906,7 @@ async function handleCallback(cq: any) {
   if (kind === "fundshort" && id) {
     const amount = Number(id);
     if (!(amount >= 1 && amount <= 100000)) return screen(chatId, cq.message?.message_id, "সঠিক amount নির্বাচন করুন।");
+    if (user.is_pro_reseller && amount < 500) return screen(chatId, cq.message?.message_id, "Pro Reseller-এর জন্য একবারে কমপক্ষে ৳৫০০ Deposit করতে হবে।", { inline_keyboard: [[{ text: "⬅️ Back to amounts", callback_data: "menu:fund" }]] });
     return screen(chatId, cq.message?.message_id, `💰 ━━ <b>ADD BALANCE</b> ━━ 💰\nAmount: <b>${tk(amount)}</b>\nPayment method বেছে নিন:`, {
       inline_keyboard: [[{ text: "🇧🇩 Bangladeshi payment (bKash/Nagad)", callback_data: `fundpay:uddokta:${amount}` }], [{ text: "⬅️ Back to amounts", callback_data: "menu:fund" }]],
     });
@@ -916,6 +921,7 @@ async function handleCallback(cq: any) {
     const method = "Bangladeshi payment (bKash/Nagad)";
     if (methodId !== "uddokta") return screen(chatId, cq.message?.message_id, "সঠিক payment method নির্বাচন করুন।");
     if (!(amount >= 1 && amount <= 100000)) return screen(chatId, cq.message?.message_id, "সঠিক amount নির্বাচন করুন।");
+    if (user.is_pro_reseller && amount < 500) return screen(chatId, cq.message?.message_id, "Pro Reseller-এর জন্য একবারে কমপক্ষে ৳৫০০ Deposit করতে হবে।", { inline_keyboard: [[{ text: "⬅️ Back to amounts", callback_data: "menu:fund" }]] });
     return startTelegramPayment(chatId, user, amount, method, cq.message?.message_id);
   }
     if (kind === "p" && id) {
