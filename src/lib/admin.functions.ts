@@ -255,7 +255,7 @@ export const adminSendSupportEmailAll = createServerFn({ method: "POST" })
       if (error) throw new Error("Could not load website users: " + error.message);
       for (const row of rows ?? []) {
         const to = String(row.email ?? "").trim().toLowerCase();
-        if (!to || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(to)) { skipped++; continue; }
+        if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { skipped++; continue; }
         try {
           const response = await fetch("https://api.resend.com/emails", {
             method: "POST",
