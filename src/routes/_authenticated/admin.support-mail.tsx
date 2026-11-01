@@ -67,7 +67,7 @@ function AdminSupportMail() {
   return (
     <div className="space-y-4">
       <AdminHeader title="Support Mail" description="Send an email to one address or the same email to all registered website users." />
-      <section className="panel space-y-4 p-4">
+      {!sendToAll && <section className="panel space-y-4 p-4">
         <div className="space-y-1">
           <h2 className="font-semibold">Find a website user</h2>
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search registered name, username, or email" />
@@ -82,13 +82,15 @@ function AdminSupportMail() {
             ))}
           </div> : <p className="text-sm text-muted-foreground">No matching registered users. You can still type any email address below.</p>}
         </Loadable>
-      </section>
-      <form onSubmit={(event) => void submit(event)} className="panel space-y-4 p-4">\n        <label className="flex items-start gap-3 rounded-lg border border-border p-3 text-sm"><input type="checkbox" className="mt-1" checked={sendToAll} onChange={(event) => setSendToAll(event.target.checked)} /><span><strong>Send to all website users</strong><span className="mt-1 block text-xs text-muted-foreground">এক ক্লিকে একই ইমেইল সব registered website user-এর কাছে যাবে।</span></span></label>
-        <div className="space-y-1.5">
+      </section>}
+      <form onSubmit={(event) => void submit(event)} className="panel space-y-4 p-4">
+        <label className="flex items-start gap-3 rounded-lg border border-border p-3 text-sm"><input type="checkbox" className="mt-1" checked={sendToAll} onChange={(event) => { setSendToAll(event.target.checked); if (event.target.checked) { setTo(""); setAttachments([]); } }} /><span><strong>Send to all website users</strong><span className="mt-1 block text-xs text-muted-foreground">এক ক্লিকে একই ইমেইল সব registered website user-এর কাছে যাবে।</span></span></label>
+        {!sendToAll && <div className="space-y-1.5">
           <label htmlFor="support-mail-to" className="text-sm font-medium">Recipient Gmail / email</label>
           <Input id="support-mail-to" type="email" required maxLength={254} value={to} onChange={(event) => setTo(event.target.value)} placeholder="customer@gmail.com" />
           <p className="text-xs text-muted-foreground">You can email people who have not registered yet too.</p>
-        </div>
+        </div>}
+        {sendToAll && <p className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">All website users selected. No Gmail/email address is needed — the message will be sent to every registered user with a valid email.</p>}
         <div className="space-y-1.5">
           <label htmlFor="support-mail-subject" className="text-sm font-medium">Subject</label>
           <Input id="support-mail-subject" required minLength={2} maxLength={200} value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="About your Panel Bazar BD account" />
@@ -97,12 +99,12 @@ function AdminSupportMail() {
           <label htmlFor="support-mail-message" className="text-sm font-medium">Message</label>
           <Textarea id="support-mail-message" required minLength={2} maxLength={10000} rows={8} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Write your message here…" />
         </div>
-        <div className="space-y-2">
+        {!sendToAll && <div className="space-y-2">
           <label htmlFor="support-mail-attachments" className="text-sm font-medium">Attach files</label>
           <input id="support-mail-attachments" type="file" multiple onChange={(event) => setAttachments(Array.from(event.target.files ?? []))} className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
           <p className="text-xs text-muted-foreground">একটি recipient-কে পাঠানোর সময় সর্বোচ্চ ৫টি ফাইল; প্রতি ফাইল ১০ MB, মোট ২০ MB। Broadcast email-এ attachment বন্ধ রাখা হয়েছে।</p>
           {attachments.map((file, index) => <div key={file.name + index} className="flex justify-between gap-2 text-xs"><span className="truncate">📎 {file.name} ({(file.size / 1048576).toFixed(2)} MB)</span><button type="button" onClick={() => setAttachments((items) => items.filter((_, i) => i !== index))}>Remove</button></div>)}
-        </div>
+        </div>}
         <p className="text-xs text-muted-foreground">The email is sent through the site's Resend setup. Never ask customers to share passwords or verification codes.</p>
         <Button type="submit" disabled={busy || String(user?.email ?? "").toLowerCase() !== "ishak777998@gmail.com" || (!sendToAll && !to.trim())} className="w-full">{busy ? (sendToAll ? "Sending to website users…" : "Sending email…") : sendToAll ? "Send to All Website Users" : "Send Support Mail"}</Button>
       </form>
