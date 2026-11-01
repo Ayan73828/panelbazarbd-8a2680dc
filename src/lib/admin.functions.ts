@@ -230,10 +230,18 @@ export const adminSendSupportEmailAll = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({
     subject: z.string().trim().min(2).max(200),
     message: z.string().trim().min(2).max(10000),
+    attachments: z.array(z.object({
+      filename: z.string().trim().min(1).max(255),
+      content: z.string().min(1).max(14_000_000).regex(/^[A-Za-z0-9+/]+={0,2}$/),
+    })).max(5).optional().default([]),
   }).parse(d))
   .handler(async ({ data, context }) => {
     if (String(context.claims?.email ?? "").toLowerCase() !== "ishak777998@gmail.com") {
       throw new Error("Only the main admin can send Support Mail");
+    }
+    const decodedSizes = data.attachments.map((file) => Math.floor(file.content.length * 3 / 4) - (file.content.endsWith("==") ? 2 : file.content.endsWith("=") ? 1 : 0));
+    if (decodedSizes.some((size) => size > 10 * 1024 * 1024) || decodedSizes.reduce((sum, size) => sum + size, 0) > 20 * 1024 * 1024) {
+      throw new Error("Attachments must be at most 5 files, 10 MB each, and 20 MB total");
     }
     const apiKey = process.env["RESEND_API_KEY"] || process.env["RESEND_API_TOKEN"];
     if (!apiKey) throw new Error("RESEND_API_KEY is not configured on the website server");
@@ -252,7 +260,7 @@ export const adminSendSupportEmailAll = createServerFn({ method: "POST" })
           const response = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ from: "PANEL BAZAR BD <verification@panelbazarbd.shop>", to: [to], subject: data.subject.trim(), text: data.message.trim(), html }),
+            body: JSON.stringify({ from: "PANEL BAZAR BD <verification@panelbazarbd.shop>", to: [to], subject: data.subject.trim(), text: data.message.trim(), html, attachments: data.attachments.map((file) => ({ filename: file.filename, content: file.content })) }),
           });
           if (response.ok) {
             sent++;
