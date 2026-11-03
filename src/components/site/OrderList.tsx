@@ -64,7 +64,7 @@ export function OrderList({
               </button>
             </div>
           )}
-          <p className="w-full text-[11px] text-muted-foreground">Order ID: {o.id}</p>
+          <p className="w-full text-[11px] text-muted-foreground">Order ID: #{o.id.slice(0, 8)}</p>
           {o.status === "completed" && o.products?.setup_tutorial_url && (
             <>
               <a href={/^https?:\\/\\//i.test(o.products.setup_tutorial_url) ? o.products.setup_tutorial_url : `https://${o.products.setup_tutorial_url}`} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-1 rounded-lg border border-primary/20 bg-primary/5 py-2 text-xs font-semibold text-primary">
