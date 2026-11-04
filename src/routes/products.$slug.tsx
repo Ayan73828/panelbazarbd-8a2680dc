@@ -425,7 +425,7 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
         body: { package_id: sel.id, quantity: qty, idempotency_key: crypto.randomUUID(), ...(couponApplied ? { coupon_code: couponApplied.code } : {}) },
       });
       if (error) {
-        failure = error.message || "অটো অর্ডার ব্যর্থ হয়েছে।";
+        failure = settings.purchase_off === "true" ? "PURCHASE_DISABLED" : error.message || "অটো অর্ডার ব্যর্থ হয়েছে।";
       } else if (data?.status === "pending" || data?.status === "processing") {
         pending = true;
         orderId = typeof data.order_id === "string" ? data.order_id : null;
