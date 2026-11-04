@@ -475,9 +475,13 @@ function BuyDialog({ open, onOpenChange, product, packages, packagesLoading, pac
       return;
     }
     if (failure) {
-      setError(failure.includes("INSUFFICIENT_BALANCE")
-        ? `ব্যালেন্স কম — ${done}টি অর্ডার সম্পন্ন হয়েছে। Wallet-এ ব্যালেন্স যোগ করুন।`
-        : `অর্ডার সম্পন্ন হয়নি। ${done > 0 ? `${done}টি অর্ডার সম্পন্ন হয়েছে। ` : ""}${failure} My Orders দেখে নিন; একই অর্ডার আবার দেওয়ার আগে স্ট্যাটাস যাচাই করুন।`);
+      if (failure.includes("PURCHASE_DISABLED")) {
+        setError("Purchase Temporarily Unavailable. বর্তমানে পারচেজ বন্ধ রয়েছে। অ্যাডমিন সাময়িকভাবে অর্ডার নেওয়া বন্ধ রেখেছেন অথবা কিছু প্রযুক্তিগত সমস্যার কারণে অর্ডার সম্পন্ন করা যাচ্ছে না। আপনার ওয়ালেট ব্যালেন্স নিরাপদ রয়েছে.");
+      } else {
+        setError(failure.includes("INSUFFICIENT_BALANCE")
+          ? `ব্যালেন্স কম — ${done}টি অর্ডার সম্পন্ন হয়েছে। Wallet-এ ব্যালেন্স যোগ করুন।`
+          : `অর্ডার সম্পন্ন হয়নি। ${done > 0 ? `${done}টি অর্ডার সম্পন্ন হয়েছে। ` : ""}${failure} My Orders দেখে নিন; একই অর্ডার আবার দেওয়ার আগে স্ট্যাটাস যাচাই করুন।`);
+      }
       return;
     }
 
