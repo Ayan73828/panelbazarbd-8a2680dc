@@ -186,6 +186,33 @@ function AdminSettings() {
       <section className="panel space-y-3 p-4">
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-1">
+            <h2 className="font-semibold">Purchase Off</h2>
+            <p className="text-sm text-muted-foreground">Blocks checkout only after the user has enough wallet balance. Add Money, deposits, and wallet balance remain available. No order is created and no balance is deducted.</p>
+          </div>
+          <Switch
+            checked={settings.purchase_off === "true"}
+            disabled={savingMaintenance}
+            onCheckedChange={async (enabled) => {
+              setSavingMaintenance(true);
+              try {
+                const { error } = await supabase.from("site_settings").upsert({ key: "purchase_off", value: enabled ? "true" : "false" }, { onConflict: "key" });
+                if (error) throw error;
+                await queryClient.invalidateQueries({ queryKey: ["site_settings"] });
+                toast.success(enabled ? "Purchase Off enabled" : "Purchases enabled");
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Could not update Purchase Off");
+              } finally {
+                setSavingMaintenance(false);
+              }
+            }}
+            aria-label="Toggle Purchase Off"
+          />
+        </div>
+        <p className="text-sm font-medium">Status: {settings.purchase_off === "true" ? "ON — checkout disabled" : "OFF — purchases enabled"}</p>
+      </section>
+      <section className="panel space-y-3 p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1">
             <h2 className="font-semibold">Website Maintenance Mode</h2>
             <p className="text-sm text-muted-foreground">When enabled, visitors will see the maintenance page. Admin accounts can still access and control the full website.</p>
           </div>
