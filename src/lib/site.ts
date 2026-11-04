@@ -1,6 +1,7 @@
 export const DEFAULT_SETTINGS = {
   site_name: "PANEL BAZAR BD",
   maintenance_mode: "false",
+  purchase_off: "false",
   site_description: "Premium digital products and reseller panel services.",
   logo_url: "",
   favicon_url: "/favicon.ico",
