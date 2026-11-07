@@ -226,7 +226,7 @@ async function trackRecentBotMessage(chatId: number, messageId: number) {
   }
 }
 
-const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
+const send = async (chat_id: number, text: string, reply_markup?: unknown, trackForCleanup = true) => {
   if (!String(text ?? "").trim()) {
     console.error("Telegram send skipped: empty text", { chat_id });
     return { ok: false, description: "Empty message text" };
@@ -234,7 +234,7 @@ const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
   const result = await tg("sendMessage", { chat_id, text, parse_mode: "HTML", disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) });
   const messageId = result?.result?.message_id;
   // Do not make the customer wait for non-critical cleanup bookkeeping.
-  if (result?.ok && typeof messageId === "number") void trackRecentBotMessage(chat_id, messageId);
+  if (trackForCleanup && result?.ok && typeof messageId === "number") void trackRecentBotMessage(chat_id, messageId);
   return result;
 };
 
@@ -683,21 +683,16 @@ async function showProducts(chatId: number, messageId?: number) {
 
 async function showCategoryProducts(chatId: number, categoryId: string, messageId?: number) {
   const db = await admin();
-  const [{ data: categories }, { data: products }] = await Promise.all([
-    db.from("categories").select("id,name").eq("is_active", true),
-    categoryId === "others" || (categories ?? []).some((item: any) =>
-      String(item.id) === categoryId &&
-      String(item.name ?? "").toUpperCase().includes("ANDROID") &&
-      String(item.name ?? "").toUpperCase().includes("IOS")
-    )
-      ? db.from("products").select("id,name,category_id").eq("is_active", true).order("sort_order").limit(200)
-      : db.from("products").select("id,name,category_id").eq("category_id", categoryId).eq("is_active", true).order("sort_order").limit(100),
-  ]);
-  const activeCategoryIds = new Set((categories ?? []).map((category: any) => String(category.id)));
+  const { data: categories } = await db.from("categories").select("id,name").eq("is_active", true);
+  const activeCategoryIds = new Set((categories ?? []).map((item: any) => String(item.id)));
   const category = (categories ?? []).find((item: any) => String(item.id) === categoryId);
   const categoryIsAndroidIos = Boolean(category &&
     String(category.name ?? "").toUpperCase().includes("ANDROID") &&
     String(category.name ?? "").toUpperCase().includes("IOS"));
+  const productQuery = categoryId === "others" || categoryIsAndroidIos
+    ? db.from("products").select("id,name,category_id").eq("is_active", true).order("sort_order").limit(200)
+    : db.from("products").select("id,name,category_id").eq("category_id", categoryId).eq("is_active", true).order("sort_order").limit(100);
+  const { data: products } = await productQuery;
   const isAimhackOthers = (product: any) => {
     const name = String(product.name ?? "").toUpperCase();
     return name.includes("AIMHACK") && name.includes("OTHERS");
@@ -1073,7 +1068,7 @@ async function handleCallback(cq: any) {
             [{ text: "🏠 Main Menu", callback_data: "menu:home" }],
           ],
         };
-        const orderMessage = await send(chatId, `✅ <b>অর্ডার সফল!</b>\n━━━━━━━━━━━━━━━━━━\n📦 ${esc(result.product_name || pkg.name)}\n\n🔑 <b>আপনার Key</b>\n<code>${esc(keys.join("\\n"))}</code>\n\n🧾 Order #${String(result.order_id).slice(0, 8)}\n\nএই Key মেসেজটি আলাদা করে রাখা হয়েছে—পরেরবার /start দিলেও এটি মুছে যাবে না।`, successKeyboard);
+        const orderMessage = await send(chatId, `✅ <b>অর্ডার সফল!</b>\n━━━━━━━━━━━━━━━━━━\n📦 ${esc(result.product_name || pkg.name)}\n\n🔑 <b>আপনার Key</b>\n<code>${esc(keys.join("\\n"))}</code>\n\n🧾 Order #${String(result.order_id).slice(0, 8)}\n\nএই Key মেসেজটি আলাদা করে রাখা হয়েছে—পরেরবার /start দিলেও এটি মুছে যাবে না।`, successKeyboard, false);
         const orderMessageId = orderMessage?.result?.message_id;
         if (typeof orderMessageId === "number") await preserveOrderMessage(chatId, orderMessageId);
         return orderMessage;
@@ -1115,7 +1110,7 @@ async function handleCallback(cq: any) {
     const { data: o } = await db.from("orders").select("*").eq("id", oid).maybeSingle();
     await preserveOrderMessage(chatId, cq.message?.message_id);
     await notifyOwner(`🛒 Telegram purchase\nUser: <b>${esc(user.username || user.email)}</b>\n${esc(o?.product_name)}\n${tk(o?.total ?? 0)} · Order #${String(oid).slice(0, 8)}`);
-    const orderMessage = await send(chatId, `✅ <b>অর্ডার সফল!</b>\n━━━━━━━━━━━━━━━━━━\n📦 ${esc(o?.product_name || pkg.name)}\n\n🔑 <b>আপনার Key</b>\n<code>${esc(o?.delivered_key || "Key details দেখতে My Orders খুলুন")}</code>\n\n🧾 Order #${String(oid).slice(0, 8)}\n\nএই Key মেসেজটি আলাদা করে রাখা হয়েছে—পরেরবার /start দিলেও এটি মুছে যাবে না।`, orderSuccessKeyboard);
+    const orderMessage = await send(chatId, `✅ <b>অর্ডার সফল!</b>\n━━━━━━━━━━━━━━━━━━\n📦 ${esc(o?.product_name || pkg.name)}\n\n🔑 <b>আপনার Key</b>\n<code>${esc(o?.delivered_key || "Key details দেখতে My Orders খুলুন")}</code>\n\n🧾 Order #${String(oid).slice(0, 8)}\n\nএই Key মেসেজটি আলাদা করে রাখা হয়েছে—পরেরবার /start দিলেও এটি মুছে যাবে না।`, orderSuccessKeyboard, false);
     const orderMessageId = orderMessage?.result?.message_id;
     if (typeof orderMessageId === "number") await preserveOrderMessage(chatId, orderMessageId);
     return orderMessage;
