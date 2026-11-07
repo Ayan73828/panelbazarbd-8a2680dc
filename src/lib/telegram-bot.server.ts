@@ -24,7 +24,9 @@ async function tg(method: string, body: Record<string, unknown>) {
     body: JSON.stringify(body),
   });
   const j = (await res.json().catch(() => ({}))) as any;
-  if (!j.ok) console.error("telegram", method, j);
+  if (!j.ok && !(method === "deleteMessage" && String(j.description ?? "").includes("message to delete not found"))) {
+    console.error("telegram", method, j);
+  }
   return j;
 }
 export const tgApi = tg;
@@ -280,7 +282,7 @@ async function welcome(chatId: number, user: any, messageId?: number, tgUserId?:
   else await send(chatId, welcomeText, mainMenu);
 }
 
-export async function handleUpdate(u: any) {
+async function handleUpdateInternal(u: any) {
   if (u.callback_query) return handleCallback(u.callback_query);
   const m = u.message;
   if (!m?.chat?.id || !m.from?.id) return;
@@ -382,13 +384,14 @@ export async function handleUpdate(u: any) {
   if (text === "Restart 🔁") {
     const oldIds = Array.isArray(st.data?.recent_bot_message_ids) ? st.data.recent_bot_message_ids : [];
     const persistentIds = new Set<number>(Array.isArray(st.data?.persistent_order_message_ids) ? st.data.persistent_order_message_ids : []);
-    await Promise.all([
+    // Cleanup is cosmetic: never make Restart wait for multiple Telegram delete calls.
+    void Promise.all([
       ...oldIds.filter((message_id: number) => !persistentIds.has(message_id)).map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)),
       tg("deleteMessage", { chat_id: chatId, message_id: m.message_id }).catch(() => undefined),
       ...(Number.isInteger(Number(st.data?.last_start_message_id)) && Number(st.data?.last_start_message_id) > 0
         ? [tg("deleteMessage", { chat_id: chatId, message_id: Number(st.data.last_start_message_id) }).catch(() => undefined)]
         : []),
-    ]);
+    ]).catch(() => undefined);
     await setState(chatId, "", { recent_bot_message_ids: [...persistentIds], persistent_order_message_ids: [...persistentIds], last_start_message_id: null });
     const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
     return welcome(chatId, account, undefined, m.from.id);
@@ -399,11 +402,13 @@ export async function handleUpdate(u: any) {
     // Remove the previous /start command too, along with the previous ordinary bot replies.
     const previousStartMessageId = Number(st.data?.last_start_message_id);
     if (Number.isInteger(previousStartMessageId) && previousStartMessageId > 0 && previousStartMessageId !== m.message_id) {
-      await tg("deleteMessage", { chat_id: chatId, message_id: previousStartMessageId }).catch(() => undefined);
+      void tg("deleteMessage", { chat_id: chatId, message_id: previousStartMessageId }).catch(() => undefined);
     }
-    await Promise.all(oldIds
+    // Old-message cleanup runs in the background so /start can show the menu immediately.
+    void Promise.all(oldIds
       .filter((message_id: number) => !persistentIds.has(message_id))
-      .map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)));
+      .map((message_id: number) => tg("deleteMessage", { chat_id: chatId, message_id }).catch(() => undefined)))
+      .catch(() => undefined);
     const payload = text.split(/\s+/)[1] ?? "";
     const rawReferrerId = payload.startsWith("ref_") ? payload.slice(4) : "";
     const validReferrerId = /^\d+$/.test(rawReferrerId) && Number(rawReferrerId) !== m.from.id
@@ -418,7 +423,7 @@ export async function handleUpdate(u: any) {
       last_start_message_id: m.message_id,
     };
     await setState(chatId, "", nextData);
-    await tg("deleteMessage", { chat_id: chatId, message_id: m.message_id }).catch(() => undefined);
+    void tg("deleteMessage", { chat_id: chatId, message_id: m.message_id }).catch(() => undefined);
     const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
     if (validReferrerId && !st.data?.phone_shared) {
       return send(chatId,
@@ -1145,5 +1150,22 @@ async function handleCallback(cq: any) {
     const orderMessageId = orderMessage?.result?.message_id;
     if (typeof orderMessageId === "number") await preserveOrderMessage(chatId, orderMessageId);
     return orderMessage;
+  }
+}
+
+
+/** Log end-to-end Telegram handler latency so slow options can be identified from Render logs. */
+export async function handleUpdate(u: any) {
+  const startedAt = Date.now();
+  const updateKind = u?.callback_query
+    ? "callback:" + String(u.callback_query.data ?? "").split(":")[0]
+    : "message:" + String(u?.message?.text ?? "").trim().split(/\\s+/)[0].slice(0, 24);
+  try {
+    return await handleUpdateInternal(u);
+  } finally {
+    console.info("[telegram-timing]", JSON.stringify({
+      update: updateKind,
+      duration_ms: Date.now() - startedAt,
+    }));
   }
 }
