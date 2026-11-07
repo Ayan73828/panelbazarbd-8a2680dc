@@ -3,9 +3,20 @@ import { notifyOwner, privateSetting } from "@/lib/uddoktapay.server";
 
 export const SITE_URL = process.env["SITE_URL"] || "https://panelbazarbd.shop";
 
+// Cache Telegram-only configuration briefly so each button tap avoids repeat settings reads.
+const telegramSettingsCache = new Map<string, { value: string; expiresAt: number }>();
+const TELEGRAM_SETTINGS_TTL_MS = 15_000;
+async function telegramSetting(key: string): Promise<string> {
+  const cached = telegramSettingsCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const value = (await privateSetting(key)) || "";
+  telegramSettingsCache.set(key, { value, expiresAt: Date.now() + TELEGRAM_SETTINGS_TTL_MS });
+  return value;
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 async function tg(method: string, body: Record<string, unknown>) {
-  const token = (await privateSetting("telegram_bot_token")) || process.env["TELEGRAM_BOT_TOKEN"];
+  const token = (await telegramSetting("telegram_bot_token")) || process.env["TELEGRAM_BOT_TOKEN"];
   if (!token) throw new Error("TELEGRAM_BOT_TOKEN missing");
   const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST",
@@ -148,8 +159,8 @@ async function linkedUser(tgUserId: number) {
   return profile as any;
 }
 
-async function ensureTelegramAccount(tgUserId: number, chatId: number, telegramUsername?: string, firstName?: string) {
-  const existing = await linkedUser(tgUserId);
+async function ensureTelegramAccount(tgUserId: number, chatId: number, telegramUsername?: string, firstName?: string, knownMissing = false) {
+  const existing = knownMissing ? null : await linkedUser(tgUserId);
   if (existing) {
     const db = await admin();
     const { data: link } = await db.from("telegram_links").select("id").eq("telegram_user_id", tgUserId).maybeSingle();
@@ -222,7 +233,8 @@ const send = async (chat_id: number, text: string, reply_markup?: unknown) => {
   }
   const result = await tg("sendMessage", { chat_id, text, parse_mode: "HTML", disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) });
   const messageId = result?.result?.message_id;
-  if (result?.ok && typeof messageId === "number") await trackRecentBotMessage(chat_id, messageId);
+  // Do not make the customer wait for non-critical cleanup bookkeeping.
+  if (result?.ok && typeof messageId === "number") void trackRecentBotMessage(chat_id, messageId);
   return result;
 };
 
@@ -260,10 +272,9 @@ export async function handleUpdate(u: any) {
   if (!m?.chat?.id || !m.from?.id) return;
   const chatId = m.chat.id as number;
   const text: string = (m.text ?? "").trim();
-  const user = await linkedUser(m.from.id);
-  const st = await getState(chatId);
+  const [user, st] = await Promise.all([linkedUser(m.from.id), getState(chatId)]);
 
-  const ownerChatForAdmin = (await privateSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+  const ownerChatForAdmin = (await telegramSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
   if (text === "/jan") {
     if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) return send(chatId, "এই কমান্ডটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
     const maintenanceOn = await getTelegramMaintenanceMode();
@@ -637,16 +648,27 @@ async function showProducts(chatId: number, messageId?: number) {
   const db = await admin();
   const [{ data: categories }, { data: products }] = await Promise.all([
     db.from("categories").select("id,name").eq("is_active", true).order("sort_order"),
-    db.from("products").select("category_id").eq("is_active", true),
+    db.from("products").select("id,name,category_id").eq("is_active", true),
   ]);
   const activeCategoryIds = new Set((categories ?? []).map((category: any) => String(category.id)));
+  const androidIosCategory = (categories ?? []).find((category: any) => {
+    const name = String(category.name ?? "").toUpperCase().replace(/[^A-Z0-9]+/g, " ");
+    return name.includes("ANDROID") && name.includes("IOS");
+  });
+  const isAimhackOthers = (product: any) => {
+    const name = String(product.name ?? "").toUpperCase();
+    return name.includes("AIMHACK") && name.includes("OTHERS");
+  };
   const counts = new Map<string, number>();
   let otherCount = 0;
   for (const product of products ?? []) {
     const categoryId = product.category_id ? String(product.category_id) : "";
-    if (categoryId && activeCategoryIds.has(categoryId)) {
+    if (isAimhackOthers(product) && androidIosCategory) {
+      const targetId = String(androidIosCategory.id);
+      counts.set(targetId, (counts.get(targetId) ?? 0) + 1);
+    } else if (categoryId && activeCategoryIds.has(categoryId) && !isAimhackOthers(product)) {
       counts.set(categoryId, (counts.get(categoryId) ?? 0) + 1);
-    } else {
+    } else if (!isAimhackOthers(product)) {
       otherCount++;
     }
   }
@@ -663,15 +685,29 @@ async function showCategoryProducts(chatId: number, categoryId: string, messageI
   const db = await admin();
   const [{ data: categories }, { data: products }] = await Promise.all([
     db.from("categories").select("id,name").eq("is_active", true),
-    categoryId === "others"
-      ? db.from("products").select("id,name,category_id").eq("is_active", true).order("sort_order").limit(100)
+    categoryId === "others" || (categories ?? []).some((item: any) =>
+      String(item.id) === categoryId &&
+      String(item.name ?? "").toUpperCase().includes("ANDROID") &&
+      String(item.name ?? "").toUpperCase().includes("IOS")
+    )
+      ? db.from("products").select("id,name,category_id").eq("is_active", true).order("sort_order").limit(200)
       : db.from("products").select("id,name,category_id").eq("category_id", categoryId).eq("is_active", true).order("sort_order").limit(100),
   ]);
   const activeCategoryIds = new Set((categories ?? []).map((category: any) => String(category.id)));
   const category = (categories ?? []).find((item: any) => String(item.id) === categoryId);
+  const categoryIsAndroidIos = Boolean(category &&
+    String(category.name ?? "").toUpperCase().includes("ANDROID") &&
+    String(category.name ?? "").toUpperCase().includes("IOS"));
+  const isAimhackOthers = (product: any) => {
+    const name = String(product.name ?? "").toUpperCase();
+    return name.includes("AIMHACK") && name.includes("OTHERS");
+  };
   const selectedProducts = categoryId === "others"
-    ? (products ?? []).filter((product: any) => !product.category_id || !activeCategoryIds.has(String(product.category_id)))
-    : (products ?? []);
+    ? (products ?? []).filter((product: any) =>
+        (!product.category_id || !activeCategoryIds.has(String(product.category_id))) && !isAimhackOthers(product))
+    : categoryIsAndroidIos
+      ? (products ?? []).filter((product: any) => String(product.category_id ?? "") === categoryId || isAimhackOthers(product))
+      : (products ?? []).filter((product: any) => !isAimhackOthers(product));
   const categoryName = categoryId === "others" ? "OTHERS" : String(category?.name ?? "");
   if (!categoryName) return showProducts(chatId, messageId);
   if (!selectedProducts.length) return screen(chatId, messageId, `📂 <b>${esc(categoryName.toUpperCase())}</b>\n\nএই Category-তে এখন কোনো Product নেই।`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Categories", callback_data: "menu:products" }, "primary")]] });
@@ -716,9 +752,9 @@ async function handleCallback(cq: any) {
   void tg("answerCallbackQuery", { callback_query_id: cq.id }).catch(() => undefined);
   if (!chatId) return;
   let user = await linkedUser(cq.from.id);
-  if (!user) user = await ensureTelegramAccount(cq.from.id, chatId, cq.from.username, cq.from.first_name);
+  if (!user) user = await ensureTelegramAccount(cq.from.id, chatId, cq.from.username, cq.from.first_name, true);
   const [kind, id] = String(cq.data ?? "").split(":");
-  const ownerChatId = (await privateSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+  const ownerChatId = (await telegramSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
   if (kind === "adminmaintenance") {
     if (!ownerChatId || String(chatId) !== String(ownerChatId)) return screen(chatId, cq.message?.message_id, "এই অপশনটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
     if (id !== "on" && id !== "off") return screen(chatId, cq.message?.message_id, "Invalid maintenance action.");
