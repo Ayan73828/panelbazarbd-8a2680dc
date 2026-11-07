@@ -441,7 +441,8 @@ export async function handleUpdate(u: any) {
       return send(chatId, "Ticket save করা যায়নি। আবার চেষ্টা করুন বা Telegram Admin-কে message দিন।");
     }
     await setState(chatId, "");
-    const ticketNotice = "🎫 <b>New Support Ticket</b>\\nTicket: <code>" + esc(ticket.id) + "</code>\\nSource: Telegram Bot\\nUser: <code>" + esc(ownerId) + "</code>\\nTelegram ID: <code>" + m.from.id + "</code>\\nDetails: " + esc(details);
+    const telegramName = m.from.username ? "@" + m.from.username : (m.from.first_name || "Telegram User");
+    const ticketNotice = "🎫 <b>" + esc(telegramName) + "</b>\n" + esc(details);
     const ownerChatId = (await privateSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"];
     const keyboard = { inline_keyboard: [[{ text: "↩️ Reply", callback_data: "supportreply:" + ticket.id }, { text: "✅ Close", callback_data: "supportclose:" + ticket.id }]] };
     if (photo && ownerChatId) await tg("sendPhoto", { chat_id: ownerChatId, photo, caption: ticketNotice, parse_mode: "HTML", reply_markup: keyboard });
