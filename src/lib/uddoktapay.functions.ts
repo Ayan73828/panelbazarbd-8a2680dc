@@ -59,7 +59,11 @@ export const uddoktapayCreateCharge = createServerFn({ method: "POST" })
     if (!res.ok || !body?.payment_url) {
       console.error("uddoktapay checkout failed", res.status, body);
       await supabaseAdmin.from("uddoktapay_payments").update({ status: "failed", raw: body }).eq("id", ref);
-      throw new Error(body?.message || "Could not start payment. Please try again.");
+      const gatewayMessage = String(body?.message || "");
+      if (/website does not have insufficient balance|insufficient balance/i.test(gatewayMessage)) {
+        throw new Error("পেমেন্ট গেটওয়ের Merchant Balance পর্যাপ্ত নেই। অ্যাডমিনকে UddoktaPay অ্যাকাউন্টে ব্যালেন্স যোগ করতে হবে। আপনার টাকা কাটা হয়নি।");
+      }
+      throw new Error(gatewayMessage || "পেমেন্ট শুরু করা যায়নি। কিছুক্ষণ পরে আবার চেষ্টা করুন।");
     }
     await supabaseAdmin.from("uddoktapay_payments").update({ raw: body }).eq("id", ref);
     return { payment_url: body.payment_url as string };
