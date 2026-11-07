@@ -1169,7 +1169,7 @@ export async function handleUpdate(u: any) {
   const startedAt = Date.now();
   const updateKind = u?.callback_query
     ? "callback:" + String(u.callback_query.data ?? "").split(":")[0]
-    : "message:" + String(u?.message?.text ?? "").trim().split(/\\s+/)[0].slice(0, 24);
+    : "message:" + String(u?.message?.text ?? "").trim().split(/\s+/)[0].slice(0, 24);
   try {
     return await handleUpdateInternal(u);
   } finally {
