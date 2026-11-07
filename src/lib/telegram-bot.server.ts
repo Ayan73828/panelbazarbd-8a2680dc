@@ -633,16 +633,42 @@ async function startTelegramPayment(chatId: number, user: any, amount: number, m
 
 async function showProducts(chatId: number, messageId?: number) {
   const db = await admin();
-  const { data } = await db.from("products").select("id,name").eq("is_active", true).limit(60);
-  const sortedProducts = (data ?? []).slice().sort((a: any, b: any) =>
-    String(a.name ?? "").trim().localeCompare(String(b.name ?? "").trim(), "en", { sensitivity: "base", numeric: true })
-  );
-  const rows = sortedProducts.map((p: any) => [
-    premiumButton({ text: `🛍️ ${String(p.name ?? "").trim()}`, callback_data: `p:${p.id}` }, "success"),
+  const [{ data: categories }, { data: products }] = await Promise.all([
+    db.from("categories").select("id,name").eq("is_active", true).order("sort_order"),
+    db.from("products").select("category_id").eq("is_active", true),
+  ]);
+  const counts = new Map<string, number>();
+  for (const product of products ?? []) {
+    if (product.category_id) counts.set(String(product.category_id), (counts.get(String(product.category_id)) ?? 0) + 1);
+  }
+  const available = (categories ?? []).filter((category: any) => (counts.get(String(category.id)) ?? 0) > 0);
+  if (!available.length) {
+    const { data: fallbackProducts } = await db.from("products").select("id,name").eq("is_active", true).limit(60);
+    const fallback = (fallbackProducts ?? []).slice().sort((x: any, y: any) =>
+      String(x.name ?? "").trim().localeCompare(String(y.name ?? "").trim(), "en", { sensitivity: "base", numeric: true })
+    );
+    const rows = fallback.map((p: any) => [premiumButton({ text: `🛍️ ${String(p.name ?? "").trim()}`, callback_data: `p:${p.id}` }, "success")]);
+    rows.push([premiumButton({ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }, "primary")]);
+    return screen(chatId, messageId, fallback.length ? "🛍 <b>PRODUCT LIST</b>\n\nকোনো active category-তে product যুক্ত নেই, তাই সব product দেখানো হচ্ছে:" : "এখন কোনো প্রোডাক্ট নেই।", { inline_keyboard: rows });
+  }
+  const rows = available.map((category: any) => [
+    premiumButton({ text: `📂 ${String(category.name)} · ${counts.get(String(category.id))}`, callback_data: `cat:${category.id}` }, "success"),
   ]);
   rows.push([premiumButton({ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }, "primary")]);
-  const body = { chat_id: chatId, text: sortedProducts.length ? "🛍 <b>PRODUCT LIST</b>\n\nA–Z অনুযায়ী সাজানো — আপনার প্রোডাক্ট বেছে নিন:" : "এখন কোনো প্রোডাক্ট নেই।", parse_mode: "HTML", disable_web_page_preview: true, reply_markup: { inline_keyboard: rows } };
-  return screen(chatId, messageId, body.text, body.reply_markup);
+  return screen(chatId, messageId, "🛍 <b>SHOP NOW</b>\n\nপ্রথমে একটি Category বেছে নিন:", { inline_keyboard: rows });
+}
+
+async function showCategoryProducts(chatId: number, categoryId: string, messageId?: number) {
+  const db = await admin();
+  const [{ data: category }, { data: products }] = await Promise.all([
+    db.from("categories").select("name").eq("id", categoryId).maybeSingle(),
+    db.from("products").select("id,name").eq("category_id", categoryId).eq("is_active", true).order("sort_order").limit(60),
+  ]);
+  if (!category) return showProducts(chatId, messageId);
+  if (!products?.length) return screen(chatId, messageId, `📂 <b>${esc(category.name)}</b>\n\nএই Category-তে এখন কোনো Product নেই।`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Categories", callback_data: "menu:products" }, "primary")]] });
+  const rows = products.map((p: any) => [premiumButton({ text: `🛍️ ${String(p.name ?? "").trim()}`, callback_data: `p:${p.id}` }, "success")]);
+  rows.push([premiumButton({ text: "⬅️ Back to Categories", callback_data: "menu:products" }, "primary")]);
+  return screen(chatId, messageId, `📂 <b>${esc(category.name)}</b>\n\nআপনার Product বেছে নিন:`, { inline_keyboard: rows });
 }
 
 async function showWallet(chatId: number, user: any, messageId?: number) {
@@ -920,9 +946,10 @@ async function handleCallback(cq: any) {
     
     return startTelegramPayment(chatId, user, amount, method, cq.message?.message_id);
   }
-    if (kind === "p" && id) {
+    if (kind === "cat" && id) return showCategoryProducts(chatId, id, cq.message?.message_id);
+  if (kind === "p" && id) {
     const [{ data: p }, { data: pk }, { data: stock }] = await Promise.all([
-      db.from("products").select("name,short_description,provider_name").eq("id", id).maybeSingle(),
+      db.from("products").select("name,short_description,provider_name,category_id").eq("id", id).maybeSingle(),
       db.from("product_packages").select("id,name,price,provider_auto_api,provider_stock,provider_product_id,provider_duration").eq("product_id", id).eq("is_active", true).order("sort_order"),
       db.rpc("package_stock", { p_product_id: id }),
     ]);
