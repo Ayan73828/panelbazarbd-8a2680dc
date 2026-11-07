@@ -58,7 +58,7 @@ const GUEST_AUTH = {
 // Short-lived process cache prevents a database round-trip for every Telegram update.
 // Admin changes update this cache immediately; cold starts always read the persisted setting.
 let telegramMaintenanceCache: { value: boolean; expiresAt: number } | null = null;
-const TELEGRAM_MAINTENANCE_CACHE_TTL_MS = 5_000;
+const TELEGRAM_MAINTENANCE_CACHE_TTL_MS = 30_000;
 async function getTelegramMaintenanceMode(): Promise<boolean> {
   if (telegramMaintenanceCache && telegramMaintenanceCache.expiresAt > Date.now()) {
     return telegramMaintenanceCache.value;
@@ -122,8 +122,8 @@ async function getState(chatId: number) {
 // Warm-process cache: cache identity only (never balance/profile data), so most button
 // callbacks need one fresh profile query instead of two identity lookups plus profile.
 const telegramIdentityCache = new Map<number, { userId: string; linked: boolean; expiresAt: number; profile?: any; profileExpiresAt?: number }>();
-const TELEGRAM_IDENTITY_TTL_MS = 15_000;
-const TELEGRAM_PROFILE_TTL_MS = 8_000;
+const TELEGRAM_IDENTITY_TTL_MS = 120_000;
+const TELEGRAM_PROFILE_TTL_MS = 30_000;
 function setTelegramIdentity(tgUserId: number, userId: string, linked: boolean, profile?: any) {
   telegramIdentityCache.set(tgUserId, {
     userId, linked, expiresAt: Date.now() + TELEGRAM_IDENTITY_TTL_MS,
@@ -257,13 +257,27 @@ async function mainMenuForTelegramUser(tgUserId?: number) {
 
 async function welcome(chatId: number, user: any, messageId?: number, tgUserId?: number) {
   const mainMenu = await mainMenuForTelegramUser(tgUserId);
-  if (user) {
-    const welcomeText = `🏪 ━━ <b>Panel Bazar BD</b> ━━ 🏪\n\n👋 Welcome back, <b>${esc(user.name || user.username || "Customer")}</b>\n\n🛍️ Shop Now চাপুন অথবা নিচের Menu থেকে প্রয়োজনীয় অপশন বেছে নিন।`;
-    if (typeof messageId === "number") await screen(chatId, messageId, welcomeText, mainMenu);
-    else await send(chatId, welcomeText, mainMenu);
-  } else {
-    await send(chatId, "👋 <b>PANEL BAZAR BD</b> এ স্বাগতম!\n\nএখনই Telegram থেকেই Shop Now, Add Balance ও My Order ব্যবহার করতে পারবেন। Website account যুক্ত করা ঐচ্ছিক।", mainMenu);
-  }
+  const greeting = user?.is_reseller
+    ? "Reseller VIP! (Reseller)"
+    : esc(user?.name || user?.username || "Customer");
+  const welcomeText = `🏪 ━━ <b>PanelBazarBD</b> ━━ 🏪
+
+👋 Welcome, <b>${greeting}</b>
+
+⭐ ━ <b>RESELLER HIGHLIGHTS</b> ━ ⭐
+
+│ 🔑 Wholesale Game Keys &amp; VIP Stock
+│ ⚡ Priority Auto-Delivery 24/7
+│ 🔒 100% Secure Instant Settlement
+│ 💸 Exclusive Reseller Pricing Active
+│ 🎁 Tiered Referral &amp; Bulk Rebates
+│ 📞 Dedicated VIP Partner Support
+
+━━━━━━━━━━━━━━━━━━━━━
+
+🚀 Tap Shop Now to Start!`;
+  if (typeof messageId === "number") await screen(chatId, messageId, welcomeText, mainMenu);
+  else await send(chatId, welcomeText, mainMenu);
 }
 
 export async function handleUpdate(u: any) {
@@ -272,9 +286,14 @@ export async function handleUpdate(u: any) {
   if (!m?.chat?.id || !m.from?.id) return;
   const chatId = m.chat.id as number;
   const text: string = (m.text ?? "").trim();
-  const [user, st] = await Promise.all([linkedUser(m.from.id), getState(chatId)]);
+  const [user, st, configuredOwnerChat, maintenanceOn] = await Promise.all([
+    linkedUser(m.from.id),
+    getState(chatId),
+    telegramSetting("telegram_chat_id"),
+    getTelegramMaintenanceMode(),
+  ]);
 
-  const ownerChatForAdmin = (await telegramSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+  const ownerChatForAdmin = configuredOwnerChat || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
   if (text === "/jan") {
     if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) return send(chatId, "এই কমান্ডটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
     const maintenanceOn = await getTelegramMaintenanceMode();
@@ -286,7 +305,7 @@ export async function handleUpdate(u: any) {
       ],
     });
   }
-  if (String(chatId) !== String(ownerChatForAdmin) && await getTelegramMaintenanceMode()) {
+  if (String(chatId) !== String(ownerChatForAdmin) && maintenanceOn) {
     return send(chatId, telegramMaintenanceNotice());
   }
 
@@ -644,12 +663,25 @@ async function startTelegramPayment(chatId: number, user: any, amount: number, m
   });
 }
 
-async function showProducts(chatId: number, messageId?: number) {
+let telegramCatalogCache: { expiresAt: number; categories: any[]; products: any[] } | null = null;
+const TELEGRAM_CATALOG_TTL_MS = 15_000;
+async function getTelegramCatalog() {
+  if (telegramCatalogCache && telegramCatalogCache.expiresAt > Date.now()) return telegramCatalogCache;
   const db = await admin();
   const [{ data: categories }, { data: products }] = await Promise.all([
     db.from("categories").select("id,name").eq("is_active", true).order("sort_order"),
-    db.from("products").select("id,name,category_id").eq("is_active", true),
+    db.from("products").select("id,name,category_id").eq("is_active", true).order("sort_order"),
   ]);
+  telegramCatalogCache = {
+    expiresAt: Date.now() + TELEGRAM_CATALOG_TTL_MS,
+    categories: categories ?? [],
+    products: products ?? [],
+  };
+  return telegramCatalogCache;
+}
+
+async function showProducts(chatId: number, messageId?: number) {
+  const { categories, products } = await getTelegramCatalog();
   const activeCategoryIds = new Set((categories ?? []).map((category: any) => String(category.id)));
   const androidIosCategory = (categories ?? []).find((category: any) => {
     const name = String(category.name ?? "").toUpperCase().replace(/[^A-Z0-9]+/g, " ");
@@ -672,37 +704,32 @@ async function showProducts(chatId: number, messageId?: number) {
       otherCount++;
     }
   }
-  const available = (categories ?? []).filter((category: any) => (counts.get(String(category.id)) ?? 0) > 0);
+  const available = categories.filter((category: any) => (counts.get(String(category.id)) ?? 0) > 0);
   const rows = available.map((category: any) => [
     premiumButton({ text: `📂 ${String(category.name ?? "").trim().toUpperCase()} · ${counts.get(String(category.id))}`, callback_data: `cat:${category.id}` }, "success"),
   ]);
   if (otherCount > 0) rows.push([premiumButton({ text: `📂 OTHERS · ${otherCount}`, callback_data: "cat:others" }, "success")]);
   rows.push([premiumButton({ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }, "primary")]);
-  return screen(chatId, messageId, products?.length ? "🛍 <b>SHOP NOW</b>\n\nপ্রথমে একটি Category বেছে নিন:" : "এখন কোনো প্রোডাক্ট নেই।", { inline_keyboard: rows });
+  return screen(chatId, messageId, products.length ? "🛍 <b>SHOP NOW</b>\n\nপ্রথমে একটি Category বেছে নিন:" : "এখন কোনো প্রোডাক্ট নেই।", { inline_keyboard: rows });
 }
 
 async function showCategoryProducts(chatId: number, categoryId: string, messageId?: number) {
-  const db = await admin();
-  const { data: categories } = await db.from("categories").select("id,name").eq("is_active", true);
-  const activeCategoryIds = new Set((categories ?? []).map((item: any) => String(item.id)));
-  const category = (categories ?? []).find((item: any) => String(item.id) === categoryId);
+  const { categories, products } = await getTelegramCatalog();
+  const activeCategoryIds = new Set(categories.map((item: any) => String(item.id)));
+  const category = categories.find((item: any) => String(item.id) === categoryId);
   const categoryIsAndroidIos = Boolean(category &&
     String(category.name ?? "").toUpperCase().includes("ANDROID") &&
     String(category.name ?? "").toUpperCase().includes("IOS"));
-  const productQuery = categoryId === "others" || categoryIsAndroidIos
-    ? db.from("products").select("id,name,category_id").eq("is_active", true).order("sort_order").limit(200)
-    : db.from("products").select("id,name,category_id").eq("category_id", categoryId).eq("is_active", true).order("sort_order").limit(100);
-  const { data: products } = await productQuery;
   const isAimhackOthers = (product: any) => {
     const name = String(product.name ?? "").toUpperCase();
     return name.includes("AIMHACK") && name.includes("OTHERS");
   };
   const selectedProducts = categoryId === "others"
-    ? (products ?? []).filter((product: any) =>
+    ? products.filter((product: any) =>
         (!product.category_id || !activeCategoryIds.has(String(product.category_id))) && !isAimhackOthers(product))
     : categoryIsAndroidIos
-      ? (products ?? []).filter((product: any) => String(product.category_id ?? "") === categoryId || isAimhackOthers(product))
-      : (products ?? []).filter((product: any) => !isAimhackOthers(product));
+      ? products.filter((product: any) => String(product.category_id ?? "") === categoryId || isAimhackOthers(product))
+      : products.filter((product: any) => !isAimhackOthers(product));
   const categoryName = categoryId === "others" ? "OTHERS" : String(category?.name ?? "");
   if (!categoryName) return showProducts(chatId, messageId);
   if (!selectedProducts.length) return screen(chatId, messageId, `📂 <b>${esc(categoryName.toUpperCase())}</b>\n\nএই Category-তে এখন কোনো Product নেই।`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Categories", callback_data: "menu:products" }, "primary")]] });
@@ -746,10 +773,14 @@ async function handleCallback(cq: any) {
   // Acknowledge the tap immediately; do not block UI work on Telegram API latency.
   void tg("answerCallbackQuery", { callback_query_id: cq.id }).catch(() => undefined);
   if (!chatId) return;
-  let user = await linkedUser(cq.from.id);
-  if (!user) user = await ensureTelegramAccount(cq.from.id, chatId, cq.from.username, cq.from.first_name, true);
+  const [resolvedUser, configuredOwnerChat, maintenanceOn] = await Promise.all([
+    linkedUser(cq.from.id),
+    telegramSetting("telegram_chat_id"),
+    getTelegramMaintenanceMode(),
+  ]);
+  const user = resolvedUser ?? await ensureTelegramAccount(cq.from.id, chatId, cq.from.username, cq.from.first_name, true);
   const [kind, id] = String(cq.data ?? "").split(":");
-  const ownerChatId = (await telegramSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+  const ownerChatId = configuredOwnerChat || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
   if (kind === "adminmaintenance") {
     if (!ownerChatId || String(chatId) !== String(ownerChatId)) return screen(chatId, cq.message?.message_id, "এই অপশনটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
     if (id !== "on" && id !== "off") return screen(chatId, cq.message?.message_id, "Invalid maintenance action.");
@@ -767,7 +798,7 @@ async function handleCallback(cq: any) {
       return screen(chatId, cq.message?.message_id, "❌ Maintenance setting update করা যায়নি। আবার চেষ্টা করুন।");
     }
   }
-  if (String(chatId) !== String(ownerChatId) && await getTelegramMaintenanceMode()) {
+  if (String(chatId) !== String(ownerChatId) && maintenanceOn) {
     return screen(chatId, cq.message?.message_id, telegramMaintenanceNotice());
   }
 
