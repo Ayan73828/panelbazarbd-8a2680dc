@@ -679,20 +679,31 @@ async function startTelegramPayment(chatId: number, user: any, amount: number, m
 }
 
 let telegramCatalogCache: { expiresAt: number; categories: any[]; products: any[] } | null = null;
-const TELEGRAM_CATALOG_TTL_MS = 15_000;
+let telegramCatalogLoad: Promise<{ expiresAt: number; categories: any[]; products: any[] }> | null = null;
+const TELEGRAM_CATALOG_TTL_MS = 30_000;
 async function getTelegramCatalog() {
   if (telegramCatalogCache && telegramCatalogCache.expiresAt > Date.now()) return telegramCatalogCache;
-  const db = await admin();
-  const [{ data: categories }, { data: products }] = await Promise.all([
-    db.from("categories").select("id,name").eq("is_active", true).order("sort_order"),
-    db.from("products").select("id,name,category_id").eq("is_active", true).order("sort_order"),
-  ]);
-  telegramCatalogCache = {
-    expiresAt: Date.now() + TELEGRAM_CATALOG_TTL_MS,
-    categories: categories ?? [],
-    products: products ?? [],
-  };
-  return telegramCatalogCache;
+  // Coalesce simultaneous Shop Now/category requests into one pair of database reads.
+  if (telegramCatalogLoad) return telegramCatalogLoad;
+  telegramCatalogLoad = (async () => {
+    const db = await admin();
+    const [{ data: categories }, { data: products }] = await Promise.all([
+      db.from("categories").select("id,name").eq("is_active", true).order("sort_order"),
+      db.from("products").select("id,name,category_id").eq("is_active", true).order("sort_order"),
+    ]);
+    const loaded = {
+      expiresAt: Date.now() + TELEGRAM_CATALOG_TTL_MS,
+      categories: categories ?? [],
+      products: products ?? [],
+    };
+    telegramCatalogCache = loaded;
+    return loaded;
+  })();
+  try {
+    return await telegramCatalogLoad;
+  } finally {
+    telegramCatalogLoad = null;
+  }
 }
 
 function normalizeTelegramCatalogName(value: unknown) {
