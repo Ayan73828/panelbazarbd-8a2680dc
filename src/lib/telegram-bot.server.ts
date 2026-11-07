@@ -638,38 +638,45 @@ async function showProducts(chatId: number, messageId?: number) {
     db.from("categories").select("id,name").eq("is_active", true).order("sort_order"),
     db.from("products").select("category_id").eq("is_active", true),
   ]);
+  const activeCategoryIds = new Set((categories ?? []).map((category: any) => String(category.id)));
   const counts = new Map<string, number>();
+  let otherCount = 0;
   for (const product of products ?? []) {
-    if (product.category_id) counts.set(String(product.category_id), (counts.get(String(product.category_id)) ?? 0) + 1);
+    const categoryId = product.category_id ? String(product.category_id) : "";
+    if (categoryId && activeCategoryIds.has(categoryId)) {
+      counts.set(categoryId, (counts.get(categoryId) ?? 0) + 1);
+    } else {
+      otherCount++;
+    }
   }
   const available = (categories ?? []).filter((category: any) => (counts.get(String(category.id)) ?? 0) > 0);
-  if (!available.length) {
-    const { data: fallbackProducts } = await db.from("products").select("id,name").eq("is_active", true).limit(60);
-    const fallback = (fallbackProducts ?? []).slice().sort((x: any, y: any) =>
-      String(x.name ?? "").trim().localeCompare(String(y.name ?? "").trim(), "en", { sensitivity: "base", numeric: true })
-    );
-    const rows = fallback.map((p: any) => [premiumButton({ text: `🛍️ ${String(p.name ?? "").trim()}`, callback_data: `p:${p.id}` }, "success")]);
-    rows.push([premiumButton({ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }, "primary")]);
-    return screen(chatId, messageId, fallback.length ? "🛍 <b>PRODUCT LIST</b>\n\nকোনো active category-তে product যুক্ত নেই, তাই সব product দেখানো হচ্ছে:" : "এখন কোনো প্রোডাক্ট নেই।", { inline_keyboard: rows });
-  }
   const rows = available.map((category: any) => [
-    premiumButton({ text: `📂 ${String(category.name)} · ${counts.get(String(category.id))}`, callback_data: `cat:${category.id}` }, "success"),
+    premiumButton({ text: `📂 ${String(category.name ?? "").trim().toUpperCase()} · ${counts.get(String(category.id))}`, callback_data: `cat:${category.id}` }, "success"),
   ]);
+  if (otherCount > 0) rows.push([premiumButton({ text: `📂 OTHERS · ${otherCount}`, callback_data: "cat:others" }, "success")]);
   rows.push([premiumButton({ text: "⬅️ Back to Main Menu", callback_data: "menu:home" }, "primary")]);
-  return screen(chatId, messageId, "🛍 <b>SHOP NOW</b>\n\nপ্রথমে একটি Category বেছে নিন:", { inline_keyboard: rows });
+  return screen(chatId, messageId, products?.length ? "🛍 <b>SHOP NOW</b>\n\nপ্রথমে একটি Category বেছে নিন:" : "এখন কোনো প্রোডাক্ট নেই।", { inline_keyboard: rows });
 }
 
 async function showCategoryProducts(chatId: number, categoryId: string, messageId?: number) {
   const db = await admin();
-  const [{ data: category }, { data: products }] = await Promise.all([
-    db.from("categories").select("name").eq("id", categoryId).maybeSingle(),
-    db.from("products").select("id,name").eq("category_id", categoryId).eq("is_active", true).order("sort_order").limit(60),
+  const [{ data: categories }, { data: products }] = await Promise.all([
+    db.from("categories").select("id,name").eq("is_active", true),
+    categoryId === "others"
+      ? db.from("products").select("id,name,category_id").eq("is_active", true).order("sort_order").limit(100)
+      : db.from("products").select("id,name,category_id").eq("category_id", categoryId).eq("is_active", true).order("sort_order").limit(100),
   ]);
-  if (!category) return showProducts(chatId, messageId);
-  if (!products?.length) return screen(chatId, messageId, `📂 <b>${esc(category.name)}</b>\n\nএই Category-তে এখন কোনো Product নেই।`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Categories", callback_data: "menu:products" }, "primary")]] });
-  const rows = products.map((p: any) => [premiumButton({ text: `🛍️ ${String(p.name ?? "").trim()}`, callback_data: `p:${p.id}` }, "success")]);
+  const activeCategoryIds = new Set((categories ?? []).map((category: any) => String(category.id)));
+  const category = (categories ?? []).find((item: any) => String(item.id) === categoryId);
+  const selectedProducts = categoryId === "others"
+    ? (products ?? []).filter((product: any) => !product.category_id || !activeCategoryIds.has(String(product.category_id)))
+    : (products ?? []);
+  const categoryName = categoryId === "others" ? "OTHERS" : String(category?.name ?? "");
+  if (!categoryName) return showProducts(chatId, messageId);
+  if (!selectedProducts.length) return screen(chatId, messageId, `📂 <b>${esc(categoryName.toUpperCase())}</b>\n\nএই Category-তে এখন কোনো Product নেই।`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Categories", callback_data: "menu:products" }, "primary")]] });
+  const rows = selectedProducts.map((p: any) => [premiumButton({ text: `🛍️ ${String(p.name ?? "").trim()}`, callback_data: `p:${p.id}` }, "success")]);
   rows.push([premiumButton({ text: "⬅️ Back to Categories", callback_data: "menu:products" }, "primary")]);
-  return screen(chatId, messageId, `📂 <b>${esc(category.name)}</b>\n\nআপনার Product বেছে নিন:`, { inline_keyboard: rows });
+  return screen(chatId, messageId, `📂 <b>${esc(categoryName.toUpperCase())}</b>\n\nআপনার Product বেছে নিন:`, { inline_keyboard: rows });
 }
 
 async function showWallet(chatId: number, user: any, messageId?: number) {
