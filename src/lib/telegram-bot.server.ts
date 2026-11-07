@@ -19,6 +19,7 @@ async function tg(method: string, body: Record<string, unknown>) {
 export const tgApi = tg;
 
 const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const shortTicketId = (id: unknown) => "TKT-" + String(id ?? "").replace(/-/g, "").slice(-4).toUpperCase();
 const tk = (n: number) => `৳${Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 const USD_BDT_RATE = Math.max(1, Number(process.env["TELEGRAM_USD_BDT_RATE"] || 122));
 const dualMoney = (n: number) => `${tk(Number(n ?? 0))} BDT · ${(Number(n ?? 0) / USD_BDT_RATE).toFixed(2)} USD`;
@@ -431,7 +432,7 @@ export async function handleUpdate(u: any) {
     const { data: existing } = await ticketDb.from("support_tickets").select("id").eq("user_id", ownerId).eq("status", "open").limit(1).maybeSingle();
     if (existing) {
       await setState(chatId, "");
-      return send(chatId, `আপনার একটি Support Ticket এখনও খোলা আছে। Admin উত্তর দিলে নতুন টিকিট করতে পারবেন।\nTicket ID: <code>${esc(existing.id)}</code>`);
+      return send(chatId, `আপনার একটি Support Ticket এখনও খোলা আছে। Admin উত্তর দিলে নতুন টিকিট করতে পারবেন।\nTicket ID: <code>${shortTicketId(existing.id)}</code>`);
     }
     const { data: ticket, error: ticketError } = await ticketDb.from("support_tickets").insert({
       user_id: ownerId, subject: "Telegram Support Ticket", message: details, source: "telegram", telegram_user_id: m.from.id, telegram_chat_id: chatId, photo_file_id: photo,
@@ -442,13 +443,13 @@ export async function handleUpdate(u: any) {
     }
     await setState(chatId, "");
     const telegramName = m.from.username ? "@" + m.from.username : (m.from.first_name || "Telegram User");
-    const ticketNotice = "🎫 <b>" + esc(telegramName) + "</b>\n" + esc(details);
+    const ticketNotice = "🎫 <b>" + esc(telegramName) + "</b> · <code>" + shortTicketId(ticket.id) + "</code>\n" + esc(details);
     const ownerChatId = (await privateSetting("telegram_chat_id")) || process.env["TELEGRAM_OWNER_CHAT_ID"];
     const keyboard = { inline_keyboard: [[{ text: "↩️ Reply", callback_data: "supportreply:" + ticket.id }, { text: "✅ Close", callback_data: "supportclose:" + ticket.id }]] };
     if (photo && ownerChatId) await tg("sendPhoto", { chat_id: ownerChatId, photo, caption: ticketNotice, parse_mode: "HTML", reply_markup: keyboard });
     else if (ownerChatId) await tg("sendMessage", { chat_id: ownerChatId, text: ticketNotice, parse_mode: "HTML", reply_markup: keyboard });
     else await notifyOwner(ticketNotice + (photo ? "\\nPhoto file ID: " + esc(photo) : ""));
-    return send(chatId, "✅ আপনার Support Ticket জমা হয়েছে।\nTicket ID: <code>" + esc(ticket.id) + "</code>\nAdmin-কে জানানো হয়েছে।", { inline_keyboard: [[{ text: "⬅️ Main Menu", callback_data: "menu:home" }]] });
+    return send(chatId, "✅ আপনার Support Ticket জমা হয়েছে।\nTicket ID: <code>" + shortTicketId(ticket.id) + "</code>\nAdmin-কে জানানো হয়েছে।", { inline_keyboard: [[{ text: "⬅️ Main Menu", callback_data: "menu:home" }]] });
   }
   if (m.contact) {
     if (!m.contact.user_id || m.contact.user_id !== m.from.id) return send(chatId, "⚠️ নিজের নম্বর SHARE MY NUMBER বাটন দিয়ে শেয়ার করুন।", SHARE_NUMBER);
@@ -767,13 +768,13 @@ async function handleCallback(cq: any) {
     if (!ticket) return screen(chatId, cq.message?.message_id, "টিকিটটি আগেই বন্ধ হয়েছে বা পাওয়া যায়নি।");
     if (kind === "supportreply") {
       await setState(chatId, "admin_support_reply", { support_ticket_id: ticket.id });
-      return screen(chatId, cq.message?.message_id, `↩️ <b>Reply লিখুন</b>\nTicket: <code>${esc(ticket.id)}</code>\nUser: <code>${esc(ticket.user_id)}</code>\n\nএখন আপনার উত্তর পাঠান। বাতিল করতে /cancel লিখুন।`);
+      return screen(chatId, cq.message?.message_id, `↩️ <b>Reply লিখুন</b>\nTicket: <code>${shortTicketId(ticket.id)}</code>\nUser: <code>${esc(ticket.user_id)}</code>\n\nএখন আপনার উত্তর পাঠান। বাতিল করতে /cancel লিখুন।`);
     }
     await db.from("support_tickets").update({ status: "resolved", updated_at: new Date().toISOString() }).eq("id", ticket.id);
     const { data: link } = await db.from("telegram_links").select("telegram_chat_id").eq("user_id", ticket.user_id).maybeSingle();
     const customerChat = ticket.telegram_chat_id ?? link?.telegram_chat_id;
-    if (customerChat) await send(Number(customerChat), `✅ আপনার Support Ticket <code>${esc(ticket.id)}</code> admin বন্ধ করেছেন। প্রয়োজন হলে নতুন টিকিট খুলুন।`);
-    return screen(chatId, cq.message?.message_id, `✅ <b>Ticket resolved</b>\n<code>${esc(ticket.id)}</code>`);
+    if (customerChat) await send(Number(customerChat), `✅ আপনার Support Ticket <code>${shortTicketId(ticket.id)}</code> admin বন্ধ করেছেন। প্রয়োজন হলে নতুন টিকিট খুলুন।`);
+    return screen(chatId, cq.message?.message_id, `✅ <b>Ticket resolved</b>\n<code>${shortTicketId(ticket.id)}</code>`);
   }
   if (kind === "linkchoice") {
     const st = await getState(chatId);
