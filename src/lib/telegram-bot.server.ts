@@ -695,30 +695,44 @@ async function getTelegramCatalog() {
   return telegramCatalogCache;
 }
 
+function normalizeTelegramCatalogName(value: unknown) {
+  return String(value ?? "").toUpperCase().replace(/[^A-Z0-9]+/g, "");
+}
+
+function isAimhackFfAll(product: any) {
+  const name = normalizeTelegramCatalogName(product?.name);
+  return name.includes("AIMHACKFFALL") || (name.includes("AIMHACK") && name.includes("OTHERS"));
+}
+
+function isAndroidIosProxyAllCategory(category: any) {
+  const name = normalizeTelegramCatalogName(category?.name);
+  return name.includes("ANDROID") && name.includes("IOS") && name.includes("PROXY") && name.includes("ALL");
+}
+
 async function showProducts(chatId: number, messageId?: number) {
   const { categories, products } = await getTelegramCatalog();
-  const activeCategoryIds = new Set((categories ?? []).map((category: any) => String(category.id)));
-  const androidIosCategory = (categories ?? []).find((category: any) => {
-    const name = String(category.name ?? "").toUpperCase().replace(/[^A-Z0-9]+/g, " ");
-    return name.includes("ANDROID") && name.includes("IOS");
-  });
-  const isAimhackOthers = (product: any) => {
-    const name = String(product.name ?? "").toUpperCase();
-    return name.includes("AIMHACK") && name.includes("OTHERS");
-  };
+  const activeCategoryIds = new Set(categories.map((category: any) => String(category.id)));
+  const targetCategory = categories.find(isAndroidIosProxyAllCategory);
   const counts = new Map<string, number>();
   let otherCount = 0;
-  for (const product of products ?? []) {
+
+  for (const product of products) {
     const categoryId = product.category_id ? String(product.category_id) : "";
-    if (isAimhackOthers(product) && androidIosCategory) {
-      const targetId = String(androidIosCategory.id);
-      counts.set(targetId, (counts.get(targetId) ?? 0) + 1);
-    } else if (categoryId && activeCategoryIds.has(categoryId) && !isAimhackOthers(product)) {
+    if (isAimhackFfAll(product)) {
+      if (targetCategory) {
+        const targetId = String(targetCategory.id);
+        counts.set(targetId, (counts.get(targetId) ?? 0) + 1);
+      } else {
+        // Keep it visible in OTHERS if the intended category is not configured.
+        otherCount++;
+      }
+    } else if (categoryId && activeCategoryIds.has(categoryId)) {
       counts.set(categoryId, (counts.get(categoryId) ?? 0) + 1);
-    } else if (!isAimhackOthers(product)) {
+    } else {
       otherCount++;
     }
   }
+
   const available = categories.filter((category: any) => (counts.get(String(category.id)) ?? 0) > 0);
   const rows = available.map((category: any) => [
     premiumButton({ text: `📂 ${String(category.name ?? "").trim().toUpperCase()} · ${counts.get(String(category.id))}`, callback_data: `cat:${category.id}` }, "success"),
@@ -732,19 +746,16 @@ async function showCategoryProducts(chatId: number, categoryId: string, messageI
   const { categories, products } = await getTelegramCatalog();
   const activeCategoryIds = new Set(categories.map((item: any) => String(item.id)));
   const category = categories.find((item: any) => String(item.id) === categoryId);
-  const categoryIsAndroidIos = Boolean(category &&
-    String(category.name ?? "").toUpperCase().includes("ANDROID") &&
-    String(category.name ?? "").toUpperCase().includes("IOS"));
-  const isAimhackOthers = (product: any) => {
-    const name = String(product.name ?? "").toUpperCase();
-    return name.includes("AIMHACK") && name.includes("OTHERS");
-  };
+  const categoryIsTarget = Boolean(category && isAndroidIosProxyAllCategory(category));
+
   const selectedProducts = categoryId === "others"
     ? products.filter((product: any) =>
-        (!product.category_id || !activeCategoryIds.has(String(product.category_id))) && !isAimhackOthers(product))
-    : categoryIsAndroidIos
-      ? products.filter((product: any) => String(product.category_id ?? "") === categoryId || isAimhackOthers(product))
-      : products.filter((product: any) => !isAimhackOthers(product));
+        (!product.category_id || !activeCategoryIds.has(String(product.category_id))) && !isAimhackFfAll(product))
+    : categoryIsTarget
+      ? products.filter((product: any) =>
+          String(product.category_id ?? "") === categoryId || isAimhackFfAll(product))
+      : products.filter((product: any) => String(product.category_id ?? "") === categoryId);
+
   const categoryName = categoryId === "others" ? "OTHERS" : String(category?.name ?? "");
   if (!categoryName) return showProducts(chatId, messageId);
   if (!selectedProducts.length) return screen(chatId, messageId, `📂 <b>${esc(categoryName.toUpperCase())}</b>\n\nএই Category-তে এখন কোনো Product নেই।`, { inline_keyboard: [[premiumButton({ text: "⬅️ Back to Categories", callback_data: "menu:products" }, "primary")]] });
