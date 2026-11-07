@@ -13,10 +13,20 @@ async function telegramSetting(key: string): Promise<string> {
   telegramSettingsCache.set(key, { value, expiresAt: Date.now() + TELEGRAM_SETTINGS_TTL_MS });
   return value;
 }
+async function telegramOwnerChatId(): Promise<string> {
+  const envValue = process.env["TELEGRAM_OWNER_CHAT_ID"] ||
+    process.env["TELEGRAM_SUPPORT_TELEGRAM_CHAT_ID"] ||
+    process.env["TELEGRAM_SUPPORT_CHAT_ID"] ||
+    process.env["SUPPORT_TELEGRAM_CHAT_ID"] ||
+    process.env["TELEGRAM_CHAT_ID"];
+  return envValue || await telegramSetting("telegram_chat_id");
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 async function tg(method: string, body: Record<string, unknown>) {
-  const token = (await telegramSetting("telegram_bot_token")) || process.env["TELEGRAM_BOT_TOKEN"];
+  // The webhook requires TELEGRAM_BOT_TOKEN in the environment; prefer it to avoid
+  // a private-settings DB lookup before every Telegram API request.
+  const token = process.env["TELEGRAM_BOT_TOKEN"] || (await telegramSetting("telegram_bot_token"));
   if (!token) throw new Error("TELEGRAM_BOT_TOKEN missing");
   const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST",
@@ -93,9 +103,9 @@ async function admin() {
   return supabaseAdmin as any;
 }
 
-async function setState(chatId: number, state: string, data: Record<string, unknown> = {}) {
+async function setState(chatId: number, state: string, data: Record<string, unknown> = {}, knownCurrent?: { state: string; data: any }) {
   const db = await admin();
-  const current = await getState(chatId);
+  const current = knownCurrent ?? await getState(chatId);
   await db.from("telegram_sessions").upsert({
     chat_id: chatId,
     state,
@@ -291,11 +301,11 @@ async function handleUpdateInternal(u: any) {
   const [user, st, configuredOwnerChat, maintenanceOn] = await Promise.all([
     linkedUser(m.from.id),
     getState(chatId),
-    telegramSetting("telegram_chat_id"),
+    telegramOwnerChatId(),
     getTelegramMaintenanceMode(),
   ]);
 
-  const ownerChatForAdmin = configuredOwnerChat || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+  const ownerChatForAdmin = configuredOwnerChat;
   if (text === "/jan") {
     if (String(chatId) !== String(ownerChatForAdmin) || !ownerChatForAdmin) return send(chatId, "এই কমান্ডটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
     const maintenanceOn = await getTelegramMaintenanceMode();
@@ -392,7 +402,7 @@ async function handleUpdateInternal(u: any) {
         ? [tg("deleteMessage", { chat_id: chatId, message_id: Number(st.data.last_start_message_id) }).catch(() => undefined)]
         : []),
     ]).catch(() => undefined);
-    await setState(chatId, "", { recent_bot_message_ids: [...persistentIds], persistent_order_message_ids: [...persistentIds], last_start_message_id: null });
+    await setState(chatId, "", { recent_bot_message_ids: [...persistentIds], persistent_order_message_ids: [...persistentIds], last_start_message_id: null }, st);
     const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
     return welcome(chatId, account, undefined, m.from.id);
   }
@@ -422,7 +432,7 @@ async function handleUpdateInternal(u: any) {
       phone_shared: Boolean(st.data?.phone_shared),
       last_start_message_id: m.message_id,
     };
-    await setState(chatId, "", nextData);
+    await setState(chatId, "", nextData, st);
     void tg("deleteMessage", { chat_id: chatId, message_id: m.message_id }).catch(() => undefined);
     const account = user ?? await ensureTelegramAccount(m.from.id, chatId, m.from.username, m.from.first_name);
     if (validReferrerId && !st.data?.phone_shared) {
@@ -634,7 +644,7 @@ async function showFundAmounts(chatId: number, user: any, method = "", messageId
 async function startTelegramPayment(chatId: number, user: any, amount: number, method = "UddoktaPay", messageId?: number) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { paymentBaseUrl } = await import("@/lib/uddoktapay.server");
-  const apiKey = (await privateSetting("uddoktapay_api_key")) || process.env["UDDOKTAPAY_API_KEY"];
+  const apiKey = process.env["UDDOKTAPAY_API_KEY"] || (await privateSetting("uddoktapay_api_key"));
   if (!apiKey) return screen(chatId, messageId, "⚠️ Payment gateway এখন কনফিগার করা নেই। Admin-এর সাথে যোগাযোগ করুন।", { inline_keyboard: [[{ text: "⬅️ Back", callback_data: "menu:fund" }]] });
   const ref = crypto.randomUUID();
   const { error: insErr } = await supabaseAdmin.from("uddoktapay_payments").insert({
@@ -780,12 +790,12 @@ async function handleCallback(cq: any) {
   if (!chatId) return;
   const [resolvedUser, configuredOwnerChat, maintenanceOn] = await Promise.all([
     linkedUser(cq.from.id),
-    telegramSetting("telegram_chat_id"),
+    telegramOwnerChatId(),
     getTelegramMaintenanceMode(),
   ]);
   const user = resolvedUser ?? await ensureTelegramAccount(cq.from.id, chatId, cq.from.username, cq.from.first_name, true);
   const [kind, id] = String(cq.data ?? "").split(":");
-  const ownerChatId = configuredOwnerChat || process.env["TELEGRAM_OWNER_CHAT_ID"] || process.env["TELEGRAM_SUPPORT_CHAT_ID"] || process.env["SUPPORT_TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_CHAT_ID"] || "";
+  const ownerChatId = configuredOwnerChat;
   if (kind === "adminmaintenance") {
     if (!ownerChatId || String(chatId) !== String(ownerChatId)) return screen(chatId, cq.message?.message_id, "এই অপশনটি শুধু Bot Admin ব্যবহার করতে পারবেন।");
     if (id !== "on" && id !== "off") return screen(chatId, cq.message?.message_id, "Invalid maintenance action.");
